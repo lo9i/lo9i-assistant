@@ -55,6 +55,8 @@ _CHANGE_EVENTS = {
     "handoffs": "handoffs",
     # Tasks whose end is still to be told (core/agent_tasks/reports.py), for the daemon to follow.
     "agent_task_reports": "agent_task_reports",
+    # The coding tasks started from each conversation, shown beside it (core/agent_tasks/beside_records.py).
+    "tasks_beside": "tasks_beside",
     "devices": "devices",
     # Passkeys show with the devices they belong to (core/passkeys.py).
     "passkeys": "devices",

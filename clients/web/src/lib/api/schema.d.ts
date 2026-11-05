@@ -2440,6 +2440,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/conversations/{thread_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Sessions
+         * @description The coding agents' sessions the conversation started, oldest first.
+         */
+        get: operations["task_sessions_conversations__thread_id__tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/tasks/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Task Session
+         * @description Its tasks with their steps, oldest first. 404: no such session here.
+         */
+        get: operations["task_session_conversations__thread_id__tasks__session_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Task Session
+         * @description Takes it off the conversation's panel. 404: no such session here. 409: it's still working.
+         */
+        delete: operations["remove_task_session_conversations__thread_id__tasks__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/tasks/{session_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Message Task Session
+         * @description Writes to the session's agent: between its steps while it works, else as its next task. 400: no text.
+         *     404: no such session here. 409: its next task can't start.
+         */
+        post: operations["message_task_session_conversations__thread_id__tasks__session_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/conversations/{thread_id}/tasks/{session_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Task Session
+         * @description Stops its task in progress. 404: no such session here. 409: it isn't working.
+         */
+        post: operations["stop_task_session_conversations__thread_id__tasks__session_id__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/subagents": {
         parameters: {
             query?: never;
@@ -6665,6 +6750,133 @@ export interface components {
              * @description The suggestion in one or two short lines, in the user's language.
              */
             text: string;
+        };
+        /** TaskMessage */
+        TaskMessage: {
+            /** Text */
+            text: string;
+        };
+        /** TaskMessageSent */
+        TaskMessageSent: {
+            /**
+             * Sent
+             * @enum {string}
+             */
+            sent: "taken" | "later" | "started";
+        };
+        /**
+         * TaskSession
+         * @description A tab of the panel: an agent's session started from the conversation.
+         */
+        TaskSession: {
+            /** Id */
+            id: string;
+            /** Agent */
+            agent: string;
+            /** Name */
+            name: string;
+            /** Title */
+            title: string;
+            /** Repository */
+            repository: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "done" | "failed" | "stopped";
+            /** Started At */
+            started_at: string;
+            /**
+             * Step
+             * @default
+             */
+            step: string;
+            /**
+             * Waiting
+             * @default 0
+             */
+            waiting: number;
+        };
+        /** TaskSessionDetails */
+        TaskSessionDetails: {
+            session: components["schemas"]["TaskSession"];
+            /** Turns */
+            turns: components["schemas"]["TaskTurn"][];
+            /** Waiting */
+            waiting: string[];
+        };
+        /**
+         * TaskStep
+         * @description One step a task wrote (docs/agent-plugins.md): `kind` and the fields it has.
+         */
+        TaskStep: {
+            /** Kind */
+            kind: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /**
+             * Tool
+             * @default
+             */
+            tool: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /**
+             * Within
+             * @default
+             */
+            within: string;
+            /**
+             * Waiting
+             * @default false
+             */
+            waiting: boolean;
+        };
+        /**
+         * TaskTurn
+         * @description One task of a session.
+         */
+        TaskTurn: {
+            /** Id */
+            id: string;
+            /** Asked */
+            asked: string;
+            /** From User */
+            from_user: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "done" | "failed" | "stopped";
+            /** Started At */
+            started_at: string;
+            /**
+             * Finished At
+             * @default
+             */
+            finished_at: string;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /** Steps */
+            steps?: components["schemas"]["TaskStep"][];
+            /** Unread */
+            unread?: components["schemas"]["TaskStep"][];
         };
         /** ThreadCreated */
         ThreadCreated: {
@@ -11290,6 +11502,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunningTask"][];
+                };
+            };
+        };
+    };
+    task_sessions_conversations__thread_id__tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSession"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    task_session_conversations__thread_id__tasks__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSessionDetails"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_task_session_conversations__thread_id__tasks__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_task_session_conversations__thread_id__tasks__session_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskMessageSent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_task_session_conversations__thread_id__tasks__session_id__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                thread_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

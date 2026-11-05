@@ -1,18 +1,12 @@
 """The restart or stop of the daemon that was asked for and waits for the runs in progress (daemon/shutdown.py), as
 the rest of lo9i sees it: who asked and when, and what it waits for. While it waits, messages queued in a
 conversation (core/conversation/queued.py) aren't sent (daemon/queued.py), so the assistant's own tools need to know
-(start_task, list_tasks: core/agent_tasks/tools.py), and so do the apps (GET /system/ending).
+(list_tasks: core/agent_tasks/tools.py), and so do the apps (GET /system/ending).
 
 It's kept in a small file in the data folder too (RESTART_PENDING_PATH, ~/.lo9i/restart-pending.json), readable
 without the daemon: written when one is asked for, deleted when it's taken back and when the daemon starts, so one
-left by a daemon that ended never outlives it.
+left by a daemon that ended never outlives it."""
 
-A conversation can have its queued messages go first (`send_first`): a coding task the user chose to send now
-although a restart is pending (start_task's `when_restart_pending="send_now"`). The daemon sends them while the
-restart waits, and the restart waits for them too, until the conversation has none left and its run ended
-(`sent`), so the task's agent works it to its end before the daemon restarts."""
-
-import asyncio
 import json
 import logging
 from collections.abc import Callable
@@ -41,9 +35,6 @@ class EndingState:
         self._path = path
         self._running = running
         self._asked: AskedEnding | None = None
-        self._first: set[str] = set()
-        self._none_first = asyncio.Event()
-        self._none_first.set()
 
     def clear_left_over(self) -> None:
         """At start: a file left by the daemon before is about an ending that has happened."""
@@ -57,36 +48,9 @@ class EndingState:
         self._write(self.current())
 
     def taken_back(self) -> None:
-        """It won't happen: taken back, or a stop that failed. Nothing has to go first any more."""
+        """It won't happen: taken back, or a stop that failed."""
         self._asked = None
         self._path.unlink(missing_ok=True)
-        self.let_go()
-
-    def send_first(self, thread_id: str) -> None:
-        """The conversation's queued messages are sent before a restart or stop, and it waits for their runs."""
-        self._first.add(thread_id)
-        self._none_first.clear()
-
-    def goes_first(self, thread_id: str) -> bool:
-        return thread_id in self._first
-
-    def sent(self, thread_id: str) -> None:
-        """The conversation has nothing queued left and no run of it in progress."""
-        self._first.discard(thread_id)
-        if not self._first:
-            self._none_first.set()
-
-    def sending_first(self) -> bool:
-        return bool(self._first)
-
-    async def until_sent(self) -> None:
-        """Returns once no conversation's queued messages go first."""
-        await self._none_first.wait()
-
-    def let_go(self) -> None:
-        """It goes ahead now (its runs cancelled) or won't happen: nothing waits for what goes first."""
-        self._first.clear()
-        self._none_first.set()
 
     def current(self) -> AskedEnding | None:
         """The one asked for, with the runs it waits for now; None when none is."""

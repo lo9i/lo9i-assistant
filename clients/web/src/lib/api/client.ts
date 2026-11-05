@@ -85,6 +85,9 @@ import type {
   DispatchSetting,
   RunInProgress,
   RunningTask,
+  TaskMessageSent,
+  TaskSession,
+  TaskSessionDetails,
   ServerValues,
   SubagentDetails,
   Session,
@@ -910,13 +913,48 @@ export class HomeGroup {
   }
 }
 
-/** Coding agents' tasks running in the background, with their latest steps. */
+/** Coding agents' tasks running in the background, with their latest steps; and those a conversation started, shown
+ * beside it a session per tab (core/agent_tasks/beside.py): a `tasks_beside` event says its sessions changed, an
+ * `agent_task_step` event brings each step of their tasks. */
 export class TasksGroup {
   constructor(private readonly transport: Transport) {}
 
   running(): Promise<RunningTask[]> {
     return this.transport.request("GET", "/agent-tasks/running");
   }
+
+  /** The conversation's sessions, oldest first. */
+  sessions(threadId: string): Promise<TaskSession[]> {
+    return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/tasks`);
+  }
+
+  /** Its tasks with their steps. Throws ApiError 404 for one that's gone. */
+  session(threadId: string, sessionId: string): Promise<TaskSessionDetails> {
+    return this.transport.request("GET", sessionPath(threadId, sessionId));
+  }
+
+  /** Writes to the session's agent: between its steps while it works ("taken"), as its next task once the one running
+   * ends ("later"), or now ("started"). Throws ApiError 409 when its next task can't start. */
+  async message(threadId: string, sessionId: string, text: string): Promise<TaskMessageSent> {
+    const sent = await this.transport.request<Schemas["TaskMessageSent"]>("POST", `${sessionPath(threadId, sessionId)}/messages`, {
+      text,
+    });
+    return sent.sent;
+  }
+
+  /** Throws ApiError 409 when its agent isn't working. */
+  stop(threadId: string, sessionId: string): Promise<TaskSession> {
+    return this.transport.request("POST", `${sessionPath(threadId, sessionId)}/stop`);
+  }
+
+  /** Takes it off the panel. Throws ApiError 409 while its agent works. */
+  async remove(threadId: string, sessionId: string): Promise<void> {
+    await this.transport.request("DELETE", sessionPath(threadId, sessionId));
+  }
+}
+
+function sessionPath(threadId: string, sessionId: string): string {
+  return `/conversations/${encodeURIComponent(threadId)}/tasks/${encodeURIComponent(sessionId)}`;
 }
 
 /** Subagents sent off in the background (core/background_subagents/): `subagents` and `subagent_step` events say when

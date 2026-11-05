@@ -82,6 +82,11 @@ export type HomeSection = Schemas["HomeSection"];
 export type HomeItem = Schemas["HomeItem"];
 export type SectionResult = Schemas["SectionResult"];
 export type RunningTask = Schemas["RunningTask"];
+export type TaskSession = Schemas["TaskSession"];
+export type TaskSessionDetails = Schemas["TaskSessionDetails"];
+export type TaskTurn = Schemas["TaskTurn"];
+export type TaskStep = Schemas["TaskStep"];
+export type TaskMessageSent = Schemas["TaskMessageSent"]["sent"];
 export type BackgroundSubagent = Schemas["BackgroundSubagent"];
 export type BackgroundStep = Schemas["BackgroundStep"];
 export type SubagentDetails = Schemas["SubagentDetails"];
@@ -276,6 +281,10 @@ export type SubagentChanged = { id: string; thread_id: string; status: Backgroun
 
 /** A `subagent_step` bus event: one of a background subagent's tool calls started, or finished with its output. */
 export type SubagentStepTaken = { id: string; thread_id: string; step: BackgroundStep };
+
+/** An `agent_task_step` bus event: a step a coding task beside a conversation wrote, at `index` among its steps
+ * (core/agent_tasks/beside.py). */
+export type TaskStepTaken = { thread_id: string; session_id: string; task_id: string; index: number; step: TaskStep };
 
 /** An `agent_finished` bus event: the agent a conversation is handed to is done with the user's job and waits for
  * them (core/agent/handoffs.py). `text` is the start of its reply, or what went wrong. */

@@ -93,8 +93,10 @@ from lo9i.core.agent import (
     RepositoryError,
     RepositoryPlugins,
     RunningTask,
+    Sent,
     ServerValues,
     Session,
+    SessionNotFoundError,
     SetupItem,
     SetupReport,
     ShownCall,
@@ -113,6 +115,9 @@ from lo9i.core.agent import (
     SubagentNotFoundError,
     Suggested,
     SynthesisError,
+    TasksBesideError,
+    TaskSession,
+    TaskSessionDetails,
     TokenReport,
     UnknownPromptError,
     UploadedFile,
@@ -586,6 +591,17 @@ class HandTo(BaseModel):
 class AgentMessageEdit(BaseModel):
     # What the message says instead; its files stay.
     text: str
+
+
+class TaskMessage(BaseModel):
+    # What the user writes the agent.
+    text: str
+
+
+class TaskMessageSent(BaseModel):
+    # "taken": the agent has it, and gets to it between its steps; "later": it goes as the next task once the one
+    # running ends; "started": it started the next task.
+    sent: Sent
 
 
 class PinnedSkills(BaseModel):
@@ -2160,10 +2176,53 @@ def _add_proactive_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
+    """Coding agents' tasks. Those a conversation started show beside it, a session per tab
+    (core/agent_tasks/beside.py): a `tasks_beside` event says the sessions changed, an `agent_task_step` event brings
+    each step of their tasks as it's written (`thread_id`, `session_id`, `task_id`, `step`)."""
+
     @app.get("/agent-tasks/running")
     async def running_tasks() -> list[RunningTask]:
         """Coding agents' tasks still running, the newest first, with their latest steps."""
         return await service.running_tasks()
+
+    @app.get("/conversations/{thread_id}/tasks")
+    async def task_sessions(thread_id: str) -> list[TaskSession]:
+        """The coding agents' sessions the conversation started, oldest first."""
+        return await service.task_sessions(settings.owner_id, thread_id)
+
+    @app.get("/conversations/{thread_id}/tasks/{session_id}")
+    async def task_session(thread_id: str, session_id: str) -> TaskSessionDetails:
+        """Its tasks with their steps, oldest first. 404: no such session here."""
+        return await _task_session_call(service.task_session(settings.owner_id, thread_id, session_id))
+
+    @app.post("/conversations/{thread_id}/tasks/{session_id}/messages")
+    async def message_task_session(thread_id: str, session_id: str, body: TaskMessage) -> TaskMessageSent:
+        """Writes to the session's agent: between its steps while it works, else as its next task. 400: no text.
+        404: no such session here. 409: its next task can't start."""
+        if not body.text.strip():
+            raise HTTPException(400, said("Write a message."))
+        call = service.message_task_session(settings.owner_id, thread_id, session_id, body.text.strip())
+        return TaskMessageSent(sent=await _task_session_call(call))
+
+    @app.post("/conversations/{thread_id}/tasks/{session_id}/stop")
+    async def stop_task_session(thread_id: str, session_id: str) -> TaskSession:
+        """Stops its task in progress. 404: no such session here. 409: it isn't working."""
+        return await _task_session_call(service.stop_task_session(settings.owner_id, thread_id, session_id))
+
+    @app.delete("/conversations/{thread_id}/tasks/{session_id}")
+    async def remove_task_session(thread_id: str, session_id: str) -> Ok:
+        """Takes it off the conversation's panel. 404: no such session here. 409: it's still working."""
+        await _task_session_call(service.remove_task_session(settings.owner_id, thread_id, session_id))
+        return Ok()
+
+
+async def _task_session_call[T](call: Awaitable[T]) -> T:
+    try:
+        return await call
+    except SessionNotFoundError as e:
+        raise HTTPException(404, message(e)) from e
+    except TasksBesideError as e:
+        raise HTTPException(409, message(e)) from e
 
 
 def _add_subagent_routes(app: FastAPI, service: AssistantService) -> None:

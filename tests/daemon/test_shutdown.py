@@ -175,15 +175,6 @@ class _Recorded:
     def taken_back(self) -> None:
         self.taken_back_times += 1
 
-    def sending_first(self) -> bool:
-        return False
-
-    async def until_sent(self) -> None:
-        return
-
-    def let_go(self) -> None:
-        return
-
 
 async def test_who_asked_is_recorded_for_the_assistant_and_the_apps_until_it_is_taken_back():
     recorded = _Recorded()
@@ -201,42 +192,6 @@ async def test_a_stop_that_fails_is_no_longer_recorded():
     shutdown.request(Ending.STOP)
     await asyncio.sleep(0.01)
     assert recorded.requests == [("stop", "a client")] and recorded.taken_back_times == 1
-
-
-async def test_a_restart_waits_for_the_queued_messages_sent_before_it_and_their_runs(tmp_path):
-    from lo9i.core.ending import EndingState
-
-    runs, stop = _Runs(running=1), asyncio.Event()
-    state = EndingState(tmp_path / "restart-pending.json", lambda: [])
-    shutdown = Shutdown(runs, stop, _Manager(), recorded=state)
-    shutdown.request(Ending.RESTART)
-    state.send_first("owner:fix")
-    runs.ended.set()
-    await asyncio.sleep(0.01)
-    # The reply that handed the task over ended; the task's own run hasn't started yet.
-    assert not stop.is_set()
-    runs.running = 1
-    runs.ended.clear()
-    state.sent("owner:fix")
-    await asyncio.sleep(0.01)
-    assert not stop.is_set()  # its run is in progress
-    runs.running = 0
-    runs.ended.set()
-    await asyncio.wait_for(stop.wait(), 1)
-    assert shutdown.ending is Ending.RESTART
-
-
-async def test_now_doesnt_wait_for_the_queued_messages_sent_before_it(tmp_path):
-    from lo9i.core.ending import EndingState
-
-    runs, stop = _Runs(running=1), asyncio.Event()
-    state = EndingState(tmp_path / "restart-pending.json", lambda: [])
-    shutdown = Shutdown(runs, stop, _Manager(), recorded=state)
-    shutdown.request(Ending.RESTART)
-    state.send_first("owner:fix")
-    shutdown.now()
-    await asyncio.wait_for(stop.wait(), 1)
-    assert not state.sending_first()
 
 
 class _Update:

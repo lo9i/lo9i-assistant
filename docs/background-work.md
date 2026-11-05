@@ -29,13 +29,16 @@ build). When it ends, the daemon tells the conversation that started it (`core/b
 A task started with `start_task` is recorded with the conversation it was started in
 (`core/agent_tasks/reports.py`, in the Store). The daemon follows every such task until it ends
 (`core/agent_tasks/ends.py`), across restarts, and tells its end: done, failed or stopped, with the start
-of its result. When the assistant reads the end itself first (`task_status` on an ended task, or
-`stop_task`), nothing is told, and a note already waiting in that conversation is dropped. The end isn't
-told while `task_status` is reading the task, so a `task_status` that waits for the end gets it alone.
+of its result, and the assistant follows it up at once (`follow_up`), saying what came of it. When the
+assistant reads the end itself first (`task_status` on an ended task, or `stop_task`), nothing is told, and a
+note already waiting in that conversation is dropped. The end isn't told while `task_status` is reading the
+task, so a `task_status` that waits for the end gets it alone.
 
-Where the user watches, `start_task` doesn't run in the background: in a conversation it hands that
-conversation to the agent, and in the inbox it moves the task to a new conversation handed to the agent.
-Tasks run in the background from scheduled jobs.
+In a conversation the task shows beside it too (`core/agent_tasks/beside.py`): the web app's panel shows the
+agent's work live, and the user writes to the agent from there, which can start the session's next task. The
+tasks the user starts there, and a task the user stops there, aren't told: they watched them. While tasks run,
+the turn header of each user message in the conversation lists them with their latest step. In the inbox,
+`start_task` moves the task to a new conversation handed to the agent instead.
 
 A conversation handed to an agent (`/claude`) runs its messages as tasks too; their replies come back in
 the conversation, so their ends aren't told.

@@ -97,7 +97,16 @@ from lo9i.core.agent.subagents import (
     SubagentError,
     SubagentNotFoundError,
 )
-from lo9i.core.agent.tasks import RunningTask
+from lo9i.core.agent.tasks import (
+    RunningTask,
+    Sent,
+    SessionNotFoundError,
+    TasksBesideError,
+    TaskSession,
+    TaskSessionDetails,
+    TaskStep,
+    TaskTurn,
+)
 from lo9i.core.agent.threads import ConversationBusyError, ConversationError
 from lo9i.core.agent.usage import ConversationStats, SpendingStatus, TokenReport, UsageReport
 from lo9i.core.agent.voice_calls import VoiceCallError, VoiceCallSettings, VoiceChoiceError, VoiceKeyError
@@ -209,9 +218,11 @@ __all__ = [
     "RunRecord",
     "RunningTask",
     "SectionResult",
+    "Sent",
     "ServerField",
     "ServerValues",
     "Session",
+    "SessionNotFoundError",
     "SetupCheck",
     "SetupItem",
     "SetupReport",
@@ -235,6 +246,11 @@ __all__ = [
     "Suggested",
     "Suggestion",
     "SynthesisError",
+    "TaskSession",
+    "TaskSessionDetails",
+    "TaskStep",
+    "TaskTurn",
+    "TasksBesideError",
     "TokenReport",
     "UnknownPromptError",
     "UpdateNeedsValuesError",

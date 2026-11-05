@@ -1496,6 +1496,9 @@
     "taskFor": "Task for {agent}",
     "fromInbox": "From the inbox",
     "resent": "Sent again",
+    "waitingForAgent": "Waiting for the agent to get to it",
+    "untaken": "Not taken: it went on as the next message",
+    "later": "Goes to the agent once its task ends",
     "stoppedTag": "stopped",
     "steps": {
       "one": "{count} step",
@@ -1668,6 +1671,31 @@
     "activeOnlyHint": "Only those still working or waiting for you",
     "noneActive": "No active subagents.",
     "noneActiveHint": "Turn off Active to see the ones that ended too."
+  },
+  "tasks": {
+    "title": "Coding agents",
+    "sessions": "Coding sessions",
+    "show": "Show the coding agents' work",
+    "minimize": "Minimize",
+    "status": {
+      "running": "working…",
+      "done": "done",
+      "failed": "failed",
+      "stopped": "stopped"
+    },
+    "in": "In {folder}",
+    "placeholder": "Write to {agent}…",
+    "send": "Send to {agent}",
+    "hintWorking": "{agent} reads it after its current step.",
+    "hintIdle": "Starts {agent}'s next turn in the same session.",
+    "later": "{agent} can't read messages while it works: it gets this once its current task ends.",
+    "stop": "Stop",
+    "stopTitle": "Stop {agent}?",
+    "stopText": "It stops where it is; what it already changed stays. Messages it hadn't read go to it next.",
+    "close": "Close this tab",
+    "closeHint": "Takes it off the panel. What it changed stays in its folder.",
+    "lost": "Its worker ended without a result: the computer restarted or it was killed.",
+    "gone": "This session is gone."
   },
   "subagentsPage": {
     "title": "Background subagents",

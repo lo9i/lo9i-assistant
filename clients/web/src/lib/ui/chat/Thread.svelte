@@ -1,5 +1,6 @@
 <script lang="ts">
   import AudioLines from "@lucide/svelte/icons/audio-lines";
+  import Bell from "@lucide/svelte/icons/bell";
   import Brain from "@lucide/svelte/icons/brain";
   import Check from "@lucide/svelte/icons/check";
   import ClipboardList from "@lucide/svelte/icons/clipboard-list";
@@ -51,7 +52,12 @@
 
   const SUGGESTIONS: Key[] = ["thread.suggestMemory", "thread.suggestNews", "thread.suggestSearch"];
   // The messages a handed-off agent hadn't got to, sent to it again.
-  const USER_NOTES: Record<UserNote, Key> = { resent: "thread.resent" };
+  const USER_NOTES: Record<UserNote, Key> = {
+    resent: "thread.resent",
+    waiting: "thread.waitingForAgent",
+    untaken: "thread.untaken",
+    later: "thread.later",
+  };
   // A live voice call's messages (core/voice/); a run of the voice's request shows live with its channel.
   const CALL_PARTS: Record<CallPart, Key> = { said: "voiceCall.said", asked: "voiceCall.asked" };
   const VOICE_CHANNEL = "voice";
@@ -278,7 +284,7 @@
           {#if whole?.state === "failed"}<p class="text-caption whole-note">{t("thread.callFailed")}</p>{/if}
         </details>
       {:else if item.kind === "notice"}
-        <p class="text-caption notice" data-findable><Inbox size={12} />{item.text}</p>
+        <p class="text-caption notice" data-findable><Bell size={12} />{item.text}</p>
       {:else if item.kind === "model"}
         <p class="text-caption notice" data-findable><Cpu size={12} />{t("thread.modelChanged", { model: item.name })}</p>
       {:else if item.kind === "held"}

@@ -69,110 +69,42 @@ async def test_in_a_scheduled_run_a_task_starts_in_the_background_and_is_followe
     assert [f.state.task.id for f in await service.agent_tasks.recent()] == [task_id]
 
 
-async def test_in_a_side_conversation_the_conversation_is_handed_to_the_agent_with_the_task(service, script, tmp_path):
+async def test_in_a_side_conversation_the_task_runs_beside_it_and_the_conversation_stays_the_assistants(
+    service, script, tmp_path
+):
     await service.add_mcp_server(agent_plugin(trusted=True))
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Handed.")
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("On it.")
     session = await side(service, "web")
     events = await collect(service.send(session, "fix the tests with claude"))
     assert not any(isinstance(e, ApprovalRequired) for e in events)
-    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("This conversation is now handed")
-    handoff = await service.conversation_agent("owner", session.thread_id)
-    assert handoff is not None and handoff.folder == str(tmp_path)
-    assert await service.next_queued("owner", session.thread_id) == Queued("web", "finish", brief="Claude Code")
-    assert await service.next_queued("owner", session.thread_id) is None
-    assert await service.agent_tasks.recent() == []
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Started task ")
+    assert await service.conversation_agent("owner", session.thread_id) is None
+    [started] = await service.agent_tasks.recent()
+    assert started.state.task.prompt == "finish"
+    [beside] = await service.task_sessions("owner", session.thread_id)
+    assert (beside.id, beside.title) == (started.state.task.session, "finish")
 
 
-async def test_the_task_handed_with_a_conversation_shows_as_the_agents_brief_not_the_users(service, script, tmp_path):
-    await service.add_mcp_server(agent_plugin(trusted=True))
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Handed.")
-    session = await side(service, "web")
-    await collect(service.send(session, "fix the tests with claude"))
-    task = await service.next_queued("owner", session.thread_id)
-    assert task is not None
-    await collect(service.send(session, task.text, brief=task.brief))
-    await collect(service.send(session, "thanks"))
-    shown = [(m.role, m.text, m.agent) for m in await service.conversation_messages(session.thread_id)]
-    said = [m for m in shown if m[0] in ("user", "brief")]
-    assert said == [
-        ("user", "fix the tests with claude", ""),
-        ("brief", "finish", "Claude Code"),
-        ("user", "thanks", ""),
-    ]
-
-
-async def _start_while_a_restart_is_pending(service, script, tmp_path, **choice) -> tuple[Session, str]:
-    """start_task in a conversation of its own while a restart waits for runs; its result."""
+async def test_while_a_restart_is_pending_a_task_beside_a_conversation_starts_at_once(service, script, tmp_path):
+    """Its worker outlives the daemon, so the restart needn't wait for it, nor it for the restart."""
     await service.add_mcp_server(agent_plugin(trusted=True))
     service.ending.asked("restart", "web (device Mac)")
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish", **choice).reply("ok")
+    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("ok")
     session = await side(service, "web")
     events = await collect(service.send(session, "fix the tests with claude"))
-    return session, next(e for e in events if isinstance(e, ToolFinished)).output
-
-
-async def test_while_a_restart_is_pending_a_task_isnt_handed_over_and_the_assistant_is_told_to_ask(
-    service, script, tmp_path
-):
-    session, said = await _start_while_a_restart_is_pending(service, script, tmp_path)
-    assert said.startswith("A restart of lo9i is pending, asked by web (device Mac) at ")
-    assert "waiting for 1 run(s) in progress: this conversation." in said
-    assert "Nothing was handed over and the task wasn't queued" in said
-    assert 'when_restart_pending set to "send_now" or "after_restart"' in said
-    assert await service.conversation_agent("owner", session.thread_id) is None
+    assert next(e for e in events if isinstance(e, ToolFinished)).output.startswith("Started task ")
     assert await service.queued_threads("owner") == []
-    assert not service.ending.goes_first(session.thread_id)
 
 
-async def test_sent_now_while_a_restart_is_pending_the_task_goes_first_and_the_restart_waits_for_it(
-    service, script, tmp_path
-):
-    session, said = await _start_while_a_restart_is_pending(service, script, tmp_path, when_restart_pending="send_now")
-    assert said.startswith("This conversation is now handed to Claude Code") and "restart waits until" in said
-    assert await service.conversation_agent("owner", session.thread_id) is not None
-    assert service.ending.goes_first(session.thread_id) and service.ending.sending_first()
-    assert await service.next_queued("owner", session.thread_id) == Queued("web", "finish", brief="Claude Code")
-
-
-async def test_kept_for_after_the_restart_the_handoff_and_the_task_go_together(service, script, tmp_path):
-    session, said = await _start_while_a_restart_is_pending(
-        service, script, tmp_path, when_restart_pending="after_restart"
-    )
-    assert said.startswith("Kept the task for after the restart")
-    # Nothing goes before the restart: the conversation stays the assistant's.
-    assert await service.conversation_agent("owner", session.thread_id) is None
-    assert await service.queued_threads("owner") == [session.thread_id]
-    # Once the daemon is back, the task is taken with its handoff made.
-    task = await service.next_queued("owner", session.thread_id)
-    handoff = await service.conversation_agent("owner", session.thread_id)
-    assert task is not None and (task.text, task.brief) == ("finish", "Claude Code")
-    assert handoff is not None and (handoff.name, handoff.folder) == ("Claude Code", str(tmp_path))
-
-
-async def test_a_task_whose_conversation_was_taken_back_before_it_went_is_dropped_not_sent_as_the_users(
-    service, script, tmp_path
-):
-    await service.add_mcp_server(agent_plugin(trusted=True))
-    script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("Handed.")
-    session = await side(service, "web")
-    await collect(service.send(session, "fix the tests with claude"))
-    await service.take_back_conversation("owner", session.thread_id)
-    assert await service.next_queued("owner", session.thread_id) is None
-    assert await service.queued_threads("owner") == []
-    told = (await service.notifications("owner"))[0]
-    assert (told.title, told.thread_id, told.ok) == ("Task not sent", session.thread_id, False)
-    assert "The task for Claude Code wasn't sent" in told.text
-
-
-async def test_handing_a_side_conversation_to_an_untrusted_agent_asks_first(service, script, tmp_path):
+async def test_starting_a_task_with_an_untrusted_agent_asks_first(service, script, tmp_path):
     await service.add_mcp_server(agent_plugin())
     script.call("start_task", agent="claude-code", repository=str(tmp_path), task="finish").reply("ok")
     session = await side(service)
     asked = next(e for e in await collect(service.send(session, "go")) if isinstance(e, ApprovalRequired))
-    assert asked.request["command"].startswith(f"Hand this conversation to Claude Code in {tmp_path}")
+    assert asked.request["command"].startswith(f"Start a task in {tmp_path}")
     await collect(service.resume(session, {asked.interrupt_id: {"approved": False, "reason": ""}}))
-    assert await service.conversation_agent("owner", session.thread_id) is None
-    assert await service.next_queued("owner", session.thread_id) is None
+    assert await service.agent_tasks.recent() == []
+    assert await service.task_sessions("owner", session.thread_id) == []
 
 
 async def test_status_shows_steps_and_stop_stops_a_running_task(service, tmp_path):

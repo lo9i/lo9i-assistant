@@ -63,6 +63,10 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
         time.sleep(60)
     if prompt == "take messages":
         return _take_messages(folder)
+    if prompt == "take messages once released":
+        while not (repository / "release").exists():
+            time.sleep(0.02)
+        return _take_messages(folder)
     if prompt == "hold messages":
         return _hold_messages(folder)
     if prompt in ("leave messages", "leave messages and fail"):

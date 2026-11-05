@@ -5623,6 +5623,254 @@
         }
       }
     },
+    "/conversations/{thread_id}/tasks": {
+      "get": {
+        "summary": "Task Sessions",
+        "description": "The coding agents' sessions the conversation started, oldest first.",
+        "operationId": "task_sessions_conversations__thread_id__tasks_get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskSession"
+                  },
+                  "title": "Response Task Sessions Conversations  Thread Id  Tasks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/tasks/{session_id}": {
+      "get": {
+        "summary": "Task Session",
+        "description": "Its tasks with their steps, oldest first. 404: no such session here.",
+        "operationId": "task_session_conversations__thread_id__tasks__session_id__get",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSessionDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove Task Session",
+        "description": "Takes it off the conversation's panel. 404: no such session here. 409: it's still working.",
+        "operationId": "remove_task_session_conversations__thread_id__tasks__session_id__delete",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/tasks/{session_id}/messages": {
+      "post": {
+        "summary": "Message Task Session",
+        "description": "Writes to the session's agent: between its steps while it works, else as its next task. 400: no text.\n404: no such session here. 409: its next task can't start.",
+        "operationId": "message_task_session_conversations__thread_id__tasks__session_id__messages_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskMessageSent"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{thread_id}/tasks/{session_id}/stop": {
+      "post": {
+        "summary": "Stop Task Session",
+        "description": "Stops its task in progress. 404: no such session here. 409: it isn't working.",
+        "operationId": "stop_task_session_conversations__thread_id__tasks__session_id__stop_post",
+        "parameters": [
+          {
+            "name": "thread_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Thread Id"
+            }
+          },
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/subagents": {
       "get": {
         "summary": "Subagent List",
@@ -13925,6 +14173,244 @@
           "text"
         ],
         "title": "Suggestion"
+      },
+      "TaskMessage": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TaskMessage"
+      },
+      "TaskMessageSent": {
+        "properties": {
+          "sent": {
+            "type": "string",
+            "enum": [
+              "taken",
+              "later",
+              "started"
+            ],
+            "title": "Sent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sent"
+        ],
+        "title": "TaskMessageSent"
+      },
+      "TaskSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "agent": {
+            "type": "string",
+            "title": "Agent"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "repository": {
+            "type": "string",
+            "title": "Repository"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "done",
+              "failed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step",
+            "default": ""
+          },
+          "waiting": {
+            "type": "integer",
+            "title": "Waiting",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "agent",
+          "name",
+          "title",
+          "repository",
+          "status",
+          "started_at"
+        ],
+        "title": "TaskSession",
+        "description": "A tab of the panel: an agent's session started from the conversation."
+      },
+      "TaskSessionDetails": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/TaskSession"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/TaskTurn"
+            },
+            "type": "array",
+            "title": "Turns"
+          },
+          "waiting": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Waiting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session",
+          "turns",
+          "waiting"
+        ],
+        "title": "TaskSessionDetails"
+      },
+      "TaskStep": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "tool": {
+            "type": "string",
+            "title": "Tool",
+            "default": ""
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "within": {
+            "type": "string",
+            "title": "Within",
+            "default": ""
+          },
+          "waiting": {
+            "type": "boolean",
+            "title": "Waiting",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "TaskStep",
+        "description": "One step a task wrote (docs/agent-plugins.md): `kind` and the fields it has."
+      },
+      "TaskTurn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "asked": {
+            "type": "string",
+            "title": "Asked"
+          },
+          "from_user": {
+            "type": "boolean",
+            "title": "From User"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "done",
+              "failed",
+              "stopped"
+            ],
+            "title": "Status"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "type": "string",
+            "title": "Finished At",
+            "default": ""
+          },
+          "result": {
+            "type": "string",
+            "title": "Result",
+            "default": ""
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TaskStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "unread": {
+            "items": {
+              "$ref": "#/components/schemas/TaskStep"
+            },
+            "type": "array",
+            "title": "Unread"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "asked",
+          "from_user",
+          "status",
+          "started_at"
+        ],
+        "title": "TaskTurn",
+        "description": "One task of a session."
       },
       "ThreadCreated": {
         "properties": {

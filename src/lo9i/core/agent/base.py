@@ -1,5 +1,6 @@
 import asyncio
 
+from lo9i.core.agent_tasks.beside import TasksBeside
 from lo9i.core.agent_tasks.ends import TaskEnds
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.agent_tasks.service import AgentTasks
@@ -72,6 +73,9 @@ class ServiceBase:
     _task_reports: TaskReports
     # Tells a conversation that a task it started ended. The daemon runs it as a supervised task.
     task_ends: TaskEnds
+    # The coding tasks started from each conversation, shown beside it, and what the user writes their agents there.
+    # The daemon runs it as a supervised task.
+    tasks_beside: TasksBeside
     # The restart or stop of the daemon waiting for runs (core/ending.py), which the daemon's shutdown keeps.
     ending: EndingState
     # The tools plugins bring, MCP servers' and the agents' task tools, for the graph and subagents.

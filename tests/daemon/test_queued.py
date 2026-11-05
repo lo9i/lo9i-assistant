@@ -111,55 +111,6 @@ async def test_waiting_messages_wait_while_a_restart_is_asked_for_and_go_once_it
     await sending
 
 
-async def test_while_a_restart_is_asked_for_a_conversation_whose_messages_go_first_is_sent_and_then_let_go(
-    service, script
-):
-    ending = _Ending(asked=True)
-    service.ending.send_first("owner:now")
-    await queued.add(service.store, "owner", "owner:now", Queued("web", "the task sent now"))
-    await queued.add(service.store, "owner", "owner:later", Queued("web", "the task for later"))
-    script.reply("On it.")
-    after = service.bus.last_id
-    stop = asyncio.Event()
-    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), ending, NO_MIRRORS).run(stop))
-    run = await _announced(service, after, "owner:now")
-    assert run["text"] == "the task sent now"
-    # Once its run ended with nothing left there, the restart waits for it no more; the other still waits.
-    await asyncio.wait_for(service.ending.until_sent(), 10)
-    assert not service.ending.goes_first("owner:now")
-    assert await service.queued_threads("owner") == ["owner:later"]
-    stop.set()
-    await sending
-
-
-async def test_a_task_kept_for_after_a_restart_goes_with_its_handoff_once_the_daemon_is_back(service, script):
-    handoff = Handoff("claude-code", "claude", "Claude Code", "/tmp")
-    await queued.add(service.store, "owner", "owner:fix", Queued("web", "finish", brief="Claude Code", hand_to=handoff))
-    after = service.bus.last_id
-    stop = asyncio.Event()
-    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), NOT_ENDING, NO_MIRRORS).run(stop))
-    run = await _announced(service, after, "owner:fix")
-    assert (run["text"], run["brief"]) == ("finish", "Claude Code")
-    assert await handoffs.current(service.store, "owner", "owner:fix") == handoff
-    stop.set()
-    await sending
-
-
-async def test_a_task_held_past_a_take_back_is_never_run_as_the_users_message(service, script):
-    await queued.add(service.store, "owner", "owner:back", Queued("web", "finish", brief="Claude Code"))
-    after = service.bus.last_id
-    stop = asyncio.Event()
-    sending = asyncio.create_task(QueuedMessages(service, RunHub(service.bus), NOT_ENDING, NO_MIRRORS).run(stop))
-    async with asyncio.timeout(10):
-        while not await service.notifications("owner"):
-            await asyncio.sleep(0.01)
-    stop.set()
-    await sending
-    runs = [e async for e in _until_now(service, after) if e.kind == "run" and e.data["thread_id"] == "owner:back"]
-    assert runs == [] and await service.queued_threads("owner") == []
-    assert (await service.notifications("owner"))[0].title == "Task not sent"
-
-
 async def _until_now(service, after: int):
     last = service.bus.last_id
     async for event in service.bus.subscribe(after):

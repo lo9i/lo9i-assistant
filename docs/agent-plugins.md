@@ -59,7 +59,10 @@ everything it starts stops with it. A worker that finds `stopped` when it starts
 whose worker is gone without a `result.json` counts as failed.
 
 When a task started with `start_task` ends, the daemon tells the conversation that started it and the
-user, unless the assistant read its end first (docs/background-work.md).
+user, unless the assistant read its end first (docs/background-work.md). A task started in a conversation
+also shows beside it, in the web app's panel, live (`core/agent_tasks/beside.py`): the user writes to the agent
+there, as below while it works and its worker takes messages, else as the next task in the same session
+(`follow_up_of`), once the one running ends; the messages a task ended without taking go on the same way.
 
 ## Messages while it works
 

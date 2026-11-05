@@ -48,6 +48,7 @@ from lo9i.core.agent.threads import ThreadsMixin
 from lo9i.core.agent.usage import UsageMixin
 from lo9i.core.agent.voice_calls import VoiceCallsMixin
 from lo9i.core.agent.web_search import WebSearchMixin
+from lo9i.core.agent_tasks.beside import TasksBeside
 from lo9i.core.agent_tasks.ends import TaskEnds
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.agent_tasks.service import AgentTasks
@@ -189,10 +190,11 @@ class AssistantService(
         self._plugin_checks = PluginChecks(storage.store, secrets, lambda: logins.of_model(self._model), environments)
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
+        self.tasks_beside = TasksBeside(self.agent_tasks, self._task_reports, storage.store, bus)
         self.ending = EndingState(Path(settings.restart_pending_path).expanduser(), lambda: sorted(self._active_runs))
         self._plugin_tools = PluginTools(
             self.mcp,
-            AgentTools(self.agent_tasks, self._task_reports, self.ending, storage.store),
+            AgentTools(self.agent_tasks, self._task_reports, self.tasks_beside, self.ending, storage.store),
             tool_groups(settings.toolsets),
         )
         coded = {

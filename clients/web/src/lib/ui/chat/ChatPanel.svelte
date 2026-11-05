@@ -17,7 +17,8 @@
   import { finalReply, toolRunning } from "$lib/chat/transcript";
   import { isVoice, type ChatController } from "$lib/chat/controller";
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
-  import { folderPanel, homePanel, subagentsPanel } from "$lib/folderPanel.svelte";
+  import { folderPanel, homePanel, subagentsPanel, tasksPanel } from "$lib/folderPanel.svelte";
+  import { taskTabs } from "$lib/chat/taskTabs.svelte";
   import { counts } from "$lib/chat/subagents";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
@@ -36,6 +37,7 @@
   import QueueBar from "./QueueBar.svelte";
   import StatusBar from "./StatusBar.svelte";
   import SubagentsPanel from "./subagents/SubagentsPanel.svelte";
+  import TasksPanel from "./tasks/TasksPanel.svelte";
   import WorkingStatus from "./WorkingStatus.svelte";
   import Thread from "./Thread.svelte";
   import VoiceCallPanel from "./VoiceCallPanel.svelte";
@@ -90,13 +92,31 @@
   const agents = resource((c) => c.conversations.agents(), ["mcp"]);
   const handoff = resource((c) => c.conversations.agent(threadId), ["handoffs"]);
   // The coding agents working here: the one it's handed to shows by its name, the others apart.
-  const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended"]);
+  const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended", "tasks_beside"]);
   const working = $derived(workingIn(running.data ?? [], threadId, handoff.data?.name ?? null));
   const extra = $derived(agentCommands(agents.data ?? []));
   // The subagents it sent off to work in the background: a side panel of their cards, once there's one.
   const subagents = resource((c) => c.subagents.list(threadId), ["subagents"]);
   const subagentCounts = $derived(counts(subagents.data ?? []));
   const subagentsOpen = $derived(!!subagents.data?.length && subagentsPanel.isOpen(threadId));
+  // The coding tasks it started, beside it: a tab per session, the conversation staying the assistant's. Loaded with the
+  // conversation they're of, so another's never reads as new here.
+  const tasks = resource(async (c) => ({ threadId, sessions: await c.tasks.sessions(threadId) }), ["tasks_beside"]);
+  const taskSessions = $derived(tasks.data?.threadId === threadId ? tasks.data.sessions : []);
+  let knownSessions: { threadId: string; ids: string[] } | null = null;
+  // A session that comes while the conversation is shown opens the panel on it.
+  $effect(() => {
+    const loaded = tasks.data;
+    if (loaded?.threadId !== threadId) return;
+    untrack(() => {
+      const ids = loaded.sessions.map((s) => s.id);
+      const fresh = knownSessions?.threadId === loaded.threadId ? ids.filter((id) => !knownSessions?.ids.includes(id)) : [];
+      knownSessions = { threadId: loaded.threadId, ids };
+      if (!fresh.length) return;
+      taskTabs.pick(loaded.threadId, fresh[fresh.length - 1]);
+      tasksPanel.show(loaded.threadId);
+    });
+  });
   const player = new Player();
   // Live voice calls (core/voice/), which need an OpenAI key: this tab's call, when it's in this conversation.
   const voiceCalls = resource((c) => c.voiceCalls.settings(), ["settings"]);
@@ -124,6 +144,7 @@
       folderPanel.keep(shown);
       homePanel.keep(shown);
       subagentsPanel.keep(shown);
+      tasksPanel.keep(shown);
     });
   });
 
@@ -390,7 +411,8 @@
       call={{ on: callOn, ready: !!voiceCalls.data?.key_source, onpress: pressCall }}
     />
     <StatusBar>
-      <WorkingStatus tasks={working.others} />
+      <!-- The tasks beside it say how they're doing there. -->
+      <WorkingStatus tasks={taskSessions.length ? [] : working.others} />
       <ConversationStats {threadId} />
       {#if handoff.data}
         <AgentStatus
@@ -442,6 +464,9 @@
     </StatusBar>
     {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
   </section>
+  {#if taskSessions.length}
+    <TasksPanel {threadId} sessions={taskSessions} open={tasksPanel.isOpen(threadId)} ontoggle={() => tasksPanel.toggle(threadId)} />
+  {/if}
   {#if panelOpen}
     <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => panel.toggle(threadId)} />
   {/if}
@@ -473,7 +498,7 @@
       margin-right: 13px;
     }
   }
-  /* The chat, and beside it the folder of the agent it's handed to, and its background subagents. */
+  /* The chat, and beside it its coding tasks, the folder of the agent it's handed to, and its background subagents. */
   .row {
     position: relative;
     display: flex;

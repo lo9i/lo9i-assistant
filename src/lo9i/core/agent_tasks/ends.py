@@ -96,7 +96,8 @@ def ended(found: FoundTask) -> Ended:
     note = f'{agent}\'s task {task.id} in {task.repository}, asked "{asked}", is {state.status}'
     if result:
         note += f": {short(result, _RESULT_NOTE)}"
-    return Ended(note_key(task.id), state.status == "done", notice, note, plugin=found.agent.server)
+    # The user watched it beside the conversation; the assistant tells what came of it there at once.
+    return Ended(note_key(task.id), state.status == "done", notice, note, follow_up=True, plugin=found.agent.server)
 
 
 def _notice(agent: str, state: TaskState, asked: str, result: str) -> str:

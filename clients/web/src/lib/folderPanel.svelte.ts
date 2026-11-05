@@ -29,7 +29,15 @@ class FolderPanel {
   }
 
   toggle(threadId: string): void {
-    const open = !this.isOpen(threadId);
+    this.set(threadId, !this.isOpen(threadId));
+  }
+
+  /** Opens it, as when something new to see comes there. */
+  show(threadId: string): void {
+    if (!this.isOpen(threadId)) this.set(threadId, true);
+  }
+
+  private set(threadId: string, open: boolean): void {
     this.#shown[threadId] = open;
     this.#last = open;
     try {
@@ -55,3 +63,7 @@ export const homePanel = new FolderPanel("lo9i.homePanel", false);
 // The side panel of the conversation's background subagents (ui/chat/subagents/), kept the same way: shown at first,
 // as it's there only once the conversation sent one off.
 export const subagentsPanel = new FolderPanel("lo9i.subagentsPanel", true);
+// The side panel of the coding agents' work beside the conversation that started it (ui/chat/tasks/), kept the same way:
+// open at first, as it's there only once the conversation started a task; minimized, it's a thin bar saying how they're
+// doing. A new task opens it.
+export const tasksPanel = new FolderPanel("lo9i.tasksPanel", true);

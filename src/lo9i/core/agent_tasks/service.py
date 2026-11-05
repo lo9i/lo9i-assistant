@@ -14,7 +14,7 @@ from lo9i.core import uploads
 from lo9i.core.agent_tasks import sent, workers
 from lo9i.core.agent_tasks.records import Context, Task, TaskState, TaskStore, lost
 from lo9i.core.agent_tasks.sessions import Sessions
-from lo9i.core.agent_tasks.steps import Upload
+from lo9i.core.agent_tasks.steps import Upload, streamed
 from lo9i.core.agent_tasks.waiting import Measured, Report, at_most, until_ended, withdrawal
 from lo9i.core.config import settings
 from lo9i.core.i18n import message, said
@@ -111,12 +111,20 @@ class AgentTasks:
         await at_most(_tasks(server), task_id, min(seconds, MAX_WAIT_SECONDS), report)
         return await self.state(task_id)
 
-    async def ended(self, task_id: str, report: Report | None = None) -> FoundTask:
+    async def ended(self, task_id: str, report: Report | None = None, seen: int = 0) -> FoundTask:
         """The task's state once it ends, however long that takes. `report` gets each step it has written
-        and writes meanwhile. Raises AgentTaskError for an unknown task, or one whose agent isn't installed now."""
+        and writes meanwhile, after the first `seen` (`written`). Raises AgentTaskError for an unknown task, or one
+        whose agent isn't installed now."""
         server = await self._owner(task_id)
-        await until_ended(_tasks(server), task_id, report)
+        await until_ended(_tasks(server), task_id, report, seen=seen)
         return await self.state(task_id)
+
+    async def written(self, task_id: str) -> tuple[int, int]:
+        """How many progress lines the task has written so far, the words streamed included, and how many steps those
+        are without them (`steps`). Raises AgentTaskError for an unknown task."""
+        tasks = _tasks(await self._owner(task_id))
+        lines = await asyncio.to_thread(tasks.progress_after, task_id, 0)
+        return len(lines), sum(1 for line in lines if not streamed(line))
 
     async def recent(self) -> list[FoundTask]:
         """The latest tasks of every agent, newest first."""
@@ -129,12 +137,12 @@ class AgentTasks:
         await _stop(_tasks(server), task_id)
         return await self.state(task_id)
 
-    async def message(self, task_id: str, text: str, said: str, files: list[Upload]) -> None:
+    async def message(self, task_id: str, text: str, said: str, files: list[Upload]) -> str:
         """Passes `text` on to a running task, whose agent takes it between its steps; its step shows what
         the user `said` and the `files` they sent instead (sent.py), at once in the run following the task, waiting
         until the agent takes it. Raises AgentTaskError for an unknown task, one that isn't running, or an agent
-        that takes no messages while it works."""
-        await self._tell(task_id, sent.message(text, said, files))
+        that takes no messages while it works. Returns its id, which the worker's `user` step for it carries."""
+        return await self._tell(task_id, sent.message(text, said, files))
 
     async def withdraw(self, task_id: str, message_id: str) -> dict[str, Any]:
         """Takes back the message sent to a running task under `message_id` before its agent gets to it, and returns it
@@ -244,14 +252,44 @@ class AgentTasks:
         last = await asyncio.to_thread(_sessions(server).last, conversation, where, tasks)
         if last is None or (await asyncio.to_thread(tasks.state, last.id, 0)).status == "running":
             return []
+        return await self._take_untaken(tasks, last.id)
+
+    async def take_untaken(self, task_id: str) -> list[dict[str, Any]]:
+        """The messages sent to a task that its agent hadn't taken when it ended, oldest first, as written in its inbox
+        (sent.py), for the agent to get next: once. [] while it runs. Raises AgentTaskError for an unknown task."""
+        tasks = _tasks(await self._owner(task_id))
+        if (await asyncio.to_thread(tasks.state, task_id, 0)).status == "running":
+            return []
+        return await self._take_untaken(tasks, task_id)
+
+    async def _take_untaken(self, tasks: TaskStore, task_id: str) -> list[dict[str, Any]]:
         async with self._inboxes:
-            if await asyncio.to_thread(tasks.sent_on, last.id):
+            if await asyncio.to_thread(tasks.sent_on, task_id):
                 return []
-            left = await asyncio.to_thread(tasks.untaken, last.id)
-            await asyncio.to_thread(tasks.mark_sent_on, last.id)
+            left = await asyncio.to_thread(tasks.untaken, task_id)
+            await asyncio.to_thread(tasks.mark_sent_on, task_id)
         return [untaken.message for untaken in left]
 
-    async def _tell(self, task_id: str, message: dict[str, Any]) -> None:
+    async def steps(self, task_id: str) -> list[str]:
+        """Every step the task wrote, oldest first, without the words streamed before their whole block. Raises
+        AgentTaskError for an unknown task."""
+        tasks = _tasks(await self._owner(task_id))
+        return [line for line in await asyncio.to_thread(tasks.progress_after, task_id, 0) if not streamed(line)]
+
+    async def not_passed_on(self, task_id: str) -> list[tuple[str, dict[str, Any]]]:
+        """The messages sent to a running task that its worker hasn't passed on to the agent yet, oldest first, by id:
+        no step shows them yet. Raises AgentTaskError for an unknown task."""
+        tasks = _tasks(await self._owner(task_id))
+        left = await asyncio.to_thread(tasks.untaken, task_id)
+        return [(untaken.id, untaken.message) for untaken in left if not untaken.passed_on]
+
+    async def takes_messages(self, task_id: str) -> bool:
+        """Its worker takes messages while it works (docs/agent-plugins.md). Raises AgentTaskError for an unknown
+        task."""
+        tasks = _tasks(await self._owner(task_id))
+        return await asyncio.to_thread(tasks.takes_messages, task_id)
+
+    async def _tell(self, task_id: str, message: dict[str, Any]) -> str:
         """The check that it runs and the write are one step for `_untaken`: a task that ends in between still
         has the message among those it didn't take, which its conversation answers next. A message shows in the run
         following the task before its worker is woken, so before the worker's own step for it."""
@@ -263,6 +301,7 @@ class AgentTasks:
             if message.get("kind") == "message" and (report := self._followed.get(task_id)) is not None:
                 await report(sent.user_step(message, message_id, waiting=True))
         await _wake(tasks, task_id)
+        return message_id
 
     async def _next_in_conversation(self, server: McpServer, conversation: str, folder: str, message: str) -> Task:
         tasks, sessions = _tasks(server), _sessions(server)

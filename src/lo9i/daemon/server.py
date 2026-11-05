@@ -96,6 +96,7 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         tasks.append(_supervised(service.conversation_index, stop))
         tasks.append(_supervised(service.memory_writer, stop))
         tasks.append(_supervised(service.task_ends, stop))
+        tasks.append(_supervised(service.tasks_beside, stop))
         tasks.append(_supervised(service.background_subagents, stop))
         mirrors = ChannelMirrors(hub, chats, service.outbox)
         tasks.append(_supervised(QueuedMessages(service, hub, shutdown, mirrors), stop))

@@ -24,11 +24,11 @@ Measured = Callable[[], None]
 
 
 async def until_ended(
-    store: TaskStore, task_id: str, report: Report | None = None, measured: Measured | None = None
+    store: TaskStore, task_id: str, report: Report | None = None, measured: Measured | None = None, seen: int = 0
 ) -> TaskState:
-    """The task's state once it's no longer running. `report`, when given, gets every progress line, and
-    `measured` hears of each new context.json."""
-    look = _Look(store, task_id, report, measured)
+    """The task's state once it's no longer running. `report`, when given, gets every progress line after the first
+    `seen`, and `measured` hears of each new context.json."""
+    look = _Look(store, task_id, report, measured, seen)
     if (state := await look()).status != "running":
         return state
     folder = store.folder(task_id)
@@ -76,9 +76,11 @@ class _Look:
     """The task's state, after reporting the progress lines written since the last look and telling of a
     context the task wrote since."""
 
-    def __init__(self, store: TaskStore, task_id: str, report: Report | None, measured: Measured | None) -> None:
+    def __init__(
+        self, store: TaskStore, task_id: str, report: Report | None, measured: Measured | None, seen: int = 0
+    ) -> None:
         self._store, self._task_id, self._report, self._measured = store, task_id, report, measured
-        self._seen = 0
+        self._seen = seen
         self._measured_at = 0
 
     async def __call__(self) -> TaskState:

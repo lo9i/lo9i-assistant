@@ -30,8 +30,10 @@ export type ChatItem =
 export type ToolState = "running" | "done" | "cancelled";
 
 /** The messages a handed-off agent hadn't got to when its run was stopped or failed, sent to it again as the next
- * message. */
-export type UserNote = "resent";
+ * message. Beside a conversation (chat/codingTasks.ts), a message the user sent a coding agent: still waiting for it
+ * to get to it, not taken before its task ended (so it went on as the next one), or kept to go as the next task once
+ * the one running ends. */
+export type UserNote = "resent" | "waiting" | "untaken" | "later";
 
 /** A message the user sent a handed-off agent while it worked, waiting for it to get to it (`messageId`, its id in the
  * task's inbox). It shows in the queue above the message box, not in the chat, until the agent takes it. */

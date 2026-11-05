@@ -542,8 +542,6 @@
   "Open a conversation to start a call in it.": "Abre una conversación para empezar una llamada en ella.",
   "A call is already on in this conversation.": "Ya hay una llamada en curso en esta conversación.",
   "Unknown voice {voice}. Choose one of: {voices}.": "Voz desconocida {voice}. Elige una de: {voices}.",
-  "The task for {agent} wasn't sent: the conversation was taken back from it before it went. Ask for it again to start it.": "La tarea para {agent} no se envió: la conversación se le quitó antes de que saliera. Pídela de nuevo para empezarla.",
-  "Task not sent": "Tarea no enviada",
   "Morning briefing": "Resumen de la mañana",
   "Reminder": "Recordatorio",
   "Reminder: {text}": "Recordatorio: {text}",
@@ -619,5 +617,9 @@
   "{link} leads to {target}, which isn't there any more.": "{link} apunta a {target}, que ya no existe.",
   "{provider} refused the key: {reason}": "{provider} rechazó la clave: {reason}",
   "{provider}, {model}. Its key is checked when a model answers.": "{provider}, {model}. Su clave se comprueba cuando responde un modelo.",
-  "{provider}, {model}: the key works.": "{provider}, {model}: la clave funciona."
+  "{provider}, {model}: the key works.": "{provider}, {model}: la clave funciona.",
+  "{agent}'s plugin isn't installed now.": "El plugin de {agent} no está instalado ahora.",
+  "{agent} isn't working on anything.": "{agent} no está trabajando en nada.",
+  "{agent} is still working. Stop it first.": "{agent} sigue trabajando. Detenlo primero.",
+  "No coding session {session_id} here.": "No hay una sesión de código {session_id} aquí."
 }

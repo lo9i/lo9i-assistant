@@ -1496,6 +1496,9 @@
     "taskFor": "Tarea para {agent}",
     "fromInbox": "Desde la bandeja de entrada",
     "resent": "Enviado de nuevo",
+    "waitingForAgent": "Esperando a que el agente lo lea",
+    "untaken": "No lo leyó: se envió como el siguiente mensaje",
+    "later": "Le llega al agente cuando termine su tarea",
     "stoppedTag": "detenida",
     "steps": {
       "one": "{count} paso",
@@ -1668,6 +1671,31 @@
     "activeOnlyHint": "Solo los que siguen trabajando o te esperan",
     "noneActive": "No hay subagentes activos.",
     "noneActiveHint": "Desmarca Activos para ver también los que terminaron."
+  },
+  "tasks": {
+    "title": "Agentes de código",
+    "sessions": "Sesiones de código",
+    "show": "Mostrar el trabajo de los agentes de código",
+    "minimize": "Minimizar",
+    "status": {
+      "running": "trabajando…",
+      "done": "listo",
+      "failed": "falló",
+      "stopped": "detenido"
+    },
+    "in": "En {folder}",
+    "placeholder": "Escríbele a {agent}…",
+    "send": "Enviar a {agent}",
+    "hintWorking": "{agent} lo lee después de su paso actual.",
+    "hintIdle": "Empieza el siguiente turno de {agent} en la misma sesión.",
+    "later": "{agent} no puede leer mensajes mientras trabaja: lo recibe cuando termine su tarea actual.",
+    "stop": "Detener",
+    "stopTitle": "¿Detener a {agent}?",
+    "stopText": "Se detiene donde está; lo que ya cambió se queda. Los mensajes que no leyó le llegan después.",
+    "close": "Cerrar esta pestaña",
+    "closeHint": "La saca del panel. Lo que cambió se queda en su carpeta.",
+    "lost": "Su proceso terminó sin resultado: la computadora se reinició o lo cerraron.",
+    "gone": "Esta sesión ya no está."
   },
   "subagentsPage": {
     "title": "Subagentes en segundo plano",
