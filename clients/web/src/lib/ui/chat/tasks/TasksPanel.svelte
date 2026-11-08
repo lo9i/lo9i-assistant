@@ -7,9 +7,10 @@
   import type { TaskSession } from "$lib/api/types";
   import { overall, shownSession, working } from "$lib/chat/codingTasks";
   import { taskTabs } from "$lib/chat/taskTabs.svelte";
-  import { useDaemon } from "$lib/daemon.svelte";
+  import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { panelWidth } from "$lib/panelWidths.svelte";
+  import { iconColor, installedIcon } from "$lib/pluginIcons";
   import PanelDivider from "../PanelDivider.svelte";
   import StatusMark from "../subagents/StatusMark.svelte";
   import TaskSessionView from "./TaskSessionView.svelte";
@@ -26,6 +27,12 @@
   const status = $derived(overall(sessions));
   // The bar names the agent when they're all the same one's.
   const agents = $derived([...new Set(sessions.map((s) => s.name))]);
+  // Its accents in the agent's own colour, its plugin's icon's (Claude Code's orange), not the app's: the colour that
+  // marks a conversation handed to an agent where its plugin's icon has none.
+  const servers = resource((c) => c.mcp.servers(), ["mcp"]);
+  const accent = $derived(
+    agents.length === 1 ? (iconColor(installedIcon(servers.data, sessions[0].agent)) ?? "var(--color-agent)") : "var(--color-agent)",
+  );
   // The session whose Stop is being asked about.
   let stopping = $state<string | null>(null);
 
@@ -46,7 +53,14 @@
 {#if open}
   {@const width = panelWidth("tasks")}
   <PanelDivider name="tasks" />
-  <aside class="panel surface--glass" class:sized={width !== undefined} style:--chosen-width={width} aria-label={t("tasks.title")}>
+  <aside
+    class="panel surface--glass"
+    class:sized={width !== undefined}
+    style:--chosen-width={width}
+    style:--glow={accent}
+    style:--color-accent={accent}
+    aria-label={t("tasks.title")}
+  >
     <header>
       <span class="icon"><SquareTerminal size={14} /></span>
       <span class="heading">{t("tasks.title")}</span>
@@ -101,6 +115,8 @@
   <button
     type="button"
     class="rail surface--glass status--{status}"
+    style:--glow={accent}
+    style:--color-accent={accent}
     title={t("tasks.show")}
     aria-label={t("tasks.show")}
     onclick={ontoggle}

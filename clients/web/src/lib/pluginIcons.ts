@@ -38,6 +38,18 @@ export function installedIcon(servers: McpServerStatus[] | undefined, name: stri
   return icon && (icon.name || icon.svg) ? icon : null;
 }
 
+/** The colour an icon draws in most, besides black and white, to mark what's the plugin's in its colour (a coding
+ * agent's panel); null for a Lucide icon, one drawn in the text colour, or one without such a colour. */
+export function iconColor(icon: PluginIcon | null): string | null {
+  if (!icon?.svg || icon.mono) return null;
+  const counts = new Map<string, number>();
+  for (const [, found] of icon.svg.matchAll(/(?:fill|stroke)\s*[=:]\s*["']?\s*(#[0-9a-f]{3}(?:[0-9a-f]{3})?)\b/gi)) {
+    const color = found.toLowerCase();
+    if (!["#fff", "#ffffff", "#000", "#000000"].includes(color)) counts.set(color, (counts.get(color) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}
+
 /** A plugin's SVG as a data URL: shown only as an image or a mask, where a browser runs nothing in it. */
 export function svgUrl(svg: string): string {
   let binary = "";

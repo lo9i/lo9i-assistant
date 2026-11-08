@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import daemon from "../../../../src/lo9i/core/repositories/lucide_icons.json";
-import { genericIcon, lucideIcon, lucideNames, svgUrl } from "./pluginIcons";
+import { genericIcon, iconColor, lucideIcon, lucideNames, svgUrl } from "./pluginIcons";
 
 describe("plugins' icons", () => {
   it("names the same Lucide icons the daemon checks plugins against", () => {
@@ -22,5 +22,14 @@ describe("plugins' icons", () => {
     expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
     const decoded = new TextDecoder().decode(Uint8Array.from(atob(url.split(",")[1]), (c) => c.charCodeAt(0)));
     expect(decoded).toContain("Café ✓");
+  });
+
+  it("reads the colour an SVG icon draws in most, leaving out black, white and icons in the text colour", () => {
+    const svg =
+      '<svg><path fill="#D97757" d="M0"/><path fill="#fff" d="M1"/><path style="fill: #d97757" d="M2"/><path stroke="#123456"/></svg>';
+    expect(iconColor({ name: "", svg, mono: false })).toBe("#d97757");
+    expect(iconColor({ name: "", svg, mono: true })).toBeNull();
+    expect(iconColor({ name: "bot", svg: "", mono: false })).toBeNull();
+    expect(iconColor(null)).toBeNull();
   });
 });

@@ -95,7 +95,7 @@
     </div>
   {/if}
   <div class="box">
-    <div class="composer">
+    <div class="composer" class:multiline={text.includes("\n") || text.length > 80}>
       <textarea
         bind:value={text}
         rows={1}
@@ -132,18 +132,23 @@
     margin: 0;
     padding: 8px;
   }
+  /* The box as the conversation's message box (Composer): the same room around it, height, padding and font. */
   .box {
-    padding: 6px 4px 0;
+    padding: 6px 0 0;
   }
   .composer {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     gap: 6px;
-    padding: 3px 4px 3px 10px;
+    padding: 3px 6px 3px 8px;
     border: 1px solid var(--color-border);
-    border-radius: 16px;
+    border-radius: var(--radius-full);
     background: var(--color-bg-hover-ghost);
     transition: border-color 0.12s ease;
+  }
+  .composer.multiline {
+    border-radius: 16px;
+    align-items: flex-end;
   }
   .composer:focus-within {
     border-color: color-mix(in srgb, var(--glow) 70%, transparent);
@@ -158,9 +163,14 @@
     font: inherit;
     font-size: 0.92rem;
     line-height: 1.4;
-    padding: 5px 0;
+    padding: 4px;
     max-height: 140px;
     field-sizing: content;
+  }
+  textarea::placeholder {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .send {
     display: grid;

@@ -19,9 +19,9 @@ const session: TaskSession = {
 };
 
 describe("TaskStatus", () => {
-  it("shows how it's doing, its agent's context and model, and how long it's been at it", () => {
+  it("shows its agent's context and model, and how long it's been at it, but not how it's doing", () => {
     const { body } = render(TaskStatus, { props: { session, ended: "" } });
-    expect(body).toContain("working…");
+    expect(body).not.toContain("working…");
     expect(body).toContain("Claude Code's context");
     expect(body).toContain("50k / 200k tokens");
     expect(body).toContain("claude-opus-5-5");
@@ -32,7 +32,7 @@ describe("TaskStatus", () => {
     const { body } = render(TaskStatus, {
       props: { session: { ...session, status: "done", context_tokens: 0, context_limit: 0, model: "" }, ended: "" },
     });
-    expect(body).toContain("done");
+    expect(body).not.toContain("done");
     expect(body).not.toContain("context");
     expect(body).not.toContain('class="model');
   });

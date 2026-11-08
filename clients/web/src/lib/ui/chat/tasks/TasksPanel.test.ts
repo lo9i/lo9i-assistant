@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { TaskSession } from "$lib/api/types";
 import TasksPanel from "./TasksPanel.svelte";
 
-vi.mock("$lib/daemon.svelte", () => ({ useDaemon: () => ({ client: {}, hub: {}, notices: {} }) }));
+const servers = vi.hoisted(() => ({ data: undefined as unknown }));
+vi.mock("$lib/daemon.svelte", () => ({ useDaemon: () => ({ client: {}, hub: {}, notices: {} }), resource: () => servers }));
 
 function session(id: string, status: TaskSession["status"], title: string): TaskSession {
   const started_at = new Date(Date.now() - 3 * 60_000).toISOString();
@@ -36,12 +37,10 @@ describe("TasksPanel", () => {
     expect(body).toContain('title="done"');
     expect(body).toMatch(/Write the docs.*?<\/span><\/button>\s*<span class="end[^"]*">.*?Stop<\/button>/s);
     expect(body.match(/aria-label="Close this session"/g)).toHaveLength(1);
-    expect(body).toContain("working…");
     expect(body).toContain('title="In /Users/me/src/app"');
     expect(body).toContain(">app</span>");
     expect(body).toContain("3 min");
     expect(body).toContain('placeholder="Write to Claude Code…"');
-    expect(body).toContain("Claude Code reads it after its current step.");
     expect(body).toContain('aria-label="Minimize"');
   });
 
@@ -54,5 +53,15 @@ describe("TasksPanel", () => {
     expect(render(TasksPanel, { props: { threadId: "t", sessions: ended, open: false, ontoggle: () => {} } }).body).toContain(
       "Claude Code · failed",
     );
+  });
+
+  it("draws its accents in the colour of the agent's plugin icon, else in the colour of a conversation handed to one", () => {
+    const props = { threadId: "t", sessions, open: true, ontoggle: () => {} };
+    expect(render(TasksPanel, { props }).body).toContain("--glow: var(--color-agent)");
+    servers.data = [{ name: "claude-code", icon: { name: "", svg: '<svg><path fill="#D97757"/></svg>', mono: false } }];
+    const { body } = render(TasksPanel, { props });
+    expect(body).toContain("--glow: #d97757");
+    expect(body).toContain("--color-accent: #d97757");
+    servers.data = undefined;
   });
 });

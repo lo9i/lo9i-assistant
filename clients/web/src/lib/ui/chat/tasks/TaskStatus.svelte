@@ -6,9 +6,9 @@
   import FuelGauge from "../FuelGauge.svelte";
   import StatusBar from "../StatusBar.svelte";
 
-  // A coding session's status line under its message box, as a subagent's (SubagentStatus): how it's doing, how full
-  // its agent's context is and the model it runs on, when its worker says, and how long it's been at it, or was until
-  // it `ended`. What its worker doesn't say isn't shown.
+  // A coding session's status line under its message box, as a subagent's (SubagentStatus): how full its agent's
+  // context is and the model it runs on, when its worker says, and how long it's been at it, or was until it `ended`.
+  // What its worker doesn't say isn't shown; how it's doing is its row's in the panel above.
   type Props = { session: TaskSession; ended: string };
   let { session, ended }: Props = $props();
   const time = clock();
@@ -16,7 +16,6 @@
 </script>
 
 <StatusBar compact>
-  <span class="state state--{session.status}">{t(`tasks.status.${session.status}`)}</span>
   {#if session.model}
     <span class="model" title={t("tasks.modelHint", { agent: session.name })}>{session.model}</span>
   {/if}
@@ -34,16 +33,9 @@
 </StatusBar>
 
 <style>
-  .state,
   .model,
   .elapsed {
     cursor: default;
-  }
-  .state--running {
-    color: var(--glow);
-  }
-  .state--failed {
-    color: var(--color-danger);
   }
   .model {
     min-width: 0;
@@ -51,9 +43,13 @@
     text-overflow: ellipsis;
     font-family: var(--font-mono);
   }
+  /* A box of its own, centred in the line, as the conversation's (ChatPanel): inline, the ring (no text, so no
+   baseline) would sit on the line's baseline, below the others. */
   .fuel-end {
+    display: flex;
+    align-items: center;
+    flex: none;
     margin-left: auto;
-    display: inline-flex;
   }
   .elapsed {
     font-variant-numeric: tabular-nums;
