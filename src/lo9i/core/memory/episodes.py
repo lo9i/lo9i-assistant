@@ -63,4 +63,13 @@ def _episode(item: Item) -> Episode:
 
 
 def render(episodes: list[Episode]) -> str:
-    return "\n".join(f"- {e.started_at[:16]} to {e.ended_at[:16]}: {e.summary}" for e in episodes) or "(none yet)"
+    return "\n".join(line(e) for e in episodes) or "(none yet)"
+
+
+def when(episode: Episode) -> str:
+    return f"{episode.started_at[:16]} to {episode.ended_at[:16]}"
+
+
+def line(episode: Episode) -> str:
+    """An episode's line in the system prompt."""
+    return f"- {when(episode)}: {episode.summary}"

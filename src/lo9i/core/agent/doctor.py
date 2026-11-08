@@ -2,10 +2,27 @@
 known noise."""
 
 from lo9i.core.agent.base import ServiceBase
-from lo9i.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.doctor.model import (
+    Cause,
+    ContextItem,
+    ContextPart,
+    DoctorPage,
+    DoctorReport,
+    KnownCause,
+    StartingContext,
+)
 from lo9i.core.i18n import Texts
 
-__all__ = ["Cause", "ContextPart", "DoctorMixin", "DoctorPage", "DoctorReport", "KnownCause", "StartingContext"]
+__all__ = [
+    "Cause",
+    "ContextItem",
+    "ContextPart",
+    "DoctorMixin",
+    "DoctorPage",
+    "DoctorReport",
+    "KnownCause",
+    "StartingContext",
+]
 
 
 class DoctorMixin(ServiceBase):

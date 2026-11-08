@@ -71,4 +71,9 @@ async def replace(store: BaseStore, user_id: str, fact_id: str, text: str) -> Fa
 
 
 def render(facts: list[Fact]) -> str:
-    return "\n".join(f"- [{f.id}] {f.text}" for f in facts) or "(none yet)"
+    return "\n".join(line(f) for f in facts) or "(none yet)"
+
+
+def line(fact: Fact) -> str:
+    """A fact's line in the system prompt."""
+    return f"- [{fact.id}] {fact.text}"

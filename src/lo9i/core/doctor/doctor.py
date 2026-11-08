@@ -52,7 +52,7 @@ class Doctor:
 
     async def context(self, user_id: str, t: Texts) -> StartingContext:
         """The context a new conversation would start with now, its parts named in the language of `t`."""
-        context = await starting_context(self._store, user_id, self._plugins, await self._window())
+        context = await starting_context(self._store, user_id, self._plugins, await self._window(), itemized=True)
         return changes.named(context, t)
 
     async def check_now(self, user_id: str) -> DoctorPage:

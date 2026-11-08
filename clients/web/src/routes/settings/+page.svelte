@@ -2,7 +2,7 @@
   import { page } from "$app/state";
   import AgentDoneCard from "$lib/ui/settings/AgentDoneCard.svelte";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
-  import ContextPartsCard from "$lib/ui/settings/ContextPartsCard.svelte";
+  import ContextBreakdown from "$lib/ui/settings/ContextBreakdown.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import FolderPanelCard from "$lib/ui/settings/FolderPanelCard.svelte";
   import LanguageCard from "$lib/ui/settings/LanguageCard.svelte";
@@ -80,9 +80,10 @@
       </div>
     </div>
   {:else if tab === "context"}
-    <!-- The whole width: the editor needs room. What the context is made of first, then the texts it starts with. -->
+    <!-- What the context is made of, the ring and what the part picked lists side by side, then the texts it starts with
+         on the whole width, which the editor needs. -->
     <div class="stack">
-      <ContextPartsCard />
+      <ContextBreakdown />
       <PromptCard />
     </div>
   {:else if tab === "system"}

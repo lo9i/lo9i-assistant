@@ -69,8 +69,17 @@ async def save(store: BaseStore, user_id: str, profile: Profile) -> None:
 
 
 def render(profile: Profile) -> str:
-    lines = [f"- {_title(name)}: {'; '.join(items)}" for name, items in profile.model_dump().items() if items]
-    return "\n".join(lines) or "(empty so far)"
+    return "\n".join(line(title, items) for title, items in sections(profile)) or "(empty so far)"
+
+
+def sections(profile: Profile) -> list[tuple[str, list[str]]]:
+    """Its sections with items, by their titles, in its order."""
+    return [(_title(name), items) for name, items in profile.model_dump().items() if items]
+
+
+def line(title: str, items: list[str]) -> str:
+    """A section's line in the system prompt."""
+    return f"- {title}: {'; '.join(items)}"
 
 
 def _title(section: str) -> str:

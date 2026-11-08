@@ -29,9 +29,9 @@ describe("causes", () => {
 describe("the starting context", () => {
   it("is a share of the window, each part with its change", () => {
     expect(contextShare({ tokens: 45_000, window: 150_000, parts: [], too_large: true })).toBe("30%");
-    expect(partSize({ name: "Saved facts", tokens: 3100, before: 2300 })).toBe("3.1k (+800)");
-    expect(partSize({ name: "Skills", tokens: 900, before: 1000 })).toBe("900 (−100)");
-    expect(partSize({ name: "Profile", tokens: 400, before: null })).toBe("400");
+    expect(partSize({ name: "Saved facts", tokens: 3100, before: 2300, items: [] })).toBe("3.1k (+800)");
+    expect(partSize({ name: "Skills", tokens: 900, before: 1000, items: [] })).toBe("900 (−100)");
+    expect(partSize({ name: "Profile", tokens: 400, before: null, items: [] })).toBe("400");
   });
 });
 

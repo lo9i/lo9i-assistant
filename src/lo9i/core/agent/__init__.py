@@ -13,7 +13,15 @@ from lo9i.core.agent.alerts import Alert, AlertArea
 from lo9i.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
 from lo9i.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
 from lo9i.core.agent.devices import Device, DeviceError, PairingCode
-from lo9i.core.agent.doctor import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.agent.doctor import (
+    Cause,
+    ContextItem,
+    ContextPart,
+    DoctorPage,
+    DoctorReport,
+    KnownCause,
+    StartingContext,
+)
 from lo9i.core.agent.email import EmailAccount, EmailAccountNotFoundError, EmailError, EmailProvider
 from lo9i.core.agent.files import FileUnavailableError, UploadedFile
 from lo9i.core.agent.handed_folder import (
@@ -126,6 +134,7 @@ __all__ = [
     "Cause",
     "ChannelNotConnectedError",
     "ChannelStatus",
+    "ContextItem",
     "ContextPart",
     "Conversation",
     "ConversationBusyError",

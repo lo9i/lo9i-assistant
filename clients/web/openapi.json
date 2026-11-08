@@ -8908,6 +8908,35 @@
         "title": "ConnectedClient",
         "description": "A client holding the daemon's event stream open. `transport` is \"unix socket\" or host:port.\n`device_id` is the paired device it connected from (empty on the Unix socket), `thread_id` the\nconversation it's on (empty until it starts, resumes or writes to one)."
       },
+      "ContextItem": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tokens": {
+            "type": "integer",
+            "title": "Tokens"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "frame": {
+            "type": "boolean",
+            "title": "Frame",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "tokens"
+        ],
+        "title": "ContextItem",
+        "description": "What a part lists (a skill, a fact, a tool's definition), largest first."
+      },
       "ContextPart": {
         "properties": {
           "name": {
@@ -8928,6 +8957,14 @@
               }
             ],
             "title": "Before"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContextItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
           }
         },
         "type": "object",

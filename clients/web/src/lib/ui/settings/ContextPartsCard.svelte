@@ -1,21 +1,18 @@
 <script lang="ts">
+  import type { StartingContext } from "$lib/api/types";
   import { contextShare } from "$lib/doctor";
   import { compact } from "$lib/conversationStats";
-  import { arcs, percent, strength } from "$lib/contextParts";
-  import { resource } from "$lib/daemon.svelte";
+  import { arcs, percent, shade } from "$lib/contextParts";
   import { formatNumber, t } from "$lib/i18n.svelte";
   import SettingsCard from "../Card.svelte";
 
-  // What a new conversation's context is made of: the system prompt part by part and the tool definitions, measured
-  // as the health check measures them, so the user sees what takes the room and can trim it. It changes with memory,
-  // skills, plugins, accounts and the prompt's texts, so those events measure it again.
-  const context = resource((c) => c.doctor.context(), ["memory", "skills", "mcp", "plugins", "integrations", "prompts", "settings"]);
-  const shown = $derived(context.data ? arcs(context.data.parts) : []);
-  // Hovered or focused, else the one clicked, which stays until clicked again.
+  // What a new conversation's context is made of, as a ring of its parts, largest first. Hovering one shows its
+  // numbers in the middle; picking one (ContextBreakdown) shows what it lists in the card beside it.
+  type Props = { context: StartingContext | undefined; error?: string; selected: string; onselect: (name: string) => void };
+  let { context, error, selected, onselect }: Props = $props();
+  const shown = $derived(context ? arcs(context.parts) : []);
   let hovered = $state<number | null>(null);
-  let picked = $state<number | null>(null);
-  const active = $derived(hovered ?? picked);
-  const focus = $derived(active !== null ? shown[active] : undefined);
+  const focus = $derived(hovered !== null ? shown[hovered] : undefined);
 
   const SIZE = 200;
   const RADIUS = 84;
@@ -27,28 +24,18 @@
     const drawn = shown.length > 1 ? Math.max(length * CIRCLE - GAP, 0.75) : CIRCLE;
     return `${drawn} ${CIRCLE}`;
   }
-
-  function color(rank: number): string {
-    return `color-mix(in oklab, var(--ring-strong) ${strength(rank, shown.length)}%, var(--ring-weak))`;
-  }
-
-  function pick(rank: number): void {
-    picked = picked === rank ? null : rank;
-  }
 </script>
 
 <SettingsCard id="context-parts" title={t("contextParts.title")} sub={t("contextParts.sub")}>
   {#snippet status()}
-    {#if context.data?.window}
-      <span class="pill" class:pill--danger={context.data.too_large}
-        >{t("contextParts.ofWindow", { share: contextShare(context.data) })}</span
-      >
+    {#if context?.window}
+      <span class="pill" class:pill--danger={context.too_large}>{t("contextParts.ofWindow", { share: contextShare(context) })}</span>
     {/if}
   {/snippet}
-  {#if context.data === undefined}
-    <p class="text-meta">{context.error ?? t("common.loading")}</p>
+  {#if context === undefined}
+    <p class="text-meta">{error ?? t("common.loading")}</p>
   {:else}
-    {@const data = context.data}
+    {@const data = context}
     <div class="chart">
       <div class="ring">
         <!-- The legend beside it is the keyboard's way to the same numbers; the arcs answer the pointer. -->
@@ -59,17 +46,17 @@
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <circle
                 class="arc"
-                class:active={active === rank}
-                class:dim={active !== null && active !== rank}
+                class:active={hovered === rank || (hovered === null && selected === arc.name)}
+                class:dim={hovered !== null && hovered !== rank}
                 cx={SIZE / 2}
                 cy={SIZE / 2}
                 r={RADIUS}
-                stroke={color(rank)}
+                stroke={shade(rank, shown.length)}
                 stroke-dasharray={dash(arc.length)}
                 stroke-dashoffset={-arc.start * CIRCLE}
                 onpointerenter={() => (hovered = rank)}
                 onpointerleave={() => (hovered = null)}
-                onclick={() => pick(rank)}
+                onclick={() => onselect(arc.name)}
               />
             {/each}
           </g>
@@ -91,15 +78,16 @@
           <li>
             <button
               type="button"
-              class:active={active === rank}
-              aria-pressed={picked === rank}
+              class:active={hovered === rank}
+              class:selected={selected === arc.name}
+              aria-pressed={selected === arc.name}
               onpointerenter={() => (hovered = rank)}
               onpointerleave={() => (hovered = null)}
               onfocus={() => (hovered = rank)}
               onblur={() => (hovered = null)}
-              onclick={() => pick(rank)}
+              onclick={() => onselect(arc.name)}
             >
-              <span class="swatch" style="background: {color(rank)}"></span>
+              <span class="swatch" style="background: {shade(rank, shown.length)}"></span>
               <span class="label">{arc.name}</span>
               <span class="tokens" title={formatNumber(arc.tokens)}>{compact(arc.tokens)}</span>
               <span class="share">{percent(arc.share)}</span>
@@ -113,18 +101,10 @@
 
 <style>
   .chart {
-    /* The brand's teal-gray, the largest part strongest, fading to the smallest. */
-    --ring-strong: #9fd3d1;
-    --ring-weak: #3f5859;
     display: grid;
-    /* The legend kept to a readable width on the tab's whole width. */
-    grid-template-columns: 200px minmax(0, 560px);
+    grid-template-columns: 200px minmax(0, 1fr);
     gap: 28px;
     align-items: center;
-  }
-  :global(:root[data-theme="light"]) .chart {
-    --ring-strong: #364445;
-    --ring-weak: #c3dbd9;
   }
   .ring {
     position: relative;
@@ -206,6 +186,9 @@
   }
   .legend button.active {
     background: var(--color-bg-hover-ghost);
+  }
+  .legend button.selected {
+    background: color-mix(in srgb, var(--ring-strong) 14%, transparent);
   }
   .legend button:focus-visible {
     outline: 1px solid var(--color-divider);

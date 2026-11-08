@@ -74,6 +74,7 @@ export type Cause = Schemas["Cause"];
 export type KnownCause = Schemas["KnownCause"];
 export type StartingContext = Schemas["StartingContext"];
 export type ContextPart = Schemas["ContextPart"];
+export type ContextItem = Schemas["ContextItem"];
 export type SetupCheck = Schemas["SetupCheck"];
 export type SetupReport = Schemas["SetupReport"];
 export type HomePage = Schemas["HomePage"];

@@ -515,9 +515,23 @@ async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client,
 
 
 async def test_the_starting_context_is_measured_now_in_the_language_the_app_shows(app, client, service):
+    from lo9i.core.memory import facts
+
+    await facts.add(service.store, settings.owner_id, "The user's favourite thing is a long described thing.")
+    await facts.add(service.store, settings.owner_id, "Likes jazz.")
     context = await client.doctor.context()
-    parts = {p.name: p.tokens for p in context.parts}
-    assert parts["Core tool definitions"] > 0 and context.tokens == sum(parts.values()) and context.window > 0
+    parts = {p.name: p for p in context.parts}
+    assert parts["Core tool definitions"].tokens > 0 and context.window > 0
+    assert context.tokens == sum(p.tokens for p in parts.values())
+    saved = parts["Saved facts"].items
+    assert [i.name for i in saved if not i.frame] == [
+        "The user's favourite thing is a long described thing.",
+        "Likes jazz.",
+    ]
+    assert [i.tokens for i in saved] == sorted((i.tokens for i in saved), reverse=True)
+    assert sum(i.tokens for i in saved) == parts["Saved facts"].tokens and any(i.frame for i in saved)
+    tools = parts["Core tool definitions"].items
+    assert len(tools) > 1 and all(i.name for i in tools if not i.frame)
     assert (await service.doctor_page(settings.owner_id)).report is None
     transport = httpx.ASGITransport(app=trusted(app))
     headers = {CLIENT_HEADER: "web", LANGUAGE_HEADER: "es"}

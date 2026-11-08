@@ -812,7 +812,11 @@
     "total": "Tokens",
     "window": "of {window}",
     "ofTotal": "{percent} of the total",
-    "ring": "The context's parts by size"
+    "ring": "The context's parts by size",
+    "itemsTitle": "What it lists",
+    "itemsSub": "{tokens} tokens, {percent} of the context. Click an entry to see it whole.",
+    "frame": "Its heading and instructions",
+    "noItems": "It lists nothing on its own."
   },
   "keptKeys": {
     "tokenFor": "Token for {repository}",

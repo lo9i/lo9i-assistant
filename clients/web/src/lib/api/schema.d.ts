@@ -3993,6 +3993,26 @@ export interface components {
              */
             thread_id: string;
         };
+        /**
+         * ContextItem
+         * @description What a part lists (a skill, a fact, a tool's definition), largest first.
+         */
+        ContextItem: {
+            /** Name */
+            name: string;
+            /** Tokens */
+            tokens: number;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Frame
+             * @default false
+             */
+            frame: boolean;
+        };
         /** ContextPart */
         ContextPart: {
             /** Name */
@@ -4001,6 +4021,11 @@ export interface components {
             tokens: number;
             /** Before */
             before?: number | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ContextItem"][];
         };
         /** Conversation */
         Conversation: {

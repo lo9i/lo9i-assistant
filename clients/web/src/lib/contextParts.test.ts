@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { arcs, percent, strength } from "./contextParts";
+import { arcs, itemsOf, percent, strength } from "./contextParts";
 
 describe("arcs", () => {
   it("puts the largest part first, each arc starting where the one before ends", () => {
     const parts = [
-      { name: "Skills", tokens: 100 },
-      { name: "Core tool definitions", tokens: 300 },
-      { name: "Accounts", tokens: 0 },
-      { name: "Profile", tokens: 100 },
+      { name: "Skills", tokens: 100, items: [] },
+      { name: "Core tool definitions", tokens: 300, items: [] },
+      { name: "Accounts", tokens: 0, items: [] },
+      { name: "Profile", tokens: 100, items: [] },
     ];
     expect(arcs(parts)).toEqual([
       { name: "Core tool definitions", tokens: 300, share: 0.6, start: 0, length: 0.6 },
@@ -17,7 +17,7 @@ describe("arcs", () => {
   });
 
   it("has no arcs without tokens", () => {
-    expect(arcs([{ name: "Accounts", tokens: 0 }])).toEqual([]);
+    expect(arcs([{ name: "Accounts", tokens: 0, items: [] }])).toEqual([]);
   });
 });
 
@@ -32,5 +32,25 @@ describe("strength", () => {
   it("fades from the largest to the smallest", () => {
     expect([0, 1, 2].map((r) => strength(r, 3))).toEqual([100, 50, 0]);
     expect(strength(0, 1)).toBe(100);
+  });
+});
+
+describe("itemsOf", () => {
+  it("lists what a part holds, largest first, each with its share of the part", () => {
+    const facts = {
+      name: "Saved facts",
+      tokens: 100,
+      items: [
+        { name: "Likes jazz.", tokens: 20, detail: "", frame: false },
+        { name: "", tokens: 5, detail: "", frame: true },
+        { name: "Lives in Buenos Aires.", tokens: 75, detail: "", frame: false },
+      ],
+    };
+    expect(itemsOf([facts], "Saved facts").map((i) => [i.name, i.share])).toEqual([
+      ["Lives in Buenos Aires.", 0.75],
+      ["Likes jazz.", 0.2],
+      ["", 0.05],
+    ]);
+    expect(itemsOf([facts], "Skills")).toEqual([]);
   });
 });

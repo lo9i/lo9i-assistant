@@ -44,11 +44,24 @@ class Cause(BaseModel):
     before: int = 0
 
 
+class ContextItem(BaseModel):
+    """What a part lists (a skill, a fact, a tool's definition), largest first."""
+
+    name: str
+    tokens: int
+    # What says what it is, when its name doesn't (a skill's description, a profile section's entries).
+    detail: str = ""
+    # The part's own text around its items (its heading and instructions), which has no name.
+    frame: bool = False
+
+
 class ContextPart(BaseModel):
     name: str
     tokens: int
     # The day before; None when there's no report from then, or it didn't have this part.
     before: int | None = None
+    # Only when measured for the apps, never kept in a report.
+    items: list[ContextItem] = []
 
 
 class StartingContext(BaseModel):
