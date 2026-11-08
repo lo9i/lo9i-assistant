@@ -39,7 +39,7 @@
       {#if open.waiting}<i class="waiting" aria-label={t("nav.waitingCount", { count: open.waiting })}></i>{/if}
     </button>
     {#if shown}
-      <ul class="menu surface--glass" aria-label={t("nav.openConversations")}>
+      <ul class="menu surface--popover" aria-label={t("nav.openConversations")}>
         {#each open.items as entry (entry.key ?? entry.threadId)}
           <li style:--tint={open.tint(entry.threadId)}>
             <button class="entry" class:current={entry.active} aria-current={entry.active ? "true" : undefined} onclick={() => pick(entry)}>
@@ -91,9 +91,6 @@
     margin: 0;
     padding: 6px;
     list-style: none;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
   }
   li {
     display: flex;

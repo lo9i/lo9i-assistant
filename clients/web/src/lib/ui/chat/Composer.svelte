@@ -200,7 +200,7 @@
 
 <div class="dock" class:compact>
   {#if menu.length}
-    <ul class="menu" role="listbox" aria-label={t("composer.commands")} bind:this={list}>
+    <ul class="menu surface--popover" role="listbox" aria-label={t("composer.commands")} bind:this={list}>
       {#each menu as command (command.name)}
         <li
           role="option"
@@ -436,11 +436,6 @@
     padding: 4px;
     max-height: min(50vh, 420px);
     overflow-y: auto;
-    border: 1px solid var(--surface-glass-border);
-    border-radius: var(--radius-md);
-    background: var(--surface-modal-bg);
-    backdrop-filter: var(--surface-glass-blur);
-    box-shadow: var(--shadow-popover);
   }
   .menu li {
     display: flex;

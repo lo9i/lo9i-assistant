@@ -62,7 +62,7 @@
       onclick={toggle}><span class="name">{current.name}</span><ChevronDown size={12} aria-hidden="true" /></button
     >
     {#if open}
-      <div class="menu surface--glass" role="listbox" aria-label={t("chat.modelPick")}>
+      <div class="menu surface--popover" role="listbox" aria-label={t("chat.modelPick")}>
         {#if failed}
           <p class="note">{failed}</p>
         {:else if !offered}
@@ -127,8 +127,6 @@
     max-height: 50dvh;
     overflow-y: auto;
     padding: 4px;
-    border-radius: var(--radius-md);
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.14);
     white-space: normal;
   }
   .choice {
