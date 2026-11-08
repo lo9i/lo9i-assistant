@@ -90,6 +90,7 @@ async def test_the_days_log_records_are_grouped_by_cause(service):
     assert (polling.count, polling.level, polling.where) == (1, "WARNING", "lo9i.core.channels.telegram")
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_cause_is_new_or_growing_against_the_day_before_and_gone_once_it_stops(service):
     _write(
         "daemon",
@@ -226,6 +227,7 @@ async def test_the_starting_context_is_measured_and_alerts_past_its_share_of_the
     assert "Grew most since 2026-10-24: Saved facts +" in alert.error
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_the_daemon_checks_each_day_once_it_ended(service):
     now = _at(NEXT, 0, 1)
     await service.doctor.check(OWNER, DAY, whole_day=False)

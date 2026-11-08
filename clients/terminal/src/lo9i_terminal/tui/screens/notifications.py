@@ -1,4 +1,4 @@
-"""The notifications feed: scheduled jobs' results, background work that ended and health checks, newest first,
+"""The notifications feed: what needs the user (the reminders they asked for; core/notifications.py), newest first,
 each listed only by when it came, on one line, with the whole of the one picked (what it's about, all it says)
 beside the list, as /conversations lays them out.
 Enter (or Open) goes to the conversation the work was started in, when it has one, opens a job's run in /jobs with

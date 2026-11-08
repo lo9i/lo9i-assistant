@@ -14,12 +14,11 @@ build). When it ends, the daemon tells the conversation that started it (`core/b
   the user got, not as their message (`core/agent/follow_ups.py`). Nothing runs in a conversation handed
   to an agent, or waiting for the user's answer, or once the assistant read the end itself: the note then
   waits for the user's next message.
-- The user: it's added to the notifications feed (`core/notifications.py`; the web app's Notifications
-  page, `/notifications` in the terminal app), named after the conversation it was started in and with a
-  way to open it; every app shows a toast (the `background_ended` event: `thread_id`, `channel`, `ok`,
+- The user: it's offered to the notifications feed, which leaves it out, keeping only what needs the user
+  (`core/notifications.py`); every app shows a toast (the `background_ended` event: `thread_id`, `channel`, `ok`,
   `text`), which in the web app opens that conversation; and when the work was started from a chat channel
   (Telegram, Slack), the channel gets the same text as a message, kept with that conversation, so replying
-  to it goes on there (`core/channels/chat/threads.py`). Scheduled jobs' results go to the same feed. A
+  to it goes on there (`core/channels/chat/threads.py`). Scheduled jobs' results are left out the same way. A
   channel now on another conversation also hears of it in the turn header of the user's next message on
   it, as with `send_message`. The follow-up the assistant runs then shows in that channel's chat too, as the
   apps show it (`daemon/channel_runs.py::ChannelMirrors`).

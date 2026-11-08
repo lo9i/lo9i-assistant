@@ -1,8 +1,9 @@
-"""The notifications feed: scheduled jobs' results, background work that ended (core/background.py), health checks,
-the Copilot allowance's alerts (core/copilot_quota/), spending limits nearly reached (core/usage/alerts.py), and the
-morning briefing and reminders (core/proactive/),
-listed by the apps apart from any conversation (the web app's Notifications page, /notifications in the terminal
-app), newest first, besides the toast or chat message each one also gets. Each names the conversation its work was
+"""The notifications feed: only what asks something of the user (NEEDS_USER), the reminders they asked for
+(core/proactive/reminders.py) now, listed by the apps apart from any conversation (the web app's Notifications page,
+/notifications in the terminal app), newest first. What only informs (scheduled jobs' results, background work that
+ended, health checks, the Copilot allowance's and spending limits' alerts, the morning briefing) is offered here by
+its code like the rest and left out: it stays in its conversation, on Home, in Alerts and in the toast or chat
+message it also gets. Records of those kinds kept from before aren't listed. Each names the conversation its work was
 started in, when there is one, so the apps open it from there; a job's run names its job and run instead, which the
 apps open on the Jobs page with the run's full reply. One Store record per notification under
 ("notifications", user_id); past _KEPT the oldest go."""
@@ -19,6 +20,9 @@ _SCAN_LIMIT = 10_000
 
 Kind = Literal["job", "background", "doctor", "copilot", "spending", "briefing", "reminder"]
 
+# The kinds the feed keeps: those the user has to act on.
+NEEDS_USER: frozenset[Kind] = frozenset({"reminder"})
+
 
 @dataclass
 class Notification:
@@ -30,7 +34,7 @@ class Notification:
     # (core/copilot_quota/alerts.py), which opens nothing; spending: a spending limit nearly reached
     # (core/usage/alerts.py), which opens the conversation for a conversation's limit; briefing: the morning
     # briefing, and reminder: an open loop's reminder (core/proactive/), which opens the loop's conversation when it
-    # has one, and Home otherwise (its Open loops card).
+    # has one, and Home otherwise (its Open loops card). Only NEEDS_USER's are kept.
     kind: Kind
     title: str
     text: str
@@ -51,29 +55,39 @@ def _namespace(user_id: str) -> tuple[str, ...]:
 
 async def add(
     store: BaseStore, user_id: str, kind: Kind, title: str, text: str, ok: bool, thread_id: str = "", plugin: str = ""
-) -> Notification:
+) -> Notification | None:
+    """None: the feed doesn't keep its kind."""
     at = datetime.now(UTC).isoformat()
     notification = Notification(uuid4().hex, at, kind, title, text, ok, thread_id, plugin=plugin)
-    await _save(store, user_id, notification)
-    return notification
+    return await _save(store, user_id, notification)
 
 
-async def add_job_run(store: BaseStore, user_id: str, job: str, run_at: str, text: str, ok: bool) -> Notification:
-    """A scheduled job's run, which opens on the Jobs page: its run isn't a conversation the user opens."""
+async def add_job_run(
+    store: BaseStore, user_id: str, job: str, run_at: str, text: str, ok: bool
+) -> Notification | None:
+    """A scheduled job's run, which opens on the Jobs page: its run isn't a conversation the user opens. None: the
+    feed doesn't keep it."""
     at = datetime.now(UTC).isoformat()
     notification = Notification(uuid4().hex, at, "job", f"Job {job}", text, ok, job=job, run_at=run_at)
-    await _save(store, user_id, notification)
-    return notification
+    return await _save(store, user_id, notification)
 
 
-async def _save(store: BaseStore, user_id: str, notification: Notification) -> None:
+async def _save(store: BaseStore, user_id: str, notification: Notification) -> Notification | None:
+    if notification.kind not in NEEDS_USER:
+        return None
     await store.aput(_namespace(user_id), notification.id, asdict(notification))
-    for old in (await recent(store, user_id))[_KEPT:]:
+    for old in (await _every(store, user_id))[_KEPT:]:
         await store.adelete(_namespace(user_id), old.id)
+    return notification
 
 
 async def recent(store: BaseStore, user_id: str) -> list[Notification]:
     """Newest first."""
+    return [n for n in await _every(store, user_id) if n.kind in NEEDS_USER]
+
+
+async def _every(store: BaseStore, user_id: str) -> list[Notification]:
+    """Newest first, with those of kinds the feed kept before and doesn't list now."""
     items = await store.asearch(_namespace(user_id), limit=_SCAN_LIMIT)
     return sorted((Notification(**i.value) for i in items), key=lambda n: (n.at, n.id), reverse=True)
 
@@ -99,7 +113,7 @@ async def dismiss(store: BaseStore, user_id: str, notification_id: str) -> bool:
 
 
 async def clear(store: BaseStore, user_id: str) -> None:
-    for notification in await recent(store, user_id):
+    for notification in await _every(store, user_id):
         await store.adelete(_namespace(user_id), notification.id)
 
 

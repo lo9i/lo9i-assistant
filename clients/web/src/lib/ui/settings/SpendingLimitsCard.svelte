@@ -7,7 +7,7 @@
 
   // What model calls may spend (core/usage/limits.py): per run of a scheduled job, per job a day, per conversation and
   // overall a day, in US dollars as the usage report prices them; each off while empty. A run that reaches one stops
-  // there, saying which; at 80% the chat channels and Notifications hear it once.
+  // there, saying which; at 80% the chat channels hear it once.
   const { client } = useDaemon();
   const loaded = resource((c) => c.usage.spending(), ["settings"]);
   const LABELS: Record<Limit, Key> = {

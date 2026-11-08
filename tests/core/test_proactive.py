@@ -220,6 +220,7 @@ async def test_the_nightly_review_comes_at_its_time_and_the_weekly_after_it_on_i
 # The briefing.
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_the_briefing_lays_out_the_plugins_lists_without_the_model(service, script, drafts, planner, chat):
     await _install_planner(service)
     await _run(service, "briefing", SUNDAY.replace(hour=8))

@@ -153,6 +153,7 @@ def _watch(store: InMemoryStore, outbox: Outbox, github: _GitHub, model: ModelCh
     return CopilotWatch(store, outbox, lambda: model, _checked, "owner", httpx.MockTransport(github.handler))
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_the_watch_checks_at_start_and_every_few_hours_and_alerts_once_on_every_channel():
     store, outbox, whatsapp, telegram = InMemoryStore(), Outbox(), _Chat(), _Chat()
     await language.save(store, "es")
@@ -171,6 +172,7 @@ async def test_the_watch_checks_at_start_and_every_few_hours_and_alerts_once_on_
     assert (feed.kind, feed.title, feed.text, feed.ok) == ("copilot", "Cupo de Copilot", low, False)
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_without_a_channel_connected_an_alert_is_kept_in_the_feed_only():
     store, outbox, whatsapp = InMemoryStore(), Outbox(), _Chat()
     await language.save(store, "es")

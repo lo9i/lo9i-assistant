@@ -86,7 +86,7 @@
   const updates = resource((c) => c.repositories.updates(), ["plugins", "mcp", "skills", "settings"]);
   // The apps whose plugin has one, by name: their icon offers it.
   const appUpdates = $derived(new Map((updates.data ?? []).filter((u) => u.kind === "server").map((u) => [u.name, u])));
-  // Job results and background work that ended, counted until the Notifications page is seen.
+  // What needs the user (the reminders they asked for), counted until the Notifications page is seen.
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
   const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
   // Every conversation's background subagents, counted while they work.

@@ -26,7 +26,7 @@ def describe(status: SpendingStatus) -> str:
             "## " + t("Spending limits"),
             t(
                 "What the model calls may spend, in US dollars as /usage prices them. A reply or a job's run that "
-                "reaches a limit stops there and says which; at 80% your chat channels and /notifications hear it once."
+                "reaches a limit stops there and says which; at 80% your chat channels hear it once."
             ),
             "\n".join(rows),
             t("Spent today: {spent}", spent=f"US${status.spent_today:,.2f}"),

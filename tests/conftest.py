@@ -8,7 +8,7 @@ import re
 from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
@@ -22,6 +22,7 @@ import lo9i.core.graph as graph_module
 import lo9i.core.home.builder as home_builder_module
 import lo9i.core.proactive.writing as proactive_writing_module
 import lo9i.core.subagent as subagent_module
+from lo9i.core import notifications
 from lo9i.core.agent import AssistantService
 from lo9i.core.config import settings
 from lo9i.core.conversation.digest import DigestInput, MemoryDigest
@@ -158,6 +159,13 @@ def embedder(monkeypatch: pytest.MonkeyPatch) -> FakeEmbedder:
     fake = FakeEmbedder()
     monkeypatch.setattr(service_module, "E5Embedder", lambda: fake)
     return fake
+
+
+@pytest.fixture
+def feed_keeps_every_kind(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The notifications feed keeps only what needs the user; this keeps what the rest offers it too, for the tests
+    of what each part offers."""
+    monkeypatch.setattr(notifications, "NEEDS_USER", frozenset(get_args(notifications.Kind)))
 
 
 class ScriptedModel(GenericFakeChatModel):

@@ -69,7 +69,7 @@ class Doctor:
             await asyncio.wait([self._checking])
 
     async def check(self, user_id: str, day: date, whole_day: bool) -> DoctorReport:
-        """Checks `day`, keeps the report and tells it in the notifications feed."""
+        """Checks `day`, keeps the report and offers it to the notifications feed, which leaves it out."""
         previous = await records.before(self._store, user_id, day)
         report = await self._report(user_id, day, whole_day, previous)
         await records.save(self._store, user_id, report)

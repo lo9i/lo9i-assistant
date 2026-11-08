@@ -236,7 +236,8 @@ class Scheduler:
 
 
 async def _notify(saved: BaseStore, job: Job, run: RunRecord, late: str = "") -> None:
-    """Into the notifications feed: a run's result, or why it failed or didn't run, opening on the job."""
+    """Offered to the notifications feed, which leaves it out (it keeps only what needs the user): a run's result, or
+    why it failed or didn't run, opening on the job."""
     ok, t = run.status == "ok", await i18n.chosen(saved)
     text = run.summary if ok else t(_NOT_OK.get(run.status, "{summary}"), summary=t.shown(run.summary))
     await notifications.add_job_run(saved, job.user_id, job.name, run.at, f"{t.shown(late)}{text}", ok)

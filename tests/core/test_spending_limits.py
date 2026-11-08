@@ -84,6 +84,7 @@ async def test_a_conversation_over_its_limit_ends_its_run_before_the_model_is_ca
     assert not [r for r in caplog.records if r.levelname == "WARNING" and "OverBudgetError" in r.getMessage()]
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_the_days_limit_nearly_reached_is_told_once_on_the_channels_and_in_the_feed(service, script):
     chat = _Chat()
     service.outbox.register("telegram", chat)
@@ -104,6 +105,7 @@ async def test_the_days_limit_nearly_reached_is_told_once_on_the_channels_and_in
     assert (await service.spending()).spent_today == pytest.approx(3.0)
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_limit_changed_is_told_again(service, script):
     await service.set_spending_limits(SpendingLimits(conversation=1.0))
     script._replies.append(_costing(0.9))
@@ -116,6 +118,7 @@ async def test_a_limit_changed_is_told_again(service, script):
     assert len(told) == 2 and told[0].thread_id == session.thread_id
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_job_run_over_its_jobs_daily_limit_is_recorded_as_over_budget(service, script):
     now = await _job_due(service, script, minutes_ago=1)
     await service.set_spending_limits(SpendingLimits(job_day=0.5))

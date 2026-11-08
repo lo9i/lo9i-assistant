@@ -51,6 +51,7 @@ async def _run_tick(service, now) -> Job:
     return job
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_due_job_runs_unattended_and_records_the_result(service, script):
     now = await _job_due(service, script, minutes_ago=1)
     script.reply("Here is today's summary.")
@@ -76,6 +77,7 @@ async def test_a_job_runs_whole_reply_is_read_though_its_record_keeps_only_the_e
         await service.job_run_reply("owner", "daily-news", "2020-01-01T00:00:00+00:00")
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_denied_action_marks_the_run_as_needing_attention(service, script):
     now = await _job_due(service, script, minutes_ago=1)
     script.call("bash", command="rm -rf build").reply("couldn't clean up")
@@ -85,6 +87,7 @@ async def test_denied_action_marks_the_run_as_needing_attention(service, script)
     assert not told.ok and told.text.startswith("Needs attention: ")
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_run_missed_beyond_the_grace_window_is_recorded_not_run_and_notified(service, script):
     now = await _job_due(service, script, minutes_ago=7 * 60)
     job = await _run_tick(service, now)
@@ -94,6 +97,7 @@ async def test_run_missed_beyond_the_grace_window_is_recorded_not_run_and_notifi
     assert told.text == "Missed: it was due while the assistant wasn't running (the computer was off or asleep)"
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_run_that_starts_well_after_it_was_due_says_how_late(service, script):
     now = await _job_due(service, script, minutes_ago=125)
     script.reply("Here is today's summary.")
@@ -103,6 +107,7 @@ async def test_a_run_that_starts_well_after_it_was_due_says_how_late(service, sc
     assert told.text.endswith("Here is today's summary.")
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_run_on_time_says_nothing_about_when(service, script):
     now = await _job_due(service, script, minutes_ago=1)
     script.reply("Here is today's summary.")

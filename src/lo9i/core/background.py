@@ -1,12 +1,12 @@
 """Background work that ends after the call that started it returned: a coding agent's task
 (core/agent_tasks/ends.py), or work an MCP server reports finished (core/mcp/background.py). Its end is
 told to the conversation that started it, in the turn header of the user's next message there
-(core/conversation/ended.py), and to the user: it's added to the notifications feed (core/notifications.py)
-with a way to open that conversation, every app shows a toast (a `background_ended` event), and a chat
-channel it was started from gets a message, kept with that conversation so replying to it goes on there
-(core/channels/chat/threads.py). When the work failed, or its end asks for it, the assistant doesn't wait
-for the user: a follow-up is queued in that conversation (core/conversation/queued.py), which the daemon
-runs with the note and no message from the user.
+(core/conversation/ended.py), and to the user: it's offered to the notifications feed, which leaves it
+out (it keeps only what needs the user, core/notifications.py), every app shows a toast (a
+`background_ended` event), and a chat channel it was started from gets a message, kept with that
+conversation so replying to it goes on there (core/channels/chat/threads.py). When the work failed, or
+its end asks for it, the assistant doesn't wait for the user: a follow-up is queued in that conversation
+(core/conversation/queued.py), which the daemon runs with the note and no message from the user.
 """
 
 import logging

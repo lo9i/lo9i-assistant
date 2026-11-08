@@ -2,8 +2,8 @@
 reviews, Home's Open loops card):
 
 - the morning briefing (briefing.py): each plugin's list for the day (core/mcp/today.py), the unread mail that matters,
-  the open loops that matter now and the reviews' suggestions, laid out by code, sent to the user's chat channels and
-  kept in the notifications feed;
+  the open loops that matter now and the reviews' suggestions, laid out by code, sent to the user's chat channels
+  (the notifications feed leaves it out);
 - open loops (loops.py): what's still to do, from conversations' archived parts, the briefing and the reviews, closed
   when a later conversation or review shows it done, and by the user;
 - reminders (reminders.py) of the urgent ones at their time;

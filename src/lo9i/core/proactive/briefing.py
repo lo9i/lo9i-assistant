@@ -4,9 +4,10 @@ to issue), the unread mail that matters, the open loops that matter now and the 
 picks the unread mail worth the user's attention, made only when there's unread mail and the user didn't mute it.
 Nothing is sent when there's nothing to tell.
 
-The message goes to the notifications feed, which the apps show, and to the user's own chat on every chat channel
-connected (core/conversation/sent.py), where a reply to it arrives with it in its turn header. It never fails the
-schedule: a failure is recorded on the briefing, which the apps show as an alert (failed.py)."""
+The message is offered to the notifications feed, which leaves it out (it keeps only what needs the user), and goes to
+the user's own chat on every chat channel connected (core/conversation/sent.py), where a reply to it arrives with it in
+its turn header. It never fails the schedule: a failure is recorded on the briefing, which the apps show as an alert
+(failed.py)."""
 
 import asyncio
 import logging

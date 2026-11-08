@@ -17,8 +17,8 @@ _ABOUT = {
         "Starting at boot runs the assistant, and Ollama if you use it, from the moment the Mac starts, without "
         "anyone logging in, so scheduled jobs and Telegram keep working. It runs as your user.\n\n"
         "- macOS asks for your administrator password once.\n"
-        "- A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and /notifications says "
-        "when one ran late or was missed.\n"
+        "- A sleeping or powered-off Mac runs nothing; missed jobs catch up within 6 hours, and /jobs lists "
+        "a run that was missed.\n"
         "- With FileVault on, after a restart nothing runs until someone logs in once.\n"
         "- Calls and other plugins that open apps on the Mac's screen work while you're logged in on it: a helper of "
         "the assistant's runs in your session for them."
@@ -27,8 +27,8 @@ _ABOUT = {
         "Starting at boot runs the assistant as a systemd user service (`lo9i-assistant`) from the moment the "
         "computer starts, so scheduled jobs and Telegram keep working. It runs as your user.\n\n"
         "- Its log: `/logs`; output from before it starts logging: `journalctl --user -u lo9i-assistant`\n"
-        "- A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and /notifications "
-        "says when one ran late or was missed.\n"
+        "- A powered-off or suspended computer runs nothing; missed jobs catch up within 6 hours, and /jobs "
+        "lists a run that was missed.\n"
         "- Ollama isn't included: its Linux installer runs it as a service of its own."
     ),
     "unsupported": translatable("Start at boot works on macOS and on Linux with systemd. This system has neither."),

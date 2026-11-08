@@ -1,7 +1,7 @@
 """Telling the user something on the assistant's own initiative (the briefing, a reminder): into the notifications
-feed, which the apps show and keep, and to the user's own chat on every chat channel connected now, recorded for the
-turn header of their next message there (core/conversation/sent.py), so a reply ("done", "less of this") arrives
-with what it answers. With no channel connected, the feed is where it's read."""
+feed when it needs the user (a reminder; core/notifications.py), and to the user's own chat on every chat channel
+connected now, recorded for the turn header of their next message there (core/conversation/sent.py), so a reply
+("done", "less of this") arrives with what it answers. With no channel connected, a reminder is read in the feed."""
 
 from datetime import UTC, datetime
 

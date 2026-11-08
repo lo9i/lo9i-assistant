@@ -1,7 +1,8 @@
 """Watching the allowance: the daemon runs this as a supervised task. While the model provider is Copilot it checks
 at start and every CHECK_HOURS after, keeps the result (records.py) and has Home's Copilot card built again from it.
 Ticks read the wall clock, so a computer waking from sleep catches up within a tick. An alert that's due (alerts.py)
-goes to the notifications feed, which keeps it for the apps, and to the user's own chat on every chat channel
+is offered to the notifications feed, which leaves it out (it keeps only what needs the user), and goes to the
+user's own chat on every chat channel
 connected then, through the outbox as send_message's do, recorded for the turn header of their next message there
 (core/conversation/sent.py).
 

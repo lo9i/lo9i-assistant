@@ -1,5 +1,5 @@
-"""Telling a spending limit nearly reached (budget.py): in the notifications feed, which keeps it for the apps (opening
-the conversation, for a conversation's limit), and in the user's own chat on every chat channel connected then, as the
+"""Telling a spending limit nearly reached (budget.py): offered to the notifications feed, which leaves it out (it keeps
+only what needs the user), and in the user's own chat on every chat channel connected then, as the
 Copilot allowance's alerts are told. Written in the language the user chose."""
 
 from datetime import UTC, datetime

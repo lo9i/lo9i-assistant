@@ -58,6 +58,7 @@ def _results(request) -> list[str]:
     return [m.text for m in request if isinstance(m, ToolMessage)]
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_its_answer_goes_back_to_the_conversation_that_sent_it_off(service, script):
     session, subagent_id = await _sent_off(service, script)
     script.call("bash", command="echo 42").reply("The answer is 42.")
@@ -181,6 +182,7 @@ async def _until(condition) -> None:
     raise TimeoutError("never happened")
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_failure_is_told_as_a_warning(service, script):
     _, subagent_id = await _sent_off(service, script)
     script.refuse(RuntimeError("the model is down"))

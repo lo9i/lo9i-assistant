@@ -2087,7 +2087,7 @@ def _add_setup_check_route(app: FastAPI, service: AssistantService, web_ui: Path
 
 
 def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
-    """The notifications feed (core/notifications.py): job results and background work that ended."""
+    """The notifications feed (core/notifications.py): only what needs the user, the reminders they asked for."""
 
     @app.get("/notifications")
     async def notification_list(offset: _Offset = 0, limit: _PageLimit = None) -> list[Notification]:

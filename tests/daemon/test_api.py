@@ -479,12 +479,13 @@ async def test_a_client_showing_home_keeps_it_current_until_it_stops(client, ser
 
 
 async def test_notifications_are_listed_read_and_dismissed(client, service):
-    first = await notifications.add(service.store, "owner", "job", "Job news", "Read the news.", True)
-    await notifications.add(service.store, "owner", "background", "Trip", "⚠️ It failed.", False, "owner:t1")
+    first = await notifications.add(service.store, "owner", "reminder", "Reminder", "Call the bank.", True)
+    await notifications.add(service.store, "owner", "reminder", "Trip", "Book the hotel.", True, "owner:t1")
     listed = await client.notifications.list()
-    assert [(n.title, n.thread_id, n.read) for n in listed] == [("Trip", "owner:t1", False), ("Job news", "", False)]
+    assert [(n.title, n.thread_id, n.read) for n in listed] == [("Trip", "owner:t1", False), ("Reminder", "", False)]
     await client.notifications.mark_read()
     assert all(n.read for n in await client.notifications.list())
+    assert first is not None
     await client.notifications.dismiss(first.id)
     assert [n.title for n in await client.notifications.list()] == ["Trip"]
     await client.notifications.clear()
@@ -1161,7 +1162,7 @@ async def test_files_to_delete_come_at_most_200_at_a_time(client):
 
 async def test_notifications_come_in_pages(client, service):
     for title in ("First", "Second", "Third"):
-        await notifications.add(service.store, "owner", "job", title, "Done.", True)
+        await notifications.add(service.store, "owner", "reminder", title, "Do it.", True)
     every = await client.notifications.list()
     assert [n.title for n in every] == ["Third", "Second", "First"]
     assert await client.notifications.list(limit=2) == every[:2]

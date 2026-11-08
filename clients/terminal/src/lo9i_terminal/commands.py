@@ -38,7 +38,7 @@ COMMANDS = [
     Command("/open", "/open", translatable("The conversations open here and any other working, to switch (Ctrl+O)")),
     Command("/inbox", "/inbox", translatable("Back to the inbox: the next message goes where it belongs")),
     Command("/move", "/move", translatable("Move the last message the inbox sent on to another conversation")),
-    Command("/notifications", "/notifications", translatable("Job results and background work that ended")),
+    Command("/notifications", "/notifications", translatable("Reminders you asked for")),
     Command(
         "/alerts", "/alerts", translatable("What keeps failing, needs signing in again, or the health check found")
     ),

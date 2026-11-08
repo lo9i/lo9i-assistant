@@ -101,6 +101,7 @@ async def test_a_tasks_end_is_told_on_its_channel_and_once_in_the_next_turn_head
     assert _notes(script.requests[-1]) == ""
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_a_tasks_end_goes_to_the_feed_with_the_conversation_it_was_started_in(service, script, titles, tmp_path):
     await service.add_mcp_server(agent_plugin(trusted=True))
     titles.title = "Fix the tests"
@@ -166,6 +167,7 @@ async def test_an_end_waits_while_the_assistant_reads_the_task_and_isnt_told_onc
     assert await reports.expected() == []
 
 
+@pytest.mark.usefixtures("feed_keeps_every_kind")
 async def test_an_mcp_servers_background_work_is_told_to_the_conversation_that_started_it(service, script):
     await service.add_mcp_server(McpServer(name="convert", command=sys.executable, args=[str(_SERVER)], trusted=True))
     await _until(lambda: service.mcp.state("convert")[0] == "connected")
