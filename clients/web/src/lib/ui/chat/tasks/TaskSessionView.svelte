@@ -6,9 +6,7 @@
   import { untrack } from "svelte";
   import type { TaskSession, TaskSessionDetails, TaskStepTaken } from "$lib/api/types";
   import { shownItems, withStep, working } from "$lib/chat/codingTasks";
-  import { clock } from "$lib/clock.svelte";
   import { useDaemon } from "$lib/daemon.svelte";
-  import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import StatusMark from "../subagents/StatusMark.svelte";
@@ -23,7 +21,6 @@
   type Props = { threadId: string; session: TaskSession };
   let { threadId, session }: Props = $props();
   const { client, hub, notices } = useDaemon();
-  const time = clock();
   let details = $state<TaskSessionDetails | null>(null);
   let error = $state("");
   let text = $state("");
@@ -105,9 +102,7 @@
 <section class="session" aria-label={session.title}>
   <div class="meta">
     <StatusMark status={session.status} />
-    <span class="status status--{session.status}">{t(`tasks.status.${session.status}`)}</span>
     <span class="where" title={t("tasks.in", { folder: session.repository })}><Folder size={12} />{folder}</span>
-    <span class="text-caption">{duration(session.started_at, ended || time.now)}</span>
     <span class="end">
       {#if busy}
         {#if stopping}
@@ -179,15 +174,6 @@
     padding: 0 6px 6px;
     border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
     font-size: var(--font-size-sm);
-  }
-  .status {
-    font-weight: 600;
-  }
-  .status--running {
-    color: var(--glow);
-  }
-  .status--failed {
-    color: var(--color-danger);
   }
   .where {
     display: inline-flex;
