@@ -30,8 +30,8 @@ PLUGIN_TOOLS = translatable("Plugin tool definitions")
 # Kept in English, which names a part across days; shown in the language chosen (changes.py::named).
 _LABELS: dict[PromptPart, str] = {
     "persona": translatable("Persona"),
-    "name": translatable("Instructions"),
-    "operating": translatable("Instructions"),
+    "name": translatable("Prompts"),
+    "operating": translatable("Prompts"),
     "channels": translatable("Channels"),
     "skills": translatable("Skills"),
     "plugin_tools": translatable("Plugins' tools listed"),
