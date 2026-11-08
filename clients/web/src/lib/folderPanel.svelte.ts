@@ -32,11 +32,6 @@ class FolderPanel {
     this.set(threadId, !this.isOpen(threadId));
   }
 
-  /** Opens it, as when something new to see comes there. */
-  show(threadId: string): void {
-    if (!this.isOpen(threadId)) this.set(threadId, true);
-  }
-
   private set(threadId: string, open: boolean): void {
     this.#shown[threadId] = open;
     this.#last = open;
@@ -60,10 +55,50 @@ function initial(key: string, shownAtFirst: boolean): boolean {
 
 export const folderPanel = new FolderPanel("lo9i.folderPanel", true);
 export const homePanel = new FolderPanel("lo9i.homePanel", false);
-// The side panel of the conversation's background subagents (ui/chat/subagents/), kept the same way: shown at first,
-// as it's there only once the conversation sent one off.
-export const subagentsPanel = new FolderPanel("lo9i.subagentsPanel", true);
-// The side panel of the coding agents' work beside the conversation that started it (ui/chat/tasks/), kept the same way:
-// open at first, as it's there only once the conversation started a task; minimized, it's a thin bar saying how they're
-// doing. A new task opens it.
-export const tasksPanel = new FolderPanel("lo9i.tasksPanel", true);
+
+// How many conversations' choices a panel keeps: the oldest go first, so storage doesn't grow with every conversation.
+const KEPT_CONVERSATIONS = 200;
+
+// A panel of work the assistant sends off: minimized beside every conversation until the user opens it there, as work
+// sent off goes on without being watched. What the user leaves it at is kept for that conversation alone, per browser.
+class SentOffPanel {
+  #open = $state<Record<string, boolean>>({});
+
+  constructor(private readonly key: string) {
+    this.#open = keptChoices(key);
+  }
+
+  isOpen(threadId: string): boolean {
+    return this.#open[threadId] ?? false;
+  }
+
+  toggle(threadId: string): void {
+    const open = !this.isOpen(threadId);
+    delete this.#open[threadId];
+    this.#open[threadId] = open;
+    const entries = Object.entries(this.#open);
+    if (entries.length > KEPT_CONVERSATIONS) this.#open = Object.fromEntries(entries.slice(-KEPT_CONVERSATIONS));
+    try {
+      localStorage.setItem(this.key, JSON.stringify(this.#open));
+    } catch {
+      // Kept for this page only.
+    }
+  }
+}
+
+function keptChoices(key: string): Record<string, boolean> {
+  try {
+    const kept: unknown = JSON.parse(localStorage.getItem(key) ?? "{}");
+    if (typeof kept !== "object" || kept === null) return {};
+    return Object.fromEntries(Object.entries(kept).filter(([, v]) => typeof v === "boolean"));
+  } catch {
+    return {};
+  }
+}
+
+// The side panel of the conversation's background subagents (ui/chat/subagents/): minimized, it's the Subagents button
+// in the status bar, counting those working.
+export const subagentsPanel = new SentOffPanel("lo9i.subagentsPanels");
+// The side panel of the coding agents' work beside the conversation that started it (ui/chat/tasks/): minimized, it's a
+// thin bar saying how they're doing. A new task picks its tab without opening it.
+export const tasksPanel = new SentOffPanel("lo9i.tasksPanels");

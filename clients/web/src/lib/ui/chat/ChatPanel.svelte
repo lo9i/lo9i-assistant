@@ -104,7 +104,7 @@
   const tasks = resource(async (c) => ({ threadId, sessions: await c.tasks.sessions(threadId) }), ["tasks_beside"]);
   const taskSessions = $derived(tasks.data?.threadId === threadId ? tasks.data.sessions : []);
   let knownSessions: { threadId: string; ids: string[] } | null = null;
-  // A session that comes while the conversation is shown opens the panel on it.
+  // A session that comes while the conversation is shown is the tab its panel shows; the panel stays as the user left it.
   $effect(() => {
     const loaded = tasks.data;
     if (loaded?.threadId !== threadId) return;
@@ -114,7 +114,6 @@
       knownSessions = { threadId: loaded.threadId, ids };
       if (!fresh.length) return;
       taskTabs.pick(loaded.threadId, fresh[fresh.length - 1]);
-      tasksPanel.show(loaded.threadId);
     });
   });
   const player = new Player();
@@ -143,8 +142,6 @@
     untrack(() => {
       folderPanel.keep(shown);
       homePanel.keep(shown);
-      subagentsPanel.keep(shown);
-      tasksPanel.keep(shown);
     });
   });
 
