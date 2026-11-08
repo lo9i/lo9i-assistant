@@ -408,12 +408,12 @@
   .row {
     display: flex;
     flex-direction: column;
-    max-width: min(800px, 100%);
+    max-width: 90%;
   }
   .row.user {
     align-self: flex-end;
     align-items: flex-end;
-    max-width: 85%;
+    max-width: 90%;
   }
   .bubble {
     position: relative;
