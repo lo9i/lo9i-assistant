@@ -1,5 +1,5 @@
 """What a new conversation's context is made of, the system prompt part by part and the tool definitions, largest
-first, each with a bar of its size, its tokens and its share; as Settings → System's card of the same name in the web
+first, each with a bar of its size, its tokens and its share; as Settings → Context's card of the same name in the web
 app, which draws them as a ring. Measured again when what it's made of changes."""
 
 from typing import ClassVar

@@ -1,4 +1,4 @@
-"""The system prompt texts the user edits, from any client (Settings → System prompt)."""
+"""The system prompt texts the user edits, from any client (Settings → Context)."""
 
 from lo9i.core.agent.base import ServiceBase
 from lo9i.core.conversation import prompt_edits

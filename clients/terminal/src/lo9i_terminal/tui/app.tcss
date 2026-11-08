@@ -116,7 +116,13 @@ Sidebar.collapsed {
     height: 16;
 }
 
-#page-body #settings-tabs .settings-stack #keys-detail, #page-body #settings-tabs .settings-stack #skills-detail {
+/* The system prompt's texts under what the context is made of: room for the editor, which fills what its notes
+   leave. */
+#page-body #settings-tabs .settings-stack #prompts-main {
+    height: 26;
+}
+
+#page-body #settings-tabs .settings-stack #keys-detail, #page-body #settings-tabs .settings-stack #skills-detail, #page-body #settings-tabs .settings-stack #prompts-detail {
     height: 1fr;
 }
 

@@ -1,4 +1,4 @@
-"""/prompt: the system prompt texts, edited, saved and reset as in the web app's Settings → System prompt."""
+"""/prompt: the system prompt texts, edited, saved and reset as in the web app's Settings → Context."""
 
 from textual.widgets import Button, OptionList, Static, TextArea
 

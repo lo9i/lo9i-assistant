@@ -1,4 +1,4 @@
-"""The system prompt texts the user can edit from the app (Settings → System prompt): the persona, the
+"""The system prompt texts the user can edit from the app (Settings → Context): the persona, the
 operating instructions and the channel hints. The others are left out: they are templates the code fills
 in, or say how a feature works, so an edit could break it.
 

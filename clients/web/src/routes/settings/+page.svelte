@@ -25,7 +25,7 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { theme, type ThemePreference } from "$lib/theme.svelte";
 
-  const TABS = ["general", "model", "prompt", "audio", "system", "clients"];
+  const TABS = ["general", "model", "context", "audio", "system", "clients"];
   const THEMES: Array<[ThemePreference, Key]> = [
     ["dark", "settings.dark"],
     ["light", "settings.light"],
@@ -79,16 +79,18 @@
         <SpendingLimitsCard />
       </div>
     </div>
-  {:else if tab === "prompt"}
-    <!-- The whole width: the editor needs room. -->
-    <PromptCard />
+  {:else if tab === "context"}
+    <!-- The whole width: the editor needs room. What the context is made of first, then the texts it starts with. -->
+    <div class="stack">
+      <ContextPartsCard />
+      <PromptCard />
+    </div>
   {:else if tab === "system"}
     <div class="grid">
       <div class="stack">
         <HostCard />
       </div>
       <div class="stack">
-        <ContextPartsCard />
         <KeptKeysCard />
       </div>
     </div>

@@ -633,7 +633,6 @@
   "An update is being installed. This runs once it's done.": "Se está instalando una actualización. Esto se ejecuta cuando termine.",
   "Sun": "dom",
   "Sunday": "domingo",
-  "System prompt": "Prompt del sistema",
   "Tags: {tags}": "Etiquetas: {tags}",
   "Taken by tools (their results and calls)": "Ocupado por herramientas (sus resultados y llamadas)",
   "Talk to {agent} directly, in a folder (alone it lets you pick one); off goes back to the assistant": "Hablar directamente con {agent}, en una carpeta (solo, te deja elegir una); off vuelve al asistente",
@@ -1085,5 +1084,6 @@
   "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions.": "Lo que cada conversación nueva envía al modelo antes de su primer mensaje: el prompt de sistema parte por parte, y las definiciones de las herramientas.",
   "{tokens} tokens, estimated at about 4 characters each.": "{tokens} tokens, estimados en unos 4 caracteres cada uno.",
   "{share}% of the {window} window.": "{share}% de la ventana de {window}.",
-  "What a new conversation's context is made of, part by part": "De qué está hecho el contexto de una conversación nueva, parte por parte"
+  "What a new conversation's context is made of, part by part": "De qué está hecho el contexto de una conversación nueva, parte por parte",
+  "Context": "Contexto"
 }

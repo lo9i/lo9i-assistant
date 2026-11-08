@@ -11,7 +11,7 @@
     { id: "general", label: "settings.tabs.general", href: `${resolve("/settings")}?tab=general` },
     { id: "memory", label: "settings.tabs.memory", href: resolve("/memory") },
     { id: "model", label: "settings.tabs.model", href: `${resolve("/settings")}?tab=model` },
-    { id: "prompt", label: "settings.tabs.prompt", href: `${resolve("/settings")}?tab=prompt` },
+    { id: "context", label: "settings.tabs.context", href: `${resolve("/settings")}?tab=context` },
     { id: "audio", label: "settings.tabs.audio", href: `${resolve("/settings")}?tab=audio` },
     { id: "plugins", label: "settings.tabs.plugins", href: resolve("/plugins") },
     { id: "mcp", label: "settings.tabs.mcp", href: resolve("/mcp") },

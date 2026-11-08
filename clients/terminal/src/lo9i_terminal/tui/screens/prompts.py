@@ -1,4 +1,4 @@
-"""The system prompt texts the user edits, as in the web app's Settings → System prompt: the persona, the
+"""The system prompt texts the user edits, as in the web app's Settings → Context: the persona, the
 operating instructions and the channel hints. Pick one, edit its text, save it or reset it to the built-in
 text; an edit applies from the next message in each conversation. When an update changed the built-in text an
 edit hides, it says how, with Keep my edit. What's typed and not saved is kept per text while Settings is
@@ -36,7 +36,7 @@ class PromptsSection(SettingsSection):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="prompts"):
-            yield Static(t("System prompt"), id="prompts-title")
+            yield Static(t("Context"), id="prompts-title")
             with Horizontal(id="prompts-main"):
                 yield OptionList(id="prompts-list")
                 yield Static(classes="divider")

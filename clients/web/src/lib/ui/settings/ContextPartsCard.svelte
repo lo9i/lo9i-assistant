@@ -117,7 +117,8 @@
     --ring-strong: #9fd3d1;
     --ring-weak: #3f5859;
     display: grid;
-    grid-template-columns: 200px 1fr;
+    /* The legend kept to a readable width on the tab's whole width. */
+    grid-template-columns: 200px minmax(0, 560px);
     gap: 28px;
     align-items: center;
   }
