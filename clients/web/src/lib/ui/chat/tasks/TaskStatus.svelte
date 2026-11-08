@@ -17,18 +17,20 @@
 
 <StatusBar compact>
   <span class="state state--{session.status}">{t(`tasks.status.${session.status}`)}</span>
-  {#if measured}
-    <FuelGauge
-      tokens={session.context_tokens}
-      limit={session.context_limit}
-      heading={t("fuel.agentContext", { agent: session.name })}
-      note={t("fuel.agentNote")}
-    />
-  {/if}
   {#if session.model}
     <span class="model" title={t("tasks.modelHint", { agent: session.name })}>{session.model}</span>
   {/if}
   <span class="elapsed" title={t("tasks.elapsedHint")}>{duration(session.started_at, ended || time.now)}</span>
+  {#if measured}
+    <span class="fuel-end"
+      ><FuelGauge
+        tokens={session.context_tokens}
+        limit={session.context_limit}
+        heading={t("fuel.agentContext", { agent: session.name })}
+        note={t("fuel.agentNote")}
+      /></span
+    >
+  {/if}
 </StatusBar>
 
 <style>
@@ -48,6 +50,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     font-family: var(--font-mono);
+  }
+  .fuel-end {
+    margin-left: auto;
+    display: inline-flex;
   }
   .elapsed {
     font-variant-numeric: tabular-nums;
