@@ -1,4 +1,4 @@
-from textual.widgets import Input, Markdown, OptionList, Select
+from textual.widgets import Button, Input, Markdown, OptionList, Select
 
 from lo9i_terminal.tui.screens import ProfileSection
 from tests.terminal.conftest import wait_for, wait_for_section
@@ -80,3 +80,22 @@ async def test_saved_facts_are_edited_and_deleted_after_confirming(app, client):
         await wait_for(pilot, lambda: app.screen is not screen.screen)
         await pilot.press("y")
         await wait_for(pilot, lambda: client.memory.saved_facts == [])
+
+
+async def test_a_saved_fact_is_marked_basic_and_back(app, client):
+    async with app.run_test(size=(110, 40)) as pilot:
+        await pilot.click("#prompt")
+        await pilot.press(*"/profile", "enter")
+        screen = await wait_for_section(pilot, app, ProfileSection)
+        basic = screen.query_one("#basic", Button)
+        assert not basic.display
+        screen.query_one("#profile-section", Select).value = "saved:facts"
+        await wait_for(pilot, lambda: basic.display)
+        items = screen.query_one("#profile-items", OptionList)
+        items.highlighted = 0
+        basic.press()
+        await wait_for(pilot, lambda: client.memory.saved_facts[0].basic)
+        await wait_for(pilot, lambda: str(items.get_option_at_index(0).prompt) == "[basic] likes jazz")
+        items.highlighted = 0
+        basic.press()
+        await wait_for(pilot, lambda: not client.memory.saved_facts[0].basic)

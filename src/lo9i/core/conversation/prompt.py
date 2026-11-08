@@ -2,12 +2,14 @@
 
 Order runs from stable to volatile: persona, the assistant's name, operating instructions, channel hints,
 skills, the plugins whose tools load on demand, the skills pinned to the conversation, connected accounts,
-plugins it can offer, then profile, facts, recent episodes and the running summary. Prompt texts live in
+plugins it can offer, then profile, the basic facts, the facts the conversation brought up (relevant_facts.py),
+recent episodes and the running summary. Prompt texts live in
 `prompts/`; the persona, operating instructions and channel hints are the user's edits when there are some
 (prompt_edits.py).
 """
 
 import asyncio
+import logging
 from collections.abc import Mapping, Sequence
 
 from langgraph.store.base import BaseStore
@@ -25,6 +27,7 @@ from lo9i.core.conversation.prompt_sections import (
 from lo9i.core.integrations.email import accounts
 from lo9i.core.mcp import servers, subagents
 from lo9i.core.memory import episodes, facts, profile
+from lo9i.core.memory.facts import Fact
 from lo9i.core.repositories import offers
 from lo9i.core.skills import store as skills
 from lo9i.core.skills.instructions import render as render_skill
@@ -35,6 +38,10 @@ _ACCOUNTS = prompts.load("accounts")
 _PLUGINS = prompts.load("plugins")
 _PINNED = prompts.load("pinned")
 _PLUGIN_TOOLS = prompts.load("plugin_tools")
+_FACTS = prompts.load("facts")
+_RELEVANT = prompts.load("relevant_facts")
+
+logger = logging.getLogger(__name__)
 
 __all__ = ["PromptItem", "PromptPart", "PromptSection", "build_system_prompt", "prompt_sections"]
 
@@ -47,11 +54,12 @@ async def build_system_prompt(
     pinned: Sequence[str] = (),
     texts: Mapping[str, str] | None = None,
     plugin_tools: Mapping[str, Sequence[str]] | None = None,
+    relevant: Sequence[Fact] = (),
 ) -> str:
     """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out.
     `plugin_tools`: each plugin with tools and their names, which a conversation loads when it needs them
-    (core/plugin_loading.py)."""
-    sections = await prompt_sections(store, user_id, name, conversation_summary, pinned, texts, plugin_tools)
+    (core/plugin_loading.py). `relevant`: the facts the conversation brought up (relevant_facts.py)."""
+    sections = await prompt_sections(store, user_id, name, conversation_summary, pinned, texts, plugin_tools, relevant)
     return "\n\n".join(section.text for section in sections)
 
 
@@ -63,6 +71,7 @@ async def prompt_sections(
     pinned: Sequence[str] = (),
     texts: Mapping[str, str] | None = None,
     plugin_tools: Mapping[str, Sequence[str]] | None = None,
+    relevant: Sequence[Fact] = (),
 ) -> list[PromptSection]:
     """The system prompt's sections in order, each with the part it is and the items it lists (the doctor measures
     each one, core/doctor/context.py). Parts with nothing to say are left out."""
@@ -79,7 +88,7 @@ async def prompt_sections(
         await _accounts_section(store),
         await _plugins_section(store),
         await _profile_section(store, user_id),
-        await _facts_section(store, user_id),
+        *await _facts_sections(store, user_id, relevant),
         await _recent_section(store, user_id),
         _summary_section(conversation_summary),
     ]
@@ -171,9 +180,25 @@ async def _profile_section(store: BaseStore, user_id: str) -> PromptSection:
     return listed("profile", "# User profile\n\n", items, "(empty so far)")
 
 
-async def _facts_section(store: BaseStore, user_id: str) -> PromptSection:
-    saved = await facts.load(store, user_id, settings.memory_max_facts)
-    return listed("facts", "# Saved facts\n\n", [PromptItem(f.text, facts.line(f)) for f in saved], "(none yet)")
+async def _facts_sections(store: BaseStore, user_id: str, relevant: Sequence[Fact]) -> list[PromptSection]:
+    """The basic facts within their budget, past it left out and logged; then the facts the conversation brought up
+    that the first section doesn't hold, no section without any."""
+    basic, left_out = facts.in_prompt(await facts.load_all(store, user_id), settings.memory_basic_facts_tokens)
+    if left_out:
+        logger.warning(
+            "%s basic facts past the %s-token budget left out of the system prompt: %s",
+            len(left_out),
+            settings.memory_basic_facts_tokens,
+            ", ".join(f.id for f in left_out),
+        )
+    held = {f.id for f in basic}
+    brought = [_fact_item(f) for f in relevant if f.id not in held]
+    sections = [listed("facts", f"# Saved facts\n\n{_FACTS}\n\n", [_fact_item(f) for f in basic], "(none yet)")]
+    return [*sections, listed("relevant", f"# Relevant facts\n\n{_RELEVANT}\n\n", brought, "")] if brought else sections
+
+
+def _fact_item(fact: Fact) -> PromptItem:
+    return PromptItem(fact.text, facts.line(fact), key=fact.id)
 
 
 async def _recent_section(store: BaseStore, user_id: str) -> PromptSection:

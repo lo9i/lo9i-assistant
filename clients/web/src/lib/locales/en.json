@@ -816,7 +816,11 @@
     "itemsTitle": "What it lists",
     "itemsSub": "{tokens} tokens, {percent} of the context. Click an entry to see it whole.",
     "frame": "Its heading and instructions",
-    "noItems": "It lists nothing on its own."
+    "noItems": "It lists nothing on its own.",
+    "factsHint": "Only basic facts are in every conversation, and counted here; the others come into a turn when a message touches them. Switch one on to make it basic.",
+    "basicLabel": "Basic: in every conversation",
+    "pastBudget": "past the budget",
+    "whenRelevant": "when relevant"
   },
   "keptKeys": {
     "tokenFor": "Token for {repository}",
@@ -1684,7 +1688,17 @@
     "activeOnly": "Active",
     "activeOnlyHint": "Only those still working or waiting for you",
     "noneActive": "No active subagents.",
-    "noneActiveHint": "Turn off Active to see the ones that ended too."
+    "noneActiveHint": "Turn off Active to see the ones that ended too.",
+    "context": "Subagent's context",
+    "contextNote": "The tokens its last model call took, against its model's window.",
+    "calls": {
+      "one": "{count} model call",
+      "other": "{count} model calls"
+    },
+    "callsOf": "{count}/{max} model calls",
+    "callsHint": "Model calls the subagent made, of the {max} it may make before it must answer",
+    "callsHintBackground": "Model calls the subagent made. In the background it has no limit.",
+    "elapsedHint": "How long it's been working, or worked"
   },
   "tasks": {
     "title": "Coding agents",

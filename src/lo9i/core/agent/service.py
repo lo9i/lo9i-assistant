@@ -64,6 +64,7 @@ from lo9i.core.conversation import prompt_edits
 from lo9i.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from lo9i.core.conversation.memory_writer import MemoryWriter
 from lo9i.core.conversation.past_outputs import PastOutputs
+from lo9i.core.conversation.relevant_facts import RelevantFacts
 from lo9i.core.copilot_quota.section import CopilotSection
 from lo9i.core.copilot_quota.watch import CopilotWatch
 from lo9i.core.doctor.doctor import Doctor
@@ -256,6 +257,7 @@ class AssistantService(
         embedder = E5Embedder()
         self.memory_index = MemoryIndexer(storage.store, storage.vectors, embedder, bus)
         self._recall = MemoryRecall(storage.store, storage.vectors, embedder)
+        self._relevant_facts = RelevantFacts(storage.store, self._recall)
         self._past_outputs = PastOutputs(storage.checkpointer, storage.search)
         self.conversation_index = ConversationIndexer(storage.store, storage.search, storage.vectors, embedder, bus)
         self._similar = SimilarConversations(storage.vectors, embedder)

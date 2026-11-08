@@ -238,6 +238,10 @@ class FakeMemory:
     async def delete_fact(self, fact_id):
         self.saved_facts = [f for f in self.saved_facts if f.id != fact_id]
 
+    async def set_fact_basic(self, fact_id, basic):
+        self.saved_facts = [replace(f, basic=basic) if f.id == fact_id else f for f in self.saved_facts]
+        return next(f for f in self.saved_facts if f.id == fact_id)
+
     async def episodes(self):
         return list(self.saved_episodes)
 

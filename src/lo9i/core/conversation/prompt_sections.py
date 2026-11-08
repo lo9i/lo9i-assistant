@@ -18,6 +18,7 @@ PromptPart = Literal[
     "plugins",
     "profile",
     "facts",
+    "relevant",
     "recent",
     "summary",
 ]
@@ -28,11 +29,13 @@ _NAME_CHARS = 60
 
 @dataclass(frozen=True)
 class PromptItem:
-    """`text`: what the prompt holds for it; `detail`: what says what it is, when its name doesn't."""
+    """`text`: what the prompt holds for it; `detail`: what says what it is, when its name doesn't; `key`: what the
+    apps change it by (a saved fact's id)."""
 
     name: str
     text: str
     detail: str = ""
+    key: str = ""
 
 
 @dataclass(frozen=True)

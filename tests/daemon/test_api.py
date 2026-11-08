@@ -518,16 +518,18 @@ async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client,
 async def test_the_starting_context_is_measured_now_in_the_language_the_app_shows(app, client, service):
     from lo9i.core.memory import facts
 
-    await facts.add(service.store, settings.owner_id, "The user's favourite thing is a long described thing.")
-    await facts.add(service.store, settings.owner_id, "Likes jazz.")
+    long = await facts.add(service.store, settings.owner_id, "The user's favourite thing is a long described thing.")
+    jazz = await facts.add(service.store, settings.owner_id, "Likes jazz.")
+    await client.memory.set_fact_basic(long, True)
     context = await client.doctor.context()
     parts = {p.name: p for p in context.parts}
     assert parts["Core tool definitions"].tokens > 0 and context.window > 0
     assert context.tokens == sum(p.tokens for p in parts.values())
     saved = parts["Saved facts"].items
-    assert [i.name for i in saved if not i.frame] == [
-        "The user's favourite thing is a long described thing.",
-        "Likes jazz.",
+    listed = [(i.name, i.fact_id, i.basic, i.tokens > 0) for i in saved if not i.frame]
+    assert listed == [
+        ("The user's favourite thing is a long described thing.", long, True, True),
+        ("Likes jazz.", jazz, False, False),  # listed, to be marked basic, but not in the prompt
     ]
     assert [i.tokens for i in saved] == sorted((i.tokens for i in saved), reverse=True)
     assert sum(i.tokens for i in saved) == parts["Saved facts"].tokens and any(i.frame for i in saved)
@@ -539,6 +541,21 @@ async def test_the_starting_context_is_measured_now_in_the_language_the_app_show
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
         spanish = (await http.get("/doctor/context")).json()
     assert "Definiciones de herramientas propias" in [p["name"] for p in spanish["parts"]]
+
+
+async def test_a_fact_is_marked_basic_only_as_one_short_line(client, service):
+    from lo9i.core.agent import MemoryEditError, MemoryNotFoundError
+    from lo9i.core.memory import facts
+
+    fact_id = await facts.add(service.store, settings.owner_id, "Likes jazz.")
+    long = await facts.add(service.store, settings.owner_id, "x" * (facts.BASIC_MAX_CHARS + 1))
+    assert (await client.memory.set_fact_basic(fact_id, True)).basic
+    assert [f.basic for f in await client.memory.facts() if f.id == fact_id] == [True]
+    assert not (await client.memory.set_fact_basic(fact_id, False)).basic
+    with pytest.raises(MemoryEditError, match="one short line"):
+        await client.memory.set_fact_basic(long, True)
+    with pytest.raises(MemoryNotFoundError):
+        await client.memory.set_fact_basic("gone", True)
 
 
 async def test_the_setup_check_lists_each_part_in_the_language_asked(app, client, service, monkeypatch):

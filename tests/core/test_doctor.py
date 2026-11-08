@@ -216,8 +216,10 @@ async def test_the_starting_context_is_measured_and_alerts_past_its_share_of_the
     assert first.context.tokens == sum(p.tokens for p in first.context.parts)
     assert not first.context.too_large
     monkeypatch.setattr(settings, "epoch_max_tokens", first.context.tokens * 2)
+    monkeypatch.setattr(settings, "memory_basic_facts_tokens", 100_000)
     for n in range(40):
-        await facts.add(service.store, OWNER, f"The user's favourite thing number {n} is a long described thing.")
+        text = f"The user's favourite thing number {n} is a long described thing."
+        await facts.add(service.store, OWNER, text, basic=True)
     report = await service.doctor.check(OWNER, NEXT, whole_day=True)
     grown = {p.name: p for p in report.context.parts}["Saved facts"]
     assert grown.before is not None and grown.tokens > grown.before

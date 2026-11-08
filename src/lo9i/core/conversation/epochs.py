@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from lo9i.core.config import settings
-from lo9i.core.conversation import pending, pinned, prompt_edits, summaries
+from lo9i.core.conversation import pending, pinned, prompt_edits, relevant_facts, summaries
 from lo9i.core.conversation.pending import PendingPart
 from lo9i.core.conversation.prompt import build_system_prompt
 from lo9i.core.conversation.summary import Summarizer
@@ -31,14 +31,19 @@ async def open_epoch(
     now: datetime,
     plugin_tools: Mapping[str, Sequence[str]],
     summary: str = "",
+    messages: Sequence[BaseMessage] = (),
 ) -> dict[str, Any]:
     """State update that starts an epoch with a freshly built system prompt. `plugin_tools`: the plugins
-    whose tools it can load (core/plugin_loading.py), which the graph keeps with the epoch."""
+    whose tools it can load (core/plugin_loading.py), which the graph keeps with the epoch. `messages`: the epoch's
+    so far, whose notes show the facts they brought up (relevant_facts.py), so the prompt lists only the others."""
     name = await load_name(store)
     pinned_skills = await pinned.load(store, user_id, thread_id)
     texts = await prompt_edits.current()
+    relevant = await relevant_facts.kept(store, user_id, thread_id, messages)
     return {
-        "system_prompt": await build_system_prompt(store, user_id, name, summary, pinned_skills, texts, plugin_tools),
+        "system_prompt": await build_system_prompt(
+            store, user_id, name, summary, pinned_skills, texts, plugin_tools, relevant
+        ),
         "assistant_name": name,
         "prompt_texts": prompt_edits.digest(texts),
         "pinned_skills": pinned_skills,
@@ -75,7 +80,8 @@ async def reopen(
     """A new epoch at the same point, after a rename, a pinned skill, an edited prompt text or a change in
     the plugins' tools.
     Nothing is summarized: the messages stay, only the prompt and tools change (one cache miss)."""
-    return await open_epoch(store, user_id, thread_id, now, plugin_tools, state.get("epoch_summary", ""))
+    messages = state.get("messages", [])[state.get("epoch_start", 0) :]
+    return await open_epoch(store, user_id, thread_id, now, plugin_tools, state.get("epoch_summary", ""), messages)
 
 
 def is_idle(state: Mapping[str, Any], now: datetime) -> bool:
@@ -130,7 +136,8 @@ async def compact(
     summary = await summarizer(state.get("epoch_summary", ""), render(state["messages"][start:cut]))
     await pending.add(store, user_id, _part(state, thread_id, start, cut, now))
     await summaries.save(store, user_id, thread_id, summary)
-    return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, plugin_tools, summary)}
+    kept = state["messages"][cut:]
+    return {"epoch_start": cut, **await open_epoch(store, user_id, thread_id, now, plugin_tools, summary, kept)}
 
 
 async def archive(

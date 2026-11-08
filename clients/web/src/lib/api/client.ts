@@ -1091,6 +1091,12 @@ export class MemoryGroup {
     await this.transport.request("DELETE", `/memory/facts/${encodeURIComponent(id)}`);
   }
 
+  /** A basic fact is in every conversation's system prompt; the others come in when a message touches them. Throws
+   * ApiError: 404 when it's gone, 400 when it's too long to be basic. */
+  setFactBasic(id: string, basic: boolean): Promise<Fact> {
+    return this.transport.request("PUT", `/memory/facts/${encodeURIComponent(id)}/basic`, { basic });
+  }
+
   /** Every summary of a past conversation, newest first. */
   episodes(): Promise<Episode[]> {
     return this.transport.request("GET", "/memory/episodes");

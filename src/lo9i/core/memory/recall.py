@@ -43,5 +43,13 @@ class MemoryRecall:
             found.update(dict.fromkeys(await self._nearest(user_id, "fact", vector, limit_each)))
         return await facts.get(self._store, user_id, list(found))
 
+    async def scored_facts(self, user_id: str, text: str) -> list[tuple[str, float]]:
+        """Every indexed fact's id with how close it is to `text` (the cosine similarity), closest first; nothing
+        before any fact is indexed, without loading the model. Raises EmbeddingError."""
+        if not await self._vectors.any(user_id, "fact", self._embedder.model):
+            return []
+        vector = await self._embedder.embed_query(text)
+        return await self._vectors.ranked(user_id, "fact", self._embedder.model, vector)
+
     async def _nearest(self, user_id: str, kind: str, vector: list[float], limit: int) -> list[str]:
         return await self._vectors.nearest(user_id, kind, self._embedder.model, vector, limit)

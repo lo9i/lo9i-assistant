@@ -51,15 +51,34 @@ class MemoryMixin(ServiceBase):
         return await self.memory_snapshot(user_id)
 
     async def saved_facts(self, user_id: str) -> list[Fact]:
-        """Every saved fact, newest first: the system prompt holds the latest ones, search_memory finds the rest."""
+        """Every saved fact, newest first: the system prompt holds the basic ones, a message brings up the others it
+        touches (core/conversation/relevant_facts.py), and search_memory finds them all."""
         return sorted(await facts.load_all(self._storage.store, user_id), key=lambda f: f.saved_at, reverse=True)
 
     async def edit_fact(self, user_id: str, fact_id: str, text: str) -> Fact:
-        """It gets a new id. Raises MemoryNotFoundError for one that's gone, MemoryEditError for empty text."""
-        edited = await facts.replace(self._storage.store, user_id, fact_id, _text(text))
+        """It gets a new id and stays basic or not. Raises MemoryNotFoundError for one that's gone, MemoryEditError
+        for empty text, or too long for a basic one."""
+        store = self._storage.store
+        found = await facts.get(store, user_id, [fact_id])
+        if found and found[0].basic:
+            _short(text)
+        edited = await facts.replace(store, user_id, fact_id, _text(text))
         if edited is None:
             raise MemoryNotFoundError(said("There's no saved fact {fact_id} any more.", fact_id=fact_id))
         return edited
+
+    async def set_fact_basic(self, user_id: str, fact_id: str, basic: bool) -> Fact:
+        """A basic fact is in every conversation's system prompt, from the next epoch; the others come in when a
+        message touches them. Raises MemoryNotFoundError for one that's gone, MemoryEditError for one too long to be
+        basic."""
+        store = self._storage.store
+        found = await facts.get(store, user_id, [fact_id])
+        if found and basic:
+            _short(found[0].text)
+        changed = await facts.set_basic(store, user_id, fact_id, basic) if found else None
+        if changed is None:
+            raise MemoryNotFoundError(said("There's no saved fact {fact_id} any more.", fact_id=fact_id))
+        return changed
 
     async def delete_fact(self, user_id: str, fact_id: str) -> None:
         if not await facts.get(self._storage.store, user_id, [fact_id]):
@@ -85,6 +104,16 @@ class MemoryMixin(ServiceBase):
                 said("There's no conversation summary {episode_id} any more.", episode_id=episode_id)
             )
         await episodes.remove(self._storage.store, user_id, episode_id)
+
+
+def _short(text: str) -> None:
+    if facts.too_long_for_basic(text):
+        raise MemoryEditError(
+            said(
+                "A basic fact is one short line, at most {count} characters. Shorten it first.",
+                count=facts.BASIC_MAX_CHARS,
+            )
+        )
 
 
 def _text(text: str) -> str:

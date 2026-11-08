@@ -17,6 +17,8 @@ from lo9i.core.conversation.prompt import PromptPart, PromptSection, prompt_sect
 from lo9i.core.doctor.model import ContextItem, ContextPart, StartingContext
 from lo9i.core.i18n import translatable
 from lo9i.core.identity import load_name
+from lo9i.core.memory import facts
+from lo9i.core.memory.facts import Fact
 from lo9i.core.tools.registry import offered_tools
 from lo9i.core.usage.tokens import estimate_text
 
@@ -39,6 +41,7 @@ _LABELS: dict[PromptPart, str] = {
     "plugins": translatable("Plugins to offer"),
     "profile": translatable("Profile"),
     "facts": translatable("Saved facts"),
+    "relevant": translatable("Relevant facts"),
     "recent": translatable("Recent conversations"),
     "summary": translatable("Conversation so far"),
 }
@@ -57,8 +60,9 @@ async def starting_context(
 ) -> StartingContext:
     """`window`: the model's context window (core/llm/windows.py). `itemized`: with what each part lists."""
     core = [convert_to_openai_tool(t) for t in offered_tools(settings.toolsets)]
+    saved = await facts.load_all(store, user_id) if itemized else []
     measured = [
-        *(_section(section) for section in await _prompt(store, user_id, plugins)),
+        *(_section(section, saved) for section in await _prompt(store, user_id, plugins)),
         _definitions(CORE_TOOLS, core),
         _definitions(PLUGIN_TOOLS, plugins.definitions(())),
     ]
@@ -73,8 +77,18 @@ async def _prompt(store: BaseStore, user_id: str, plugins: PluginTools) -> list[
     return await prompt_sections(store, user_id, await load_name(store), "", (), texts, plugins.catalog())
 
 
-def _section(section: PromptSection) -> ContextPart:
-    items = [ContextItem(name=i.name, tokens=estimate_text(i.text), detail=i.detail) for i in section.items]
+def _section(section: PromptSection, saved: list[Fact]) -> ContextPart:
+    """`saved`: every fact, which the facts part lists, those its prompt doesn't hold without tokens."""
+    basic = section.part == "facts"
+    items = [
+        ContextItem(
+            name=i.name, tokens=estimate_text(i.text), detail=i.detail, fact_id=i.key, basic=basic and bool(i.key)
+        )
+        for i in section.items
+    ]
+    if basic:
+        held = {i.key for i in section.items}
+        items += [ContextItem(name=f.text, tokens=0, fact_id=f.id, basic=f.basic) for f in saved if f.id not in held]
     return ContextPart(name=_LABELS[section.part], tokens=estimate_text(section.text), items=items)
 
 

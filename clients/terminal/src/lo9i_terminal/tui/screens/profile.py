@@ -1,7 +1,7 @@
 """The user's profile: add, edit and remove the items of each section, as in the web app's
 Settings → About you. The assistant keeps it up to date too; changes reach it from the next conversation.
 After the profile sections, what the assistant saved on its own: facts and summaries of past
-conversations, edited and deleted here too."""
+conversations, edited and deleted here too, a fact marked basic or not (basic ones are in every conversation)."""
 
 from typing import ClassVar
 
@@ -23,6 +23,10 @@ from lo9i_terminal.tui.section import SettingsSection
 _ABOUT = translatable("Always in the assistant's mind. Changes apply from the next conversation.")
 _KEYS = translatable("Enter on an item edits it, Delete removes it. Type below and press Enter to add one.")
 _SAVED_ABOUT = translatable("Noted by the assistant in conversations. Enter on one edits it, Delete deletes it.")
+_FACTS_ABOUT = translatable(
+    "Basic facts are in every conversation; the others come in when a message touches them. Basic marks or unmarks "
+    "the one picked."
+)
 # The sections after the profile's, by their value in the section list.
 _FACTS, _EPISODES = "saved:facts", "saved:episodes"
 _SAVED_LABELS = {_FACTS: translatable("Saved facts"), _EPISODES: translatable("Conversation summaries")}
@@ -34,10 +38,22 @@ class _Saved:
     def __init__(self, memory: MemoryApi) -> None:
         self._memory = memory
         self.items: dict[str, list[tuple[str, str]]] = {_FACTS: [], _EPISODES: []}
+        # The ids of the basic facts.
+        self.basic: set[str] = set()
 
     async def load(self) -> None:
         facts, episodes = await self._memory.facts(), await self._memory.episodes()
         self.items = {_FACTS: [(f.id, f.text) for f in facts], _EPISODES: [(e.id, e.summary) for e in episodes]}
+        self.basic = {f.id for f in facts if f.basic}
+
+    def shown(self, section: str) -> list[str]:
+        """Each item as the list shows it, a basic fact marked."""
+        return [f"[{t('basic')}] {text}" if i in self.basic else text for i, text in self.items[section]]
+
+    async def toggle_basic(self, index: int) -> None:
+        """Raises MemoryEditError for one too long to be basic, MemoryNotFoundError when it was deleted meanwhile."""
+        fact_id = self.items[_FACTS][index][0]
+        await self._memory.set_fact_basic(fact_id, fact_id not in self.basic)
 
     async def edit(self, section: str, index: int, text: str) -> None:
         """Raises MemoryEditError, MemoryNotFoundError when it was deleted meanwhile."""
@@ -77,6 +93,7 @@ class ProfileSection(SettingsSection):
             yield OptionList(id="profile-items")
             yield Input(id="profile-input")
             with Horizontal(id="profile-buttons"):
+                yield Button(t("Basic"), id="basic")
                 yield Button(t("Remove item"), variant="error", id="remove")
                 yield Button(t("Close"), id="close")
 
@@ -153,6 +170,20 @@ class ProfileSection(SettingsSection):
         else:
             await self._save([item for i, item in enumerate(self._items) if i != index])
 
+    @on(Button.Pressed, "#basic")
+    @reports_daemon_unavailable
+    async def _toggle_basic(self) -> None:
+        index = self.query_one("#profile-items", OptionList).highlighted
+        if self._section != _FACTS or index is None or index >= len(self._items):
+            return
+        try:
+            await self._saved.toggle_basic(index)
+            self._message = ""
+        except MemoryEditError as e:
+            self._message = str(e)
+        await self._after_saved_change()
+        self.query_one("#profile-items", OptionList).highlighted = index
+
     async def _submit_saved(self, section: str, event: Input.Submitted) -> None:
         """Nothing is added here: the assistant saves these. Empty text would leave an empty memory."""
         if self._editing is None or not event.value.strip():
@@ -198,13 +229,15 @@ class ProfileSection(SettingsSection):
         items = self._items
         options = self.query_one("#profile-items", OptionList)
         options.clear_options()
-        options.add_options(items)
+        options.add_options(self._saved.shown(self._section) if self._section in _SAVED_LABELS else items)
         options.display = bool(items)
+        self.query_one("#basic", Button).display = self._section == _FACTS
         prompt = self.query_one("#profile-input", Input)
         if self._section in _SAVED_LABELS:
             prompt.placeholder = t("Enter on one above edits it here")
             saved = t("{count} saved.", count=len(items))
-            lines = [f"## {t(_SAVED_LABELS[self._section])}", t(_SAVED_ABOUT), saved, self._message]
+            about = f"{t(_SAVED_ABOUT)} {t(_FACTS_ABOUT)}" if self._section == _FACTS else t(_SAVED_ABOUT)
+            lines = [f"## {t(_SAVED_LABELS[self._section])}", about, saved, self._message]
         else:
             section = section_label(self._section).lower() if self._section else t("the profile")
             prompt.placeholder = t("Add to {section}", section=section)

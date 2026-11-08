@@ -84,9 +84,17 @@ class Settings(BaseSettings):
     # Starting a new conversation archives the old one as an episode if it had at least this many user turns.
     episode_min_turns: int = 2
 
-    # How much long-term memory goes into the system prompt. The profile is always loaded in full.
+    # How much long-term memory goes into the system prompt. The profile is always loaded in full; of the saved
+    # facts, only the basic ones, newest first within MEMORY_BASIC_FACTS_TOKENS (core/memory/facts.py).
+    # MEMORY_MAX_FACTS: the most recent facts the apps' snapshot and the memory digest read.
     memory_max_facts: int = 200
+    memory_basic_facts_tokens: int = 300
     memory_max_episodes: int = 5
+    # The other facts come into a turn when the user's message is this close to them in meaning (the cosine
+    # similarity of their E5 vectors, core/memory/e5.py, which puts unrelated texts around 0.8), at most
+    # MEMORY_RELEVANT_FACTS a message (core/conversation/relevant_facts.py).
+    memory_relevant_facts: int = 5
+    memory_relevant_similarity: float = 0.835
 
     # The assistant's persona. Used instead of the built-in one when the file exists.
     persona_path: str = "~/.lo9i/SOUL.md"

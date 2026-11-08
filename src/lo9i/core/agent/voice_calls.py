@@ -110,7 +110,7 @@ class VoiceCallsMixin(MessagingMixin):
         if handoff is not None:
             events = self._to_agent(session, handoff, request, [], [])
         else:
-            note = [*await self._header_notes(session), notes.request(heard)]
+            note = [*await self._header_notes(session, request), notes.request(heard)]
             text = {"type": "text", "text": request}
             message = HumanMessage([turn_header.header_block(session.channel, datetime.now(UTC)), *note, text])
             events = self._run(session, {"messages": [message]}, text=request)

@@ -53,6 +53,10 @@ class ContextItem(BaseModel):
     detail: str = ""
     # The part's own text around its items (its heading and instructions), which has no name.
     frame: bool = False
+    # A saved fact's id, which the apps mark basic or not by; "" for anything else. Saved facts lists every fact: the
+    # basic ones in the prompt with their tokens, the others (and basic ones past the budget) with none.
+    fact_id: str = ""
+    basic: bool = False
 
 
 class ContextPart(BaseModel):

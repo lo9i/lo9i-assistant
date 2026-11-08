@@ -57,6 +57,13 @@ class MemoryApi:
     async def delete_fact(self, fact_id: str) -> None:
         await self._transport.request("DELETE", f"/memory/facts/{fact_id}", errors=_ERRORS)
 
+    async def set_fact_basic(self, fact_id: str, basic: bool) -> Fact:
+        """A basic fact is in every conversation's system prompt. Raises MemoryNotFoundError, or MemoryEditError for
+        one too long to be basic."""
+        body = {"basic": basic}
+        path = f"/memory/facts/{fact_id}/basic"
+        return Fact(**await self._transport.request("PUT", path, json=body, errors=_ERRORS))
+
     async def episodes(self) -> list[Episode]:
         """Every summary of a past conversation, newest first."""
         return [Episode(**e) for e in await self._transport.request("GET", "/memory/episodes")]

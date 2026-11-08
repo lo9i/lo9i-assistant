@@ -190,7 +190,7 @@ async def _epoch_update(
 ) -> dict:
     user_id, store = runtime.context.user_id, require_store(runtime.store)
     if not state.get("system_prompt"):
-        return await open_epoch(store, user_id, thread_id, now, catalog)
+        return await open_epoch(store, user_id, thread_id, now, catalog, messages=state["messages"])
     if own_model.changed_since(state["messages"], state.get("epoch_start", 0)):
         return await _model_changed(state, store, user_id, thread_id, summarizer, now, catalog)
     if is_idle(state, now) or is_too_large(state):

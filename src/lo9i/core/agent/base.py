@@ -14,6 +14,7 @@ from lo9i.core.conversation.dispatch import Classifier
 from lo9i.core.conversation.meanings import ConversationIndexer, SimilarConversations
 from lo9i.core.conversation.memory_writer import MemoryWriter
 from lo9i.core.conversation.past_outputs import PastOutputs
+from lo9i.core.conversation.relevant_facts import RelevantFacts
 from lo9i.core.conversation.titles import Titler
 from lo9i.core.copilot_quota.watch import CopilotWatch
 from lo9i.core.doctor.doctor import Doctor
@@ -88,6 +89,8 @@ class ServiceBase:
     # Digests archived parts of conversations into memory. The daemon runs it as a supervised task.
     memory_writer: MemoryWriter
     _recall: MemoryRecall
+    # The saved facts each user message touches, for its turn header (core/conversation/relevant_facts.py).
+    _relevant_facts: RelevantFacts
     # Passkey registrations and sign-ins waiting for the browser's answer (core/passkeys.py).
     _passkey_ceremonies: Ceremonies
     _past_outputs: PastOutputs

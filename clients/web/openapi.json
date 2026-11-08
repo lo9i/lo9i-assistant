@@ -1929,6 +1929,56 @@
         }
       }
     },
+    "/memory/facts/{fact_id}/basic": {
+      "put": {
+        "summary": "Set Fact Basic",
+        "description": "A basic fact is in every conversation's system prompt (from its next epoch); the others come into a turn\nwhen a message touches them. Its id stays. 400: too long to be basic.",
+        "operationId": "set_fact_basic_memory_facts__fact_id__basic_put",
+        "parameters": [
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Fact Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactBasic"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Fact"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/memory/episodes": {
       "get": {
         "summary": "Saved Episodes",
@@ -8927,6 +8977,16 @@
             "type": "boolean",
             "title": "Frame",
             "default": false
+          },
+          "fact_id": {
+            "type": "string",
+            "title": "Fact Id",
+            "default": ""
+          },
+          "basic": {
+            "type": "boolean",
+            "title": "Basic",
+            "default": false
           }
         },
         "type": "object",
@@ -9722,6 +9782,11 @@
             "type": "string",
             "title": "Saved At",
             "default": ""
+          },
+          "basic": {
+            "type": "boolean",
+            "title": "Basic",
+            "default": false
           }
         },
         "type": "object",
@@ -9730,6 +9795,19 @@
           "text"
         ],
         "title": "Fact"
+      },
+      "FactBasic": {
+        "properties": {
+          "basic": {
+            "type": "boolean",
+            "title": "Basic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "basic"
+        ],
+        "title": "FactBasic"
       },
       "FileChange": {
         "properties": {

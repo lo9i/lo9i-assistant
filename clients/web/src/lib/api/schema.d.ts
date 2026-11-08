@@ -936,6 +936,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memory/facts/{fact_id}/basic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Fact Basic
+         * @description A basic fact is in every conversation's system prompt (from its next epoch); the others come into a turn
+         *     when a message touches them. Its id stays. 400: too long to be basic.
+         */
+        put: operations["set_fact_basic_memory_facts__fact_id__basic_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/memory/episodes": {
         parameters: {
             query?: never;
@@ -4012,6 +4033,16 @@ export interface components {
              * @default false
              */
             frame: boolean;
+            /**
+             * Fact Id
+             * @default
+             */
+            fact_id: string;
+            /**
+             * Basic
+             * @default false
+             */
+            basic: boolean;
         };
         /** ContextPart */
         ContextPart: {
@@ -4435,6 +4466,16 @@ export interface components {
              * @default
              */
             saved_at: string;
+            /**
+             * Basic
+             * @default false
+             */
+            basic: boolean;
+        };
+        /** FactBasic */
+        FactBasic: {
+            /** Basic */
+            basic: boolean;
         };
         /** FileChange */
         FileChange: {
@@ -8693,6 +8734,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_fact_basic_memory_facts__fact_id__basic_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactBasic"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Fact"];
                 };
             };
             /** @description Validation Error */

@@ -559,6 +559,10 @@ class MemoryText(BaseModel):
     text: str
 
 
+class FactBasic(BaseModel):
+    basic: bool
+
+
 class AboutYouAnswers(BaseModel):
     """The About you step's answers; only the name is required."""
 
@@ -1221,8 +1225,8 @@ def _add_handoff_routes(app: FastAPI, service: AssistantService) -> None:
 
 
 def _add_memory_routes(app: FastAPI, service: AssistantService) -> None:
-    """Saved facts and summaries of past conversations, edited and deleted from the apps. 404: it's gone;
-    400: empty text."""
+    """Saved facts and summaries of past conversations, edited and deleted from the apps, a fact marked basic or not.
+    404: it's gone; 400: empty text."""
 
     @app.get("/memory/about-you")
     async def about_you() -> AboutYouStatus:
@@ -1244,6 +1248,12 @@ def _add_memory_routes(app: FastAPI, service: AssistantService) -> None:
     @app.put("/memory/facts/{fact_id}")
     async def edit_fact(fact_id: str, body: MemoryText) -> Fact:
         return await _memory_call(service.edit_fact(settings.owner_id, fact_id, body.text))
+
+    @app.put("/memory/facts/{fact_id}/basic")
+    async def set_fact_basic(fact_id: str, body: FactBasic) -> Fact:
+        """A basic fact is in every conversation's system prompt (from its next epoch); the others come into a turn
+        when a message touches them. Its id stays. 400: too long to be basic."""
+        return await _memory_call(service.set_fact_basic(settings.owner_id, fact_id, body.basic))
 
     @app.delete("/memory/facts/{fact_id}")
     async def delete_fact(fact_id: str) -> Ok:

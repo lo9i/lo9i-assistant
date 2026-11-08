@@ -11,7 +11,18 @@ from lo9i.core.agent.thread_files import ThreadFilesMixin, referenced
 from lo9i.core.agent_tasks import beside_records
 from lo9i.core.channels.chat import threads as chat_threads
 from lo9i.core.config import settings
-from lo9i.core.conversation import choices, ended, file_index, handoffs, moved, own_model, pinned, queued, summaries
+from lo9i.core.conversation import (
+    choices,
+    ended,
+    file_index,
+    handoffs,
+    moved,
+    own_model,
+    pinned,
+    queued,
+    relevant_facts,
+    summaries,
+)
 from lo9i.core.i18n import said
 from lo9i.core.proactive import loops
 from lo9i.core.voice import notes as voice_notes
@@ -107,6 +118,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await self._forget_channel_pointers(user_id, thread_id)
             await inbox.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
+            await relevant_facts.forget(self._storage.store, user_id, thread_id)
             await own_model.forget(self._storage.store, user_id, thread_id)
             await summaries.forget(self._storage.store, user_id, thread_id)
             await file_index.forget(self._storage.store, user_id, thread_id)

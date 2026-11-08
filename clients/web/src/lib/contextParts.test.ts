@@ -41,9 +41,9 @@ describe("itemsOf", () => {
       name: "Saved facts",
       tokens: 100,
       items: [
-        { name: "Likes jazz.", tokens: 20, detail: "", frame: false },
-        { name: "", tokens: 5, detail: "", frame: true },
-        { name: "Lives in Buenos Aires.", tokens: 75, detail: "", frame: false },
+        { name: "Likes jazz.", tokens: 20, detail: "", frame: false, fact_id: "a1", basic: true },
+        { name: "", tokens: 5, detail: "", frame: true, fact_id: "", basic: false },
+        { name: "Lives in Buenos Aires.", tokens: 75, detail: "", frame: false, fact_id: "b2", basic: true },
       ],
     };
     expect(itemsOf([facts], "Saved facts").map((i) => [i.name, i.share])).toEqual([

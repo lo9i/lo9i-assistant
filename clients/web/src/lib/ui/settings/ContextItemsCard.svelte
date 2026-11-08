@@ -1,22 +1,42 @@
 <script lang="ts">
   import { compact } from "$lib/conversationStats";
   import { itemsOf, percent } from "$lib/contextParts";
+  import { useDaemon } from "$lib/daemon.svelte";
   import { formatNumber, t } from "$lib/i18n.svelte";
   import type { StartingContext } from "$lib/api/types";
   import SettingsCard from "../Card.svelte";
+  import Toggle from "../Toggle.svelte";
 
   // What the part picked in the ring lists (each skill, fact, profile section, tool definition), largest first, each
   // with its share of the part; the part's own heading and instructions as one more. Clicking an entry shows it whole.
+  // Saved facts lists every fact, each with a switch for whether it's basic: only basic ones are in the prompt (and
+  // counted), the others come into a turn when a message touches them.
   type Props = { context: StartingContext | undefined; selected: string; color: string };
   let { context, selected, color }: Props = $props();
+  const { client, notices } = useDaemon();
   const part = $derived(context?.parts.find((p) => p.name === selected));
   const items = $derived(context ? itemsOf(context.parts, selected) : []);
   const ofContext = $derived(part && context?.tokens ? part.tokens / context.tokens : 0);
+  const hasFacts = $derived(items.some((i) => i.fact_id));
   let open = $state<number | null>(null);
   $effect(() => {
     void selected;
     open = null;
   });
+
+  // The facts being changed; the `memory` event that follows measures the context again.
+  let changing = $state<string[]>([]);
+
+  async function setBasic(id: string, basic: boolean): Promise<void> {
+    changing = [...changing, id];
+    try {
+      await client.memory.setFactBasic(id, basic);
+    } catch (e) {
+      notices.report(e);
+    } finally {
+      changing = changing.filter((c) => c !== id);
+    }
+  }
 </script>
 
 <SettingsCard
@@ -32,19 +52,38 @@
   {:else if !items.length}
     <p class="text-meta">{t("contextParts.noItems")}</p>
   {:else}
+    {#if hasFacts}<p class="text-meta hint">{t("contextParts.factsHint")}</p>{/if}
     <ul class="items">
       {#each items as item, i (i)}
         {@const name = item.frame ? t("contextParts.frame") : item.name}
-        <li>
+        {@const counted = !item.fact_id || item.tokens > 0}
+        <li class:fact={item.fact_id}>
           <button type="button" class:open={open === i} aria-expanded={open === i} onclick={() => (open = open === i ? null : i)}>
             <span class="row">
               <span class="name" class:frame={item.frame}>{name}</span>
-              <span class="tokens" title={formatNumber(item.tokens)}>{compact(item.tokens)}</span>
-              <span class="share">{percent(item.share)}</span>
+              {#if counted}
+                <span class="tokens" title={formatNumber(item.tokens)}>{compact(item.tokens)}</span>
+                <span class="share">{percent(item.share)}</span>
+              {:else}
+                <span class="aside">{item.basic ? t("contextParts.pastBudget") : t("contextParts.whenRelevant")}</span>
+              {/if}
             </span>
-            <span class="bar"><span style="width: {Math.max(item.share * 100, 0.5)}%; background: {color}"></span></span>
+            {#if counted}
+              <span class="bar"><span style="width: {Math.max(item.share * 100, 0.5)}%; background: {color}"></span></span>
+            {/if}
             {#if item.detail}<span class="detail text-meta">{item.detail}</span>{/if}
           </button>
+          {#if item.fact_id}
+            {@const id = item.fact_id}
+            <span class="basic" title={t("contextParts.basicLabel")}>
+              <Toggle
+                checked={item.basic ?? false}
+                label={t("contextParts.basicLabel")}
+                disabled={changing.includes(id)}
+                onchange={(on) => setBasic(id, on)}
+              />
+            </span>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -62,8 +101,27 @@
     max-height: 460px;
     overflow-y: auto;
   }
+  .hint {
+    margin: 0 0 8px;
+  }
+  .items li.fact {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: start;
+  }
+  .basic {
+    padding-top: 6px;
+  }
+  .aside {
+    grid-column: span 2;
+    color: var(--color-text-muted);
+    text-align: right;
+    white-space: nowrap;
+  }
   .items button {
     width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 5px;

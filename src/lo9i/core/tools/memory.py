@@ -30,11 +30,20 @@ _ARGS = 300
 
 @register("memory")
 @tool
-async def remember(fact: str, runtime: ToolRuntime[Context]) -> str:
+async def remember(fact: str, runtime: ToolRuntime[Context], basic: bool = False) -> str:
     """Save a detail about the user that stays true (a date, a decision, an account) for future conversations.
-    What doesn't belong here: the saving-to-memory skill."""
-    fact_id = await facts.add(require_store(runtime.store), runtime.context.user_id, fact)
-    return f"Saved as {fact_id}."
+    Only basic facts are in every conversation's prompt; the others come in when a message touches them.
+    basic: true only when, without it, you would misunderstand or get wrong a message that doesn't mention its
+    topic (repo paths, host nicknames, the user's GitHub account); one short line. Task details (ids, numbers,
+    ports) are not basic. One-off investigation results are not facts at all. Rules about how you should act
+    belong in the profile, not facts. More: the saving-to-memory skill."""
+    if basic and facts.too_long_for_basic(fact):
+        return (
+            f"Not saved: a basic fact is one short line, at most {facts.BASIC_MAX_CHARS} characters. "
+            "Shorten it, or save it as not basic."
+        )
+    fact_id = await facts.add(require_store(runtime.store), runtime.context.user_id, fact, basic)
+    return f"Saved as {fact_id}{' (basic)' if basic else ''}."
 
 
 @register("memory")

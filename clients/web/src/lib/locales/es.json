@@ -816,7 +816,11 @@
     "itemsTitle": "Lo que incluye",
     "itemsSub": "{tokens} tokens, {percent} del contexto. Haz clic en una entrada para verla completa.",
     "frame": "Su encabezado e instrucciones",
-    "noItems": "No incluye nada por separado."
+    "noItems": "No incluye nada por separado.",
+    "factsHint": "Solo los datos básicos están en todas las conversaciones, y se cuentan aquí; los demás entran en un turno cuando un mensaje los toca. Activa el interruptor de un dato para que sea básico.",
+    "basicLabel": "Básico: en todas las conversaciones",
+    "pastBudget": "fuera del presupuesto",
+    "whenRelevant": "cuando viene al caso"
   },
   "keptKeys": {
     "tokenFor": "Token de {repository}",
@@ -1684,7 +1688,17 @@
     "activeOnly": "Activos",
     "activeOnlyHint": "Solo los que siguen trabajando o te esperan",
     "noneActive": "No hay subagentes activos.",
-    "noneActiveHint": "Desmarca Activos para ver también los que terminaron."
+    "noneActiveHint": "Desmarca Activos para ver también los que terminaron.",
+    "context": "Contexto del subagente",
+    "contextNote": "Los tokens de su última llamada al modelo, frente a la ventana de su modelo.",
+    "calls": {
+      "one": "{count} llamada al modelo",
+      "other": "{count} llamadas al modelo"
+    },
+    "callsOf": "{count}/{max} llamadas al modelo",
+    "callsHint": "Llamadas al modelo que hizo el subagente, de las {max} que puede hacer antes de tener que responder",
+    "callsHintBackground": "Llamadas al modelo que hizo el subagente. En segundo plano no tiene límite.",
+    "elapsedHint": "Cuánto tiempo lleva trabajando, o trabajó"
   },
   "tasks": {
     "title": "Agentes de código",
