@@ -26,13 +26,19 @@ function session(id: string, status: TaskSession["status"], title: string): Task
 const sessions = [session("a", "done", "Fix the tests"), session("b", "running", "Write the docs")];
 
 describe("TasksPanel", () => {
-  it("shows a tab per session, the newest picked, with its status, folder and a box to write to its agent", () => {
+  it("lists a row per session, the newest picked, with its folder, Stop or how it ended, and a box to write to its agent", () => {
     const { body } = render(TasksPanel, { props: { threadId: "t", sessions, open: true, ontoggle: () => {} } });
     expect(body).toContain('aria-label="Coding agents"');
-    expect(body).toMatch(/class="tab[^"]*"[^>]*aria-selected="false"[^>]*title="Claude Code · Fix the tests"/);
-    expect(body).toMatch(/class="tab [^"]*active"[^>]*aria-selected="true"[^>]*title="Claude Code · Write the docs"/);
+    expect(body).toMatch(/class="pick[^"]*"[^>]*aria-current="false"[^>]*title="Claude Code · Fix the tests"/);
+    expect(body).toMatch(/class="pick[^"]*"[^>]*aria-current="true"[^>]*title="Claude Code · Write the docs"/);
+    expect(body).toMatch(/<li class="row[^"]*active[^"]*">.*?Write the docs/s);
+    expect(body).toContain('aria-label="Close this session"');
+    expect(body).toContain('title="done"');
+    expect(body).toMatch(/Write the docs.*?<\/span><\/button>\s*<span class="end[^"]*">.*?Stop<\/button>/s);
+    expect(body.match(/aria-label="Close this session"/g)).toHaveLength(1);
     expect(body).toContain("working…");
     expect(body).toContain('title="In /Users/me/src/app"');
+    expect(body).toContain(">app</span>");
     expect(body).toContain("3 min");
     expect(body).toContain('placeholder="Write to Claude Code…"');
     expect(body).toContain("Claude Code reads it after its current step.");

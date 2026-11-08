@@ -1,23 +1,19 @@
 <script lang="ts">
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
-  import Folder from "@lucide/svelte/icons/folder";
-  import Square from "@lucide/svelte/icons/square";
-  import X from "@lucide/svelte/icons/x";
   import { untrack } from "svelte";
   import type { TaskSession, TaskSessionDetails, TaskStepTaken } from "$lib/api/types";
   import { shownItems, withStep, working } from "$lib/chat/codingTasks";
   import { useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
-  import StatusMark from "../subagents/StatusMark.svelte";
   import Thread from "../Thread.svelte";
   import TaskStatus from "./TaskStatus.svelte";
 
   // One coding session beside its conversation: the agent's work as the conversation's messages show (what it was
   // asked, what it says and thinks, its tool calls, the messages the user sent it, how each task ended), kept current
   // from the steps each `agent_task_step` event brings, and a box to write to the agent: between its steps while it
-  // works, else as its next task in the same session. While it works it can be stopped, asked inline first; once it
-  // ended, its tab closed. Under the box, its status line (TaskStatus).
+  // works, else as its next task in the same session (its row in TasksPanel stops or closes it). Under the box, its
+  // status line (TaskStatus).
   type Props = { threadId: string; session: TaskSession };
   let { threadId, session }: Props = $props();
   const { client, hub, notices } = useDaemon();
@@ -25,14 +21,12 @@
   let error = $state("");
   let text = $state("");
   let sending = $state(false);
-  let stopping = $state(false);
   const busy = $derived(working(session));
   const items = $derived(details ? shownItems(details, session.name) : []);
   // Its dots while it works, but not under a call already showing its own.
   const last = $derived(items.at(-1));
   const thinking = $derived(busy && !(last?.kind === "tool" && last.state === "running"));
   const ended = $derived(busy ? "" : (details?.turns.at(-1)?.finished_at ?? ""));
-  const folder = $derived(session.repository.split("/").filter(Boolean).at(-1) ?? session.repository);
 
   async function load(): Promise<void> {
     const shown = session.id;
@@ -88,44 +82,9 @@
     e.preventDefault();
     void send();
   }
-
-  async function act(action: () => Promise<unknown>): Promise<void> {
-    stopping = false;
-    try {
-      await action();
-    } catch (e) {
-      notices.report(e);
-    }
-  }
 </script>
 
 <section class="session" aria-label={session.title}>
-  <div class="meta">
-    <StatusMark status={session.status} />
-    <span class="where" title={t("tasks.in", { folder: session.repository })}><Folder size={12} />{folder}</span>
-    <span class="end">
-      {#if busy}
-        {#if stopping}
-          <span class="ask">{t("tasks.stopTitle", { agent: session.name })}</span>
-          <button class="btn btn--danger btn--sm" onclick={() => act(() => client.tasks.stop(threadId, session.id))}
-            >{t("tasks.stop")}</button
-          >
-          <button class="btn btn--ghost btn--sm" onclick={() => (stopping = false)}>{t("common.cancel")}</button>
-        {:else}
-          <button class="btn btn--ghost btn--sm" title={t("tasks.stopText")} onclick={() => (stopping = true)}
-            ><Square size={11} fill="currentColor" />{t("tasks.stop")}</button
-          >
-        {/if}
-      {:else}
-        <button
-          class="btn btn--ghost btn--icon"
-          title={t("tasks.closeHint")}
-          aria-label={t("tasks.close")}
-          onclick={() => act(() => client.tasks.remove(threadId, session.id))}><X size={14} /></button
-        >
-      {/if}
-    </span>
-  </div>
   {#if error}
     <p class="note error-text">{error}</p>
   {:else if !details}
@@ -165,42 +124,6 @@
     flex: 1;
     min-width: 0;
     min-height: 0;
-  }
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 30px;
-    padding: 0 6px 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
-    font-size: var(--font-size-sm);
-  }
-  .where {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-  }
-  .end {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
-  }
-  .ask {
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-  .end .btn--sm {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
   }
   .work {
     display: flex;

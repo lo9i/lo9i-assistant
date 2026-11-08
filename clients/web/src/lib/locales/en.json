@@ -1722,7 +1722,7 @@
     "stop": "Stop",
     "stopTitle": "Stop {agent}?",
     "stopText": "It stops where it is; what it already changed stays. Messages it hadn't read go to it next.",
-    "close": "Close this tab",
+    "close": "Close this session",
     "closeHint": "Takes it off the panel. What it changed stays in its folder.",
     "lost": "Its worker ended without a result: the computer restarted or it was killed.",
     "gone": "This session is gone."

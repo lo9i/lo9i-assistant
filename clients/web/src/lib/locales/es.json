@@ -1722,7 +1722,7 @@
     "stop": "Detener",
     "stopTitle": "¿Detener a {agent}?",
     "stopText": "Se detiene donde está; lo que ya cambió se queda. Los mensajes que no leyó le llegan después.",
-    "close": "Cerrar esta pestaña",
+    "close": "Cerrar esta sesión",
     "closeHint": "La saca del panel. Lo que cambió se queda en su carpeta.",
     "lost": "Su proceso terminó sin resultado: la computadora se reinició o lo cerraron.",
     "gone": "Esta sesión ya no está."
