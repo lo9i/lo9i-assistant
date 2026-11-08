@@ -1715,7 +1715,6 @@
     "in": "En {folder}",
     "placeholder": "Escríbele a {agent}…",
     "send": "Enviar a {agent}",
-    "hintWorking": "{agent} lo lee después de su paso actual.",
     "modelHint": "El modelo con el que trabaja {agent}",
     "elapsedHint": "Cuánto tiempo lleva trabajando la sesión, o trabajó",
     "later": "{agent} no puede leer mensajes mientras trabaja: lo recibe cuando termine su tarea actual.",

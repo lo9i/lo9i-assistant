@@ -110,9 +110,6 @@
         onclick={send}><ArrowUp size={14} /></button
       >
     </div>
-    {#if busy}
-      <p class="hint text-caption">{t("tasks.hintWorking", { agent: session.name })}</p>
-    {/if}
     <TaskStatus {session} {ended} />
   </div>
 </section>
@@ -184,8 +181,5 @@
   .send:disabled {
     opacity: 0.45;
     cursor: default;
-  }
-  .hint {
-    margin: 4px 10px 0;
   }
 </style>
