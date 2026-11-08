@@ -22,14 +22,20 @@ def _namespace(user_id: str, channel: str) -> tuple[str, ...]:
     return ("sent_messages", user_id, channel)
 
 
-async def record(store: BaseStore, user_id: str, channel: str, text: str, at: datetime) -> None:
-    await store.aput(_namespace(user_id, channel), uuid.uuid4().hex, {"at": at.isoformat(), "text": text})
+async def record(
+    store: BaseStore, user_id: str, channel: str, text: str, at: datetime, proactive: bool = False
+) -> None:
+    """`proactive`: sent on the assistant's own initiative (the briefing, a reminder; `turn_header.sent_block`)."""
+    note = {"at": at.isoformat(), "text": text, "proactive": proactive}
+    await store.aput(_namespace(user_id, channel), uuid.uuid4().hex, note)
 
 
-async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, text: str, at: datetime) -> list[str]:
+async def tell_every_channel(
+    store: BaseStore, outbox: Outbox, user_id: str, text: str, at: datetime, proactive: bool = False
+) -> list[str]:
     """To the user's own chat on every chat channel connected now, each recorded for the turn header of their next
     message there. A channel that doesn't take it misses it: what tells everyone this way (an alert) is in the
-    notifications feed too. Returns the channels that took it."""
+    notifications feed too. Returns the channels that took it. `proactive` as for `record`."""
     took: list[str] = []
     for channel in outbox.channels:
         try:
@@ -37,7 +43,7 @@ async def tell_every_channel(store: BaseStore, outbox: Outbox, user_id: str, tex
         except DeliveryError as e:
             logger.info("Couldn't send an alert on %s: %s", channel, e)
             continue
-        await record(store, user_id, channel, text, at)
+        await record(store, user_id, channel, text, at, proactive)
         took.append(channel)
     return took
 
@@ -49,4 +55,4 @@ async def take(store: BaseStore, user_id: str, channel: str) -> list[dict[str, s
     for item in items:
         await store.adelete(_namespace(user_id, channel), item.key)
     notes = sorted((item.value for item in items), key=lambda v: v["at"])[-_LIMIT:]
-    return [sent_block(channel, datetime.fromisoformat(n["at"]), n["text"]) for n in notes]
+    return [sent_block(channel, datetime.fromisoformat(n["at"]), n["text"], n.get("proactive", False)) for n in notes]

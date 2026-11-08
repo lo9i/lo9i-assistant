@@ -22,4 +22,6 @@ class Teller:
     async def tell(self, kind: Kind, title: str, text: str, thread_id: str = "") -> list[str]:
         """The chat channels that took it. `thread_id`: the conversation it's about, which its notification opens."""
         await notifications.add(self._store, self._user_id, kind, title, text, ok=True, thread_id=thread_id)
-        return await sent.tell_every_channel(self._store, self._outbox, self._user_id, text, datetime.now(UTC))
+        return await sent.tell_every_channel(
+            self._store, self._outbox, self._user_id, text, datetime.now(UTC), proactive=True
+        )

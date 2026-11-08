@@ -16,6 +16,7 @@ from mcp.types import ToolAnnotations
 from lo9i.core import conversations, notifications
 from lo9i.core.agent import AssistantService, McpServer, Session
 from lo9i.core.config import settings
+from lo9i.core.conversation import sent
 from lo9i.core.conversation.digest import MemoryDigest
 from lo9i.core.jobs import store as jobs
 from lo9i.core.jobs.store import Job, RunRecord
@@ -414,6 +415,15 @@ async def test_a_reminder_opens_the_conversation_its_loop_came_from(service):
     await _tick(service, SUNDAY.replace(hour=9, minute=1) + timedelta(days=1))
     [told] = [n for n in await notifications.recent(service.store, "owner") if n.kind == "reminder"]
     assert told.thread_id == "t1"
+
+
+async def test_a_reply_to_a_reminder_says_how_to_act_on_it_and_other_messages_dont(service, chat):
+    await loops.add(service.store, "owner", LoopDraft(text="Call Ana", remind_at="2026-11-02T09:00"), "assistant")
+    await records.save_settings(service.store, "owner", ProactiveSettings(briefing=False))
+    await sent.record(service.store, "owner", "telegram", "New mail from Ana", SUNDAY)
+    await _tick(service, SUNDAY.replace(hour=9, minute=1) + timedelta(days=1))
+    mail, reminder = [b["text"] for b in await sent.take(service.store, "owner", "telegram")]
+    assert 'load_tools("open-loops")' in reminder and "open-loops" not in mail
 
 
 # Conversations and the assistant's tools.

@@ -1,0 +1,1 @@
+(This is a briefing, reminder or open-loop suggestion you sent on your own. If the user answers it, act on it: close the loop when it's done, and when they say they don't want that kind of suggestion ("less of this"), mute it; the open-loops tools do both (load them with load_tools("open-loops")). Suggest, never act for them unasked.)

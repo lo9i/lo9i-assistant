@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from langchain_core.messages import BaseMessage, HumanMessage
 
 from lo9i.core.config import settings
+from lo9i.core.conversation import prompts
 
 _HEADER = re.compile(r"^\[[^\]]*, via ([\w-]+)\]$")
 _HEADER_TIME = re.compile(r"^\[\w+ (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) ")
@@ -22,9 +23,12 @@ def header_block(channel: str, now: datetime) -> dict[str, str]:
     return {"type": "text", "text": f"[{local:%a %Y-%m-%d %H:%M %Z}, via {channel}]"}
 
 
-def sent_block(channel: str, at: datetime, text: str) -> dict[str, str]:
+def sent_block(channel: str, at: datetime, text: str, proactive: bool = False) -> dict[str, str]:
+    """`proactive`: sent on the assistant's own initiative (the briefing, a reminder), so the block says how to act
+    on an answer to it, which the system prompt doesn't."""
     local = at.astimezone(ZoneInfo(settings.timezone))
-    return {"type": "text", "text": f"{_SENT}{channel} at {local:%a %Y-%m-%d %H:%M %Z}, outside this chat:]\n{text}"}
+    sent = f"{_SENT}{channel} at {local:%a %Y-%m-%d %H:%M %Z}, outside this chat:]\n{text}"
+    return {"type": "text", "text": f"{sent}\n{prompts.load('answering_proactive')}" if proactive else sent}
 
 
 def note_block(text: str) -> dict[str, str]:
