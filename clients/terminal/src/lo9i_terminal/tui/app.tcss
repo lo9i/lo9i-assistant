@@ -392,7 +392,7 @@ EmailScreen, ChannelSetupScreen, McpAddScreen, McpSecretsScreen, SkillEditScreen
     align: center middle;
 }
 
-#about-you, #suggested-plugins, #profile, #web-search, #email, #email-recipients, #home-section, #channel-setup-dialog, #startup, #host, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #plugin-sign-in, #open-conversations, #model, #audio, #skill-edit, #repository-install, #plugin-settings, #update-values, #spending {
+#about-you, #suggested-plugins, #profile, #web-search, #email, #email-recipients, #home-section, #channel-setup-dialog, #startup, #host, #context-parts, #mcp-add, #mcp-secrets-dialog, #mcp-sign-in, #plugin-sign-in, #open-conversations, #model, #audio, #skill-edit, #repository-install, #plugin-settings, #update-values, #spending {
     width: 80%;
     max-width: 100;
     height: auto;
@@ -401,7 +401,7 @@ EmailScreen, ChannelSetupScreen, McpAddScreen, McpSecretsScreen, SkillEditScreen
     background: $dialog-background;
 }
 
-#about-you Markdown, #suggested-plugins Markdown, #profile Markdown, #web-search Markdown, #home-section Markdown, #email Markdown, #email-recipients Markdown, #channel-setup-dialog Markdown, #startup Markdown, #host Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #plugin-sign-in Markdown, #model Markdown, #audio Markdown, #spoken Markdown, #skill-edit Markdown, #repository-install Markdown, #plugin-settings Markdown, #update-values Markdown, #spending Markdown {
+#about-you Markdown, #suggested-plugins Markdown, #profile Markdown, #web-search Markdown, #home-section Markdown, #email Markdown, #email-recipients Markdown, #channel-setup-dialog Markdown, #startup Markdown, #host Markdown, #context-parts Markdown, #mcp-add Markdown, #mcp-secrets-dialog Markdown, #mcp-sign-in Markdown, #plugin-sign-in Markdown, #model Markdown, #audio Markdown, #spoken Markdown, #skill-edit Markdown, #repository-install Markdown, #plugin-settings Markdown, #update-values Markdown, #spending Markdown {
     background: transparent;
     margin: 0;
 }
@@ -411,12 +411,12 @@ ModalScreen Markdown > MarkdownHeader:first-child, PageScreen Markdown > Markdow
     margin-top: 0;
 }
 
-#about-you-buttons, #suggested-plugins-buttons, #profile-buttons, #web-search-buttons, #home-section-buttons, #email-buttons, #email-recipients-buttons, #channel-setup-buttons, #startup-buttons, #host-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #plugin-sign-in-buttons, #open-conversations-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons, #plugin-settings-buttons, #update-values-buttons, #spending-buttons {
+#about-you-buttons, #suggested-plugins-buttons, #profile-buttons, #web-search-buttons, #home-section-buttons, #email-buttons, #email-recipients-buttons, #channel-setup-buttons, #startup-buttons, #host-buttons, #context-parts-buttons, #mcp-add-buttons, #mcp-secrets-buttons, #mcp-sign-in-buttons, #plugin-sign-in-buttons, #open-conversations-buttons, #model-buttons, #audio-buttons, #skill-edit-buttons, #repository-buttons, #plugin-settings-buttons, #update-values-buttons, #spending-buttons {
     height: auto;
     margin-top: 1;
 }
 
-#about-you-buttons Button, #suggested-plugins-buttons Button, #profile-buttons Button, #web-search-buttons Button, #home-section-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #host-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #plugin-sign-in-buttons Button, #open-conversations-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button, #plugin-settings-buttons Button, #update-values-buttons Button, #spending-buttons Button {
+#about-you-buttons Button, #suggested-plugins-buttons Button, #profile-buttons Button, #web-search-buttons Button, #home-section-buttons Button, #email-buttons Button, #email-recipients-buttons Button, #channel-setup-buttons Button, #startup-buttons Button, #host-buttons Button, #context-parts-buttons Button, #mcp-add-buttons Button, #mcp-secrets-buttons Button, #mcp-sign-in-buttons Button, #plugin-sign-in-buttons Button, #open-conversations-buttons Button, #model-buttons Button, #audio-buttons Button, #skill-edit-buttons Button, #repository-buttons Button, #plugin-settings-buttons Button, #update-values-buttons Button, #spending-buttons Button {
     margin-right: 2;
 }
 

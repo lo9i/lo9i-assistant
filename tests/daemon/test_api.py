@@ -514,6 +514,18 @@ async def test_the_health_check_runs_on_demand_and_known_noise_is_marked(client,
     await client.alerts.dismiss("doctor", "context")
 
 
+async def test_the_starting_context_is_measured_now_in_the_language_the_app_shows(app, client, service):
+    context = await client.doctor.context()
+    parts = {p.name: p.tokens for p in context.parts}
+    assert parts["Core tool definitions"] > 0 and context.tokens == sum(parts.values()) and context.window > 0
+    assert (await service.doctor_page(settings.owner_id)).report is None
+    transport = httpx.ASGITransport(app=trusted(app))
+    headers = {CLIENT_HEADER: "web", LANGUAGE_HEADER: "es"}
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1", headers=headers) as http:
+        spanish = (await http.get("/doctor/context")).json()
+    assert "Definiciones de herramientas propias" in [p["name"] for p in spanish["parts"]]
+
+
 async def test_the_setup_check_lists_each_part_in_the_language_asked(app, client, service, monkeypatch):
     from lo9i.core.llm import key_check
     from lo9i.core.llm.choice import ModelChoice

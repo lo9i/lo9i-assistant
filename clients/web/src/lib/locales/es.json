@@ -805,6 +805,15 @@
     "deleteText": "La tarea programada deja de ejecutarse y su historial se borra.",
     "overBudget": "pasó el límite de gasto"
   },
+  "contextParts": {
+    "title": "De qué está hecho el contexto",
+    "sub": "Lo que cada conversación nueva envía al modelo antes de su primer mensaje: el prompt de sistema parte por parte, y las definiciones de las herramientas. Los tokens son estimados, unos 4 caracteres cada uno.",
+    "ofWindow": "{share} de la ventana",
+    "total": "Tokens",
+    "window": "de {window}",
+    "ofTotal": "{percent} del total",
+    "ring": "Las partes del contexto por tamaño"
+  },
   "keptKeys": {
     "tokenFor": "Token de {repository}",
     "theTokenFor": "el token de {repository}",

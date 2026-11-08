@@ -88,6 +88,7 @@ COMMANDS = [
     Command("/keys", "/keys", translatable("Keys and tokens removed plugins left kept, to delete them")),
     Command("/startup", "/startup", translatable("Start the assistant at boot")),
     Command("/host", "/host", translatable("The computer the assistant runs on")),
+    Command("/context", "/context", translatable("What a new conversation's context is made of, part by part")),
     Command("/name", "/name <name>", translatable("Rename the assistant")),
     Command(
         "/language",

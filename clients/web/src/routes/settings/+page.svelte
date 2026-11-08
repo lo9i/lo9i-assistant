@@ -2,6 +2,7 @@
   import { page } from "$app/state";
   import AgentDoneCard from "$lib/ui/settings/AgentDoneCard.svelte";
   import AssistantCard from "$lib/ui/settings/AssistantCard.svelte";
+  import ContextPartsCard from "$lib/ui/settings/ContextPartsCard.svelte";
   import EmailCard from "$lib/ui/settings/EmailCard.svelte";
   import FolderPanelCard from "$lib/ui/settings/FolderPanelCard.svelte";
   import LanguageCard from "$lib/ui/settings/LanguageCard.svelte";
@@ -87,6 +88,7 @@
         <HostCard />
       </div>
       <div class="stack">
+        <ContextPartsCard />
         <KeptKeysCard />
       </div>
     </div>

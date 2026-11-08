@@ -110,6 +110,7 @@ from lo9i.core.agent import (
     SpeechStatus,
     SpendingStatus,
     SpokenReplies,
+    StartingContext,
     SubagentDetails,
     SubagentError,
     SubagentNotFoundError,
@@ -2050,6 +2051,12 @@ def _add_doctor_routes(app: FastAPI, service: AssistantService) -> None:
     @app.get("/doctor")
     async def doctor() -> DoctorPage:
         return await service.doctor_page(settings.owner_id)
+
+    @app.get("/doctor/context")
+    async def starting_context(texts: _Answering) -> StartingContext:
+        """What a new conversation's context would be made of now: the system prompt part by part and the tool
+        definitions, in estimated tokens, against the model's context window."""
+        return await service.starting_context(settings.owner_id, texts)
 
     @app.post("/doctor/check")
     async def check_health() -> DoctorPage:

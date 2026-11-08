@@ -103,6 +103,7 @@ import type {
   SpeechStatus,
   SpendingLimits,
   SpendingStatus,
+  StartingContext,
   StartupStatus,
   TokenReport,
   UpdateStatus,
@@ -796,6 +797,11 @@ export class DoctorGroup {
 
   get(): Promise<DoctorPage> {
     return this.transport.request("GET", "/doctor");
+  }
+
+  /** What a new conversation's context would be made of now, part by part, measured as the health check does. */
+  context(): Promise<StartingContext> {
+    return this.transport.request("GET", "/doctor/context");
   }
 
   /** Checks today so far in the background; its report comes with a `doctor` event. */

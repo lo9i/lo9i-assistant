@@ -1,5 +1,5 @@
 from lo9i.client.daemon_client.transport import Transport
-from lo9i.core.agent import DoctorPage
+from lo9i.core.agent import DoctorPage, StartingContext
 
 
 class DoctorApi:
@@ -10,6 +10,10 @@ class DoctorApi:
 
     async def get(self) -> DoctorPage:
         return DoctorPage.model_validate(await self._transport.request("GET", "/doctor"))
+
+    async def context(self) -> StartingContext:
+        """What a new conversation's context would be made of now, part by part."""
+        return StartingContext.model_validate(await self._transport.request("GET", "/doctor/context"))
 
     async def check(self) -> DoctorPage:
         """Checks today so far in the background; its report comes with a `doctor` event."""

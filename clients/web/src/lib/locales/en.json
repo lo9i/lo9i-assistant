@@ -805,6 +805,15 @@
     "deleteText": "The job stops running and its history is removed.",
     "overBudget": "over budget"
   },
+  "contextParts": {
+    "title": "What the context is made of",
+    "sub": "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions. Tokens are estimated, about 4 characters each.",
+    "ofWindow": "{share} of the window",
+    "total": "Tokens",
+    "window": "of {window}",
+    "ofTotal": "{percent} of the total",
+    "ring": "The context's parts by size"
+  },
   "keptKeys": {
     "tokenFor": "Token for {repository}",
     "theTokenFor": "the token for {repository}",

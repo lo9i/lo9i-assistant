@@ -1425,6 +1425,9 @@ class FakeDoctor:
     async def get(self):
         return self._page()
 
+    async def context(self):
+        return self.report.context
+
     async def check(self):
         self.checks += 1
         return self._page().model_copy(update={"checking": True})

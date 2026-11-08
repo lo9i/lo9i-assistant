@@ -3,6 +3,7 @@ known noise."""
 
 from lo9i.core.agent.base import ServiceBase
 from lo9i.core.doctor.model import Cause, ContextPart, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.i18n import Texts
 
 __all__ = ["Cause", "ContextPart", "DoctorMixin", "DoctorPage", "DoctorReport", "KnownCause", "StartingContext"]
 
@@ -10,6 +11,11 @@ __all__ = ["Cause", "ContextPart", "DoctorMixin", "DoctorPage", "DoctorReport", 
 class DoctorMixin(ServiceBase):
     async def doctor_page(self, user_id: str) -> DoctorPage:
         return await self.doctor.page(user_id)
+
+    async def starting_context(self, user_id: str, t: Texts) -> StartingContext:
+        """What a new conversation's context would be made of now, part by part: the system prompt and the tool
+        definitions, as the health check measures them."""
+        return await self.doctor.context(user_id, t)
 
     async def check_health(self, user_id: str) -> DoctorPage:
         """Checks today so far in the background, unless a check runs."""

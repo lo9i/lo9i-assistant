@@ -5008,6 +5008,25 @@
         }
       }
     },
+    "/doctor/context": {
+      "get": {
+        "summary": "Starting Context",
+        "description": "What a new conversation's context would be made of now: the system prompt part by part and the tool\ndefinitions, in estimated tokens, against the model's context window.",
+        "operationId": "starting_context_doctor_context_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartingContext"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/doctor/check": {
       "post": {
         "summary": "Check Health",

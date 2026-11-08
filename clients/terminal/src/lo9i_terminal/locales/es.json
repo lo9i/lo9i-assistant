@@ -1080,5 +1080,10 @@
   "Fix: {fix}": "Cómo arreglarlo: {fix}",
   "Not checked yet. Check setup checks the daemon, the model's key, the plugins, email, chat channels, the web app, disk space and the lo9i command.": "Todavía no se revisó. Revisar instalación revisa el daemon, la clave del modelo, los plugins, el correo, los canales de chat, la app web, el espacio en disco y el comando lo9i.",
   "Setup": "Instalación",
-  "{ok} ok, {warn} warning(s), {fail} failing.": "{ok} bien, {warn} advertencia(s), {fail} con fallas."
+  "{ok} ok, {warn} warning(s), {fail} failing.": "{ok} bien, {warn} advertencia(s), {fail} con fallas.",
+  "What the context is made of": "De qué está hecho el contexto",
+  "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions.": "Lo que cada conversación nueva envía al modelo antes de su primer mensaje: el prompt de sistema parte por parte, y las definiciones de las herramientas.",
+  "{tokens} tokens, estimated at about 4 characters each.": "{tokens} tokens, estimados en unos 4 caracteres cada uno.",
+  "{share}% of the {window} window.": "{share}% de la ventana de {window}.",
+  "What a new conversation's context is made of, part by part": "De qué está hecho el contexto de una conversación nueva, parte por parte"
 }

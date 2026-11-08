@@ -12,6 +12,7 @@ from lo9i_terminal.tui.screens.audio import SpeechToTextSection, SpokenRepliesSe
 from lo9i_terminal.tui.screens.briefing import BriefingSection
 from lo9i_terminal.tui.screens.channel_setup import ChannelSetupScreen
 from lo9i_terminal.tui.screens.confirm import ConfirmScreen
+from lo9i_terminal.tui.screens.context_parts import ContextPartsSection
 from lo9i_terminal.tui.screens.conversations import ConversationsScreen
 from lo9i_terminal.tui.screens.devices import DevicesScreen
 from lo9i_terminal.tui.screens.doctor import DoctorSection
@@ -55,6 +56,7 @@ __all__ = [
     "BriefingSection",
     "ChannelSetupScreen",
     "ConfirmScreen",
+    "ContextPartsSection",
     "ConversationsScreen",
     "DevicesScreen",
     "DoctorSection",

@@ -74,7 +74,7 @@ SETTINGS_TABS: tuple[SettingsTab, ...] = (
     SettingsTab("plugins", translatable("Plugins"), _alone("plugins")),
     SettingsTab("mcp", translatable("MCP servers"), _alone("mcp")),
     SettingsTab("skills", translatable("Skills"), (("skills", "import-skills"),)),
-    SettingsTab("system", translatable("System"), (("host",), ("keys",))),
+    SettingsTab("system", translatable("System"), (("host",), ("context", "keys"))),
     SettingsTab("clients", translatable("Clients"), _alone("sessions"), card=True),
     SettingsTab("logs", translatable("Logs"), _alone("logs")),
     SettingsTab("doctor", translatable("Health"), _alone("doctor")),

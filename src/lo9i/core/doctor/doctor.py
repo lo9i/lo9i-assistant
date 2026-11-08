@@ -14,7 +14,8 @@ from lo9i.core.doctor.causes import group
 from lo9i.core.doctor.clock import day_of
 from lo9i.core.doctor.context import PluginTools, starting_context
 from lo9i.core.doctor.conversation_causes import ConversationStates
-from lo9i.core.doctor.model import Cause, DoctorAlert, DoctorPage, DoctorReport, KnownCause
+from lo9i.core.doctor.model import Cause, DoctorAlert, DoctorPage, DoctorReport, KnownCause, StartingContext
+from lo9i.core.i18n import Texts
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,11 @@ class Doctor:
             known=await records.known(self._store, user_id),
             checking=self._checking is not None,
         )
+
+    async def context(self, user_id: str, t: Texts) -> StartingContext:
+        """The context a new conversation would start with now, its parts named in the language of `t`."""
+        context = await starting_context(self._store, user_id, self._plugins, await self._window())
+        return changes.named(context, t)
 
     async def check_now(self, user_id: str) -> DoctorPage:
         """Checks today so far in the background, unless a check runs; a `doctor` event tells when it's saved."""
