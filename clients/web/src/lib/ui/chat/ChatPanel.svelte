@@ -512,7 +512,8 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-width: 0;
+    /* The panels beside it give way first; in a pane narrower than that, it takes the whole of it. */
+    min-width: min(320px, 100%);
     min-height: 0;
     height: 100%;
   }

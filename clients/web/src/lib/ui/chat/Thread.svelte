@@ -339,6 +339,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    /* In a row (a coding task's work), as narrow as its room: its long lines wrap or are cut there, never widen it. */
+    min-width: 0;
     min-height: 0;
   }
   .to-bottom {

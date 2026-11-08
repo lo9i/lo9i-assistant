@@ -76,17 +76,19 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* Beside the chat and the other panels: when there isn't room for all, each gives way in proportion to its width
+     (the chat keeping its least, ChatPanel), and what it holds stays inside it rather than running under the next. */
     flex: 0 1 46%;
-    min-width: 340px;
+    min-width: 0;
     max-width: 760px;
+    overflow: hidden;
     min-height: 0;
     height: 100%;
     padding: 10px 8px 8px;
   }
   /* Dragged to a width of its own: that one, the chat keeping some room whatever the window. */
   .panel.sized {
-    flex: none;
-    width: var(--chosen-width);
+    flex: 0 1 var(--chosen-width);
     max-width: calc(100% - 320px);
   }
   header {

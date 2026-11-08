@@ -229,8 +229,12 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* Beside the chat and the other panels: when there isn't room for all, each gives way in proportion to its width
+     (the chat keeping its least, ChatPanel), and what it holds stays inside it rather than running under the next. */
     width: 300px;
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
     min-height: 0;
     height: 100%;
     padding: 10px 8px;
