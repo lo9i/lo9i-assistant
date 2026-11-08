@@ -12,7 +12,7 @@ async def test_the_parts_show_largest_first_with_their_share(app, client):
         await pilot.press(*"/context", "enter")
         section = await wait_for_section(pilot, app, ContextPartsSection)
         body = section.query_one("#context-parts-body", Markdown)
-        await wait_for(pilot, lambda: "8% of the 150k window" in body.source)
+        await wait_for(pilot, lambda: "Context window: 150k tokens, 12k used (8%)." in body.source)
         bars = str(section.query_one("#context-parts-bars", Static).render())
         assert bars.index("Saved facts") < bars.index("Skills")
-        assert "3.1k" in bars and "78%" in bars
+        assert "3.1k" in bars and " 2%" in bars and "0.6%" in bars

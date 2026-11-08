@@ -8,15 +8,15 @@
   import Toggle from "../Toggle.svelte";
 
   // What the part picked in the ring lists (each skill, fact, profile section, tool definition), largest first, each
-  // with its share of the part; the part's own heading and instructions as one more. Clicking an entry shows it whole.
+  // with its share of the model's whole window (its bar against the largest); the part's own heading and instructions as one more. Clicking an entry shows it whole.
   // Saved facts lists every fact, each with a switch for whether it's basic: only basic ones are in the prompt (and
   // counted), the others come into a turn when a message touches them.
   type Props = { context: StartingContext | undefined; selected: string; color: string };
   let { context, selected, color }: Props = $props();
   const { client, notices } = useDaemon();
   const part = $derived(context?.parts.find((p) => p.name === selected));
-  const items = $derived(context ? itemsOf(context.parts, selected) : []);
-  const ofContext = $derived(part && context?.tokens ? part.tokens / context.tokens : 0);
+  const items = $derived(context ? itemsOf(context.parts, selected, context.window) : []);
+  const ofWindow = $derived(part && context?.window ? part.tokens / context.window : 0);
   const hasFacts = $derived(items.some((i) => i.fact_id));
   let open = $state<number | null>(null);
   $effect(() => {
@@ -42,7 +42,7 @@
 <SettingsCard
   id="context-items"
   title={part?.name ?? t("contextParts.itemsTitle")}
-  sub={part ? t("contextParts.itemsSub", { tokens: compact(part.tokens), percent: percent(ofContext) }) : undefined}
+  sub={part ? t("contextParts.itemsSub", { tokens: compact(part.tokens), percent: percent(ofWindow) }) : undefined}
 >
   {#snippet status()}
     {#if items.length}<span class="pill">{items.filter((i) => !i.frame).length}</span>{/if}
@@ -69,7 +69,7 @@
               {/if}
             </span>
             {#if counted}
-              <span class="bar"><span style="width: {Math.max(item.share * 100, 0.5)}%; background: {color}"></span></span>
+              <span class="bar"><span style="width: {Math.max(item.scale * 100, 0.5)}%; background: {color}"></span></span>
             {/if}
             {#if item.detail}<span class="detail text-meta">{item.detail}</span>{/if}
           </button>

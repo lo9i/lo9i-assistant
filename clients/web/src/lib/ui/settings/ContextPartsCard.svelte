@@ -10,7 +10,7 @@
   // numbers in the middle; picking one (ContextBreakdown) shows what it lists in the card beside it.
   type Props = { context: StartingContext | undefined; error?: string; selected: string; onselect: (name: string) => void };
   let { context, error, selected, onselect }: Props = $props();
-  const shown = $derived(context ? arcs(context.parts) : []);
+  const shown = $derived(context ? arcs(context.parts, context.window) : []);
   let hovered = $state<number | null>(null);
   const focus = $derived(hovered !== null ? shown[hovered] : undefined);
 
@@ -28,8 +28,8 @@
 
 <SettingsCard id="context-parts" title={t("contextParts.title")} sub={t("contextParts.sub")}>
   {#snippet status()}
-    {#if context?.window}
-      <span class="pill" class:pill--danger={context.too_large}>{t("contextParts.ofWindow", { share: contextShare(context) })}</span>
+    {#if context?.too_large}
+      <span class="pill pill--danger">{t("contextParts.ofWindow", { share: contextShare(context) })}</span>
     {/if}
   {/snippet}
   {#if context === undefined}
@@ -65,11 +65,15 @@
           {#if focus}
             <span class="micro-label name">{focus.name}</span>
             <strong>{compact(focus.tokens)}</strong>
-            <span class="text-meta">{t("contextParts.ofTotal", { percent: percent(focus.share) })}</span>
+            <span class="text-meta"
+              >{t(data.window ? "contextParts.ofWindow" : "contextParts.ofTotal", { share: percent(focus.share) })}</span
+            >
           {:else}
             <span class="micro-label">{t("contextParts.total")}</span>
             <strong>{compact(data.tokens)}</strong>
-            {#if data.window}<span class="text-meta">{t("contextParts.window", { window: compact(data.window) })}</span>{/if}
+            {#if data.window}<span class="text-meta"
+                >{t("contextParts.window", { share: contextShare(data), window: compact(data.window) })}</span
+              >{/if}
           {/if}
         </div>
       </div>
@@ -96,10 +100,21 @@
         {/each}
       </ul>
     </div>
+    {#if data.window}
+      <p class="text-meta reference" class:over={data.too_large}>
+        {t("contextParts.windowLine", { window: compact(data.window), used: compact(data.tokens), share: contextShare(data) })}
+      </p>
+    {/if}
   {/if}
 </SettingsCard>
 
 <style>
+  .reference {
+    margin: -8px 0 0;
+  }
+  .reference.over {
+    color: var(--color-danger);
+  }
   .chart {
     display: grid;
     grid-template-columns: 200px minmax(0, 1fr);

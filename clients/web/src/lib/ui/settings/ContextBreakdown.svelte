@@ -9,7 +9,7 @@
   // part until one is picked. It changes with memory, skills, plugins, accounts and the prompt's texts, so those
   // events measure it again.
   const context = resource((c) => c.doctor.context(), ["memory", "skills", "mcp", "plugins", "integrations", "prompts", "settings"]);
-  const shown = $derived(context.data ? arcs(context.data.parts) : []);
+  const shown = $derived(context.data ? arcs(context.data.parts, context.data.window) : []);
   let picked = $state<string | null>(null);
   // A part picked that's gone after a change gives way to the largest again.
   const selected = $derived(shown.find((a) => a.name === picked)?.name ?? shown[0]?.name ?? "");
