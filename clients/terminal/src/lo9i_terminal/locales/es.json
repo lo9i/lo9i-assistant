@@ -1084,7 +1084,7 @@
   "Setup": "Instalación",
   "{ok} ok, {warn} warning(s), {fail} failing.": "{ok} bien, {warn} advertencia(s), {fail} con fallas.",
   "What the context is made of": "De qué está hecho el contexto",
-  "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions.": "Lo que cada conversación nueva envía al modelo antes de su primer mensaje: el prompt de sistema parte por parte, y las definiciones de las herramientas.",
+  "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions. Facts that aren't basic and summaries of past conversations aren't in it: they come into a turn when a message touches them.": "Lo que cada conversación nueva envía al modelo antes de su primer mensaje: el prompt de sistema parte por parte, y las definiciones de las herramientas. Los datos que no son básicos y los resúmenes de conversaciones pasadas no están: entran en un turno cuando un mensaje los toca.",
   "{tokens} tokens, estimated at about 4 characters each.": "{tokens} tokens, estimados en unos 4 caracteres cada uno.",
   "{share}% of the {window} window.": "{share}% de la ventana de {window}.",
   "What a new conversation's context is made of, part by part": "De qué está hecho el contexto de una conversación nueva, parte por parte",

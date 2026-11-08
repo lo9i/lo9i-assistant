@@ -1,5 +1,6 @@
-"""Saved facts: only basic ones are in every system prompt, within a budget of tokens; the others come into a turn when
-the user's message is close to them in meaning, once per conversation, and stay in its later epochs' prompts."""
+"""Saved facts: only basic ones are in every system prompt, within a budget of tokens; the others, and the summaries of
+past conversations, come into a turn when the user's message is close to them in meaning, once per conversation, and
+stay in its later epochs' prompts."""
 
 import logging
 
@@ -8,10 +9,11 @@ from langchain_core.messages import HumanMessage, ToolMessage
 
 from lo9i.core.agent import Session
 from lo9i.core.config import settings
-from lo9i.core.conversation import relevant_facts
+from lo9i.core.conversation import relevant
 from lo9i.core.conversation.prompt import build_system_prompt
 from lo9i.core.events import Dispatched
-from lo9i.core.memory import facts
+from lo9i.core.memory import episodes, facts
+from lo9i.core.memory.episodes import Episode
 from lo9i.core.usage.tokens import estimate_text
 from tests.conftest import collect
 
@@ -22,6 +24,8 @@ _GAS = "gas service is with Naturgy, meter 14246967"
 def close_by_shared_words(monkeypatch):
     """The fake embedder's vectors are bags of words: sharing two of a handful is close."""
     monkeypatch.setattr(settings, "memory_relevant_similarity", 0.3)
+    monkeypatch.setattr(settings, "memory_relevant_conversations_similarity", 0.3)
+    monkeypatch.setattr(settings, "memory_relevant_conversations_margin", 0.0)
 
 
 async def _conversation(service) -> Session:
@@ -32,6 +36,12 @@ async def _saved(service, text: str, basic: bool = False) -> str:
     fact_id = await facts.add(service.store, "u", text, basic)
     await service.memory_index.sync_all()
     return fact_id
+
+
+async def _summary(service, summary: str, ended_at: str = "2026-10-21T16:00:00") -> str:
+    await episodes.save(service.store, "u", Episode("2026-10-21T15:00:00", ended_at, summary))
+    await service.memory_index.sync_all()
+    return next(e.id for e in await episodes.load_all(service.store, "u") if e.summary == summary)
 
 
 def _last_message(script) -> str:
@@ -99,7 +109,7 @@ async def test_the_inbox_brings_them_up_each_time_and_keeps_none(service, script
     for text in ["check my gas service bill", "the gas service, again?"]:
         await collect(service.send(session, text))
         assert f"[{gas}]" in _last_message(script)
-    assert await relevant_facts.kept(service.store, "u", session.thread_id) == []
+    assert await relevant.kept(service.store, "u", session.thread_id) == relevant.Brought()
 
 
 @pytest.mark.usefixtures("dispatch")
@@ -110,9 +120,9 @@ async def test_a_message_sent_on_carries_its_facts_and_its_conversation_keeps_th
     new = await _conversation(service)
     await collect(service.send_dispatched(new, moved.id))
     assert _last_message(script).count("# Relevant facts") == 1
-    assert [f.id for f in await relevant_facts.kept(service.store, "u", new.thread_id)] == [gas]
+    assert [f.id for f in (await relevant.kept(service.store, "u", new.thread_id)).facts] == [gas]
     await service.delete_conversation("u", new.thread_id)
-    assert await relevant_facts.kept(service.store, "u", new.thread_id) == []
+    assert await relevant.kept(service.store, "u", new.thread_id) == relevant.Brought()
 
 
 async def test_without_the_embedding_model_messages_go_on_without_them(service, script, embedder):
@@ -138,3 +148,61 @@ async def test_marking_basic_keeps_the_id_and_editing_keeps_it_basic(service):
     assert (marked.id, marked.basic) == (fact_id, True)
     edited = await service.edit_fact("u", fact_id, "the lo9i repo is at ~/code/lo9i")
     assert edited.basic and edited.id != fact_id
+
+
+_INVOICE = "The user pasted a Naturgy gas service invoice and it was added to expenses."
+
+
+async def test_no_past_conversation_is_in_the_system_prompt(service):
+    await _summary(service, _INVOICE)
+    prompt = await build_system_prompt(service.store, "u", "lo9i", "")
+    assert "Naturgy" not in prompt and "conversations" not in prompt.lower().split("# skills")[-1]
+
+
+async def test_a_message_brings_up_the_past_conversations_it_touches_once_and_they_stay(
+    service, script, digests, monkeypatch
+):
+    invoice = await _summary(service, _INVOICE)
+    await _summary(service, "Planned holidays: Rome, Florence.", ended_at="2026-10-22T16:00:00")
+    session = await _conversation(service)
+    await collect(service.send(session, "add the gas service invoice to expenses"))
+    said = _last_message(script)
+    assert "# Relevant conversations" in said and _INVOICE in said and "Rome" not in said
+    await collect(service.send(session, "and the gas service invoice from last month?"))
+    assert "# Relevant conversations" not in _last_message(script)
+    monkeypatch.setattr(settings, "epoch_max_tokens", 1)
+    monkeypatch.setattr(settings, "epoch_keep_turns", 1)
+    await collect(service.send(session, "thanks, something else now"))
+    system = str(script.requests[-1][0].content)
+    assert "# Relevant conversations" in system and _INVOICE in system
+    assert [e.id for e in (await relevant.kept(service.store, "u", session.thread_id)).episodes] == [invoice]
+
+
+async def test_a_past_conversation_has_to_stand_out_from_the_rest(service, script, monkeypatch):
+    monkeypatch.setattr(settings, "memory_relevant_conversations_margin", 0.2)
+    for place in ["Rome", "Paris", "Lisbon"]:
+        await _summary(service, f"Planned a trip to {place}.")
+    await collect(service.send(await _conversation(service), "plan a trip"))
+    assert "# Relevant conversations" not in _last_message(script)
+    await collect(service.send(await _conversation(service), "the trip to Lisbon"))
+    said = _last_message(script)
+    assert "Lisbon" in said.split("# Relevant conversations")[-1] and "Rome" not in said
+
+
+async def test_at_most_a_few_past_conversations_a_message(service, script):
+    for n in range(5):
+        await _summary(service, f"Talked about the gas service invoice number {n}.")
+    await collect(service.send(await _conversation(service), "the gas service invoice"))
+    note = _last_message(script).split("# Relevant conversations")[-1]
+    assert note.count("Talked about the gas service invoice") == settings.memory_relevant_conversations == 3
+
+
+@pytest.mark.usefixtures("dispatch")
+async def test_a_message_sent_on_carries_its_past_conversations(service, script):
+    invoice = await _summary(service, _INVOICE)
+    events = await collect(service.send(await service.session("u", "web"), "add the gas service invoice"))
+    moved = next(e for e in events if isinstance(e, Dispatched))
+    new = await _conversation(service)
+    await collect(service.send_dispatched(new, moved.id))
+    assert _last_message(script).count("# Relevant conversations") == 1
+    assert [e.id for e in (await relevant.kept(service.store, "u", new.thread_id)).episodes] == [invoice]

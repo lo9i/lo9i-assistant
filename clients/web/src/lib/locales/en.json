@@ -807,7 +807,7 @@
   },
   "contextParts": {
     "title": "What the context is made of",
-    "sub": "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions. Tokens are estimated, about 4 characters each.",
+    "sub": "What every new conversation sends the model before its first message: the system prompt part by part, then the tool definitions. Tokens are estimated, about 4 characters each. Facts that aren't basic and summaries of past conversations aren't in it: they come into a turn when a message touches them.",
     "ofWindow": "{share} of the window",
     "total": "Tokens",
     "window": "of {window}",

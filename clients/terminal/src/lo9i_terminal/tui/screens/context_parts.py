@@ -70,7 +70,8 @@ class ContextPartsSection(SettingsSection):
         context = await self._doctor.context()
         about = t(
             "What every new conversation sends the model before its first message: the system prompt part by part, "
-            "then the tool definitions."
+            "then the tool definitions. Facts that aren't basic and summaries of past conversations aren't in it: they "
+            "come into a turn when a message touches them."
         )
         heading = "## " + t("What the context is made of")
         await self.query_one("#context-parts-body", Markdown).update(f"{heading}\n\n{about} {summary(context)}")
