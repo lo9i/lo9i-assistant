@@ -151,9 +151,9 @@
         onclick={send}><ArrowUp size={14} /></button
       >
     </div>
-    <p class="hint text-caption">
-      {busy ? t("tasks.hintWorking", { agent: session.name }) : t("tasks.hintIdle", { agent: session.name })}
-    </p>
+    {#if busy}
+      <p class="hint text-caption">{t("tasks.hintWorking", { agent: session.name })}</p>
+    {/if}
     <TaskStatus {session} {ended} />
   </div>
 </section>
