@@ -1,11 +1,12 @@
 """Coding tasks beside the conversation that started them. The assistant's start_task runs the task in the background
 and the conversation stays the assistant's: the user goes on talking to it while the agent works, and the web app shows
 the agent's work in a panel beside the chat, a tab per session (beside_records.py), live: each step the agent writes is
-an `agent_task_step` event, with its place among the task's steps. The user writes to the agent from there: while it
-works, a worker that takes messages gets it between its steps (docs/agent-plugins.md); otherwise, and once its task
-ended, it goes to the agent as the next task of the same session (follow_up_of), so the agent goes on with what it
-knows. The daemon runs this as a supervised task that follows each session's last task to its end and sends on what the
-user wrote that the agent didn't take.
+an `agent_task_step` event, with its place among the task's steps, and each time it says how full its context is an
+`agent_task_context` event, which the panel's status line shows with its model. The user writes to the agent from
+there: while it works, a worker that takes messages gets it between its steps (docs/agent-plugins.md); otherwise, and
+once its task ended, it goes to the agent as the next task of the same session (follow_up_of), so the agent goes on with
+what it knows. The daemon runs this as a supervised task that follows each session's last task to its end and sends on
+what the user wrote that the agent didn't take.
 
 The task the assistant started tells its end to the conversation (ends.py), where the assistant follows it up with a
 short summary; a task the user started from the panel isn't told, as the user watched it there. While tasks run, the
@@ -21,11 +22,11 @@ from langgraph.store.base import BaseStore
 
 from lo9i.core.agent_tasks import beside_records as records
 from lo9i.core.agent_tasks.beside_records import BesideSession
-from lo9i.core.agent_tasks.records import Status, Task, TaskState
+from lo9i.core.agent_tasks.records import Context, Status, Task, TaskState
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.agent_tasks.service import AgentTaskError, AgentTasks
 from lo9i.core.agent_tasks.steps import line, parse, streamed, waiting
-from lo9i.core.agent_tasks.waiting import Report
+from lo9i.core.agent_tasks.waiting import Measured, Report
 from lo9i.core.background import Origin
 from lo9i.core.bus import EventBus
 from lo9i.core.config import settings
@@ -101,6 +102,11 @@ class TaskSession:
     step: str = ""
     # How many messages wait to go to the agent as its next task.
     waiting: int = 0
+    # How full the agent's context is, of its model's window, and the model, as its last task last said (the one
+    # before until it says); 0 and "" when its worker doesn't say.
+    context_tokens: int = 0
+    context_limit: int = 0
+    model: str = ""
 
 
 @dataclass
@@ -239,7 +245,8 @@ class TasksBeside:
         """Its steps from now on are events; once it ended, what the user sent it that it didn't take goes on."""
         try:
             lines, steps = await self._tasks.written(task_id)
-            await self._tasks.ended(task_id, self._steps(thread_id, session_id, task_id, steps), lines)
+            report = self._steps(thread_id, session_id, task_id, steps)
+            await self._tasks.ended(task_id, report, lines, self._measured(thread_id, session_id))
         except AgentTaskError:
             # Its agent isn't installed now; it's followed again when a session changes or the daemon starts.
             return
@@ -263,6 +270,12 @@ class TasksBeside:
             await self._pass_on_waiting(settings.owner_id, thread_id, session_id, task_id)
 
         return _report
+
+    def _measured(self, thread_id: str, session_id: str) -> Measured:
+        def _tell() -> None:
+            self._bus.publish("agent_task_context", thread_id=thread_id, session_id=session_id)
+
+        return _tell
 
     async def _pass_on_waiting(self, user_id: str, thread_id: str, session_id: str, task_id: str) -> None:
         """What the user wrote before its worker took messages goes to it once it does (it makes its inbox when it's
@@ -344,6 +357,7 @@ class TasksBeside:
         first_state, last_state = await self._state(session.tasks[0]), await self._state(session.tasks[-1])
         if first_state is None or last_state is None:
             return None
+        context = await self._context(session.tasks[-1]) or Context(0, 0)
         return TaskSession(
             session.id,
             session.agent,
@@ -354,6 +368,9 @@ class TasksBeside:
             first_state.task.started_at,
             _latest(last_state) if last_state.status == "running" else "",
             len(session.waiting),
+            context.tokens,
+            context.window,
+            context.model,
         )
 
     async def _turn(self, session: BesideSession, task_id: str) -> TaskTurn:
@@ -371,6 +388,12 @@ class TasksBeside:
     async def _state(self, task_id: str) -> TaskState | None:
         try:
             return (await self._tasks.state(task_id)).state
+        except AgentTaskError:
+            return None
+
+    async def _context(self, task_id: str) -> Context | None:
+        try:
+            return await self._tasks.task_context(task_id)
         except AgentTaskError:
             return None
 

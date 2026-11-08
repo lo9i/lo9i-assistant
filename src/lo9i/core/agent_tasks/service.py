@@ -111,13 +111,21 @@ class AgentTasks:
         await at_most(_tasks(server), task_id, min(seconds, MAX_WAIT_SECONDS), report)
         return await self.state(task_id)
 
-    async def ended(self, task_id: str, report: Report | None = None, seen: int = 0) -> FoundTask:
+    async def ended(
+        self, task_id: str, report: Report | None = None, seen: int = 0, measured: Measured | None = None
+    ) -> FoundTask:
         """The task's state once it ends, however long that takes. `report` gets each step it has written
-        and writes meanwhile, after the first `seen` (`written`). Raises AgentTaskError for an unknown task, or one
-        whose agent isn't installed now."""
+        and writes meanwhile, after the first `seen` (`written`), and `measured` hears each time it says how full the
+        agent's context is. Raises AgentTaskError for an unknown task, or one whose agent isn't installed now."""
         server = await self._owner(task_id)
-        await until_ended(_tasks(server), task_id, report, seen=seen)
+        await until_ended(_tasks(server), task_id, report, measured, seen=seen)
         return await self.state(task_id)
+
+    async def task_context(self, task_id: str) -> Context | None:
+        """How full the agent's context is as the task last said, or the one it follows up on until it says
+        (TaskStore.context). Raises AgentTaskError for an unknown task, or one whose agent isn't installed now."""
+        tasks = _tasks(await self._owner(task_id))
+        return await asyncio.to_thread(tasks.context, task_id)
 
     async def written(self, task_id: str) -> tuple[int, int]:
         """How many progress lines the task has written so far, the words streamed included, and how many steps those

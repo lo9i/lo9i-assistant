@@ -1716,6 +1716,8 @@
     "send": "Send to {agent}",
     "hintWorking": "{agent} reads it after its current step.",
     "hintIdle": "Starts {agent}'s next turn in the same session.",
+    "modelHint": "The model {agent} runs on",
+    "elapsedHint": "How long the session has been working, or worked",
     "later": "{agent} can't read messages while it works: it gets this once its current task ends.",
     "stop": "Stop",
     "stopTitle": "Stop {agent}?",

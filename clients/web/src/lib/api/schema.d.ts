@@ -6933,6 +6933,21 @@ export interface components {
              * @default 0
              */
             waiting: number;
+            /**
+             * Context Tokens
+             * @default 0
+             */
+            context_tokens: number;
+            /**
+             * Context Limit
+             * @default 0
+             */
+            context_limit: number;
+            /**
+             * Model
+             * @default
+             */
+            model: string;
         };
         /** TaskSessionDetails */
         TaskSessionDetails: {

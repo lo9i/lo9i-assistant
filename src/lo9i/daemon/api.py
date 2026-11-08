@@ -2195,7 +2195,8 @@ def _add_proactive_routes(app: FastAPI, service: AssistantService) -> None:
 def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
     """Coding agents' tasks. Those a conversation started show beside it, a session per tab
     (core/agent_tasks/beside.py): a `tasks_beside` event says the sessions changed, an `agent_task_step` event brings
-    each step of their tasks as it's written (`thread_id`, `session_id`, `task_id`, `step`)."""
+    each step of their tasks as it's written (`thread_id`, `session_id`, `task_id`, `step`), an `agent_task_context`
+    event that one said how full its agent's context is (`thread_id`, `session_id`)."""
 
     @app.get("/agent-tasks/running")
     async def running_tasks() -> list[RunningTask]:

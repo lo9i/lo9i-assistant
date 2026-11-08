@@ -13,12 +13,13 @@
   import { describe } from "$lib/notices";
   import StatusMark from "../subagents/StatusMark.svelte";
   import Thread from "../Thread.svelte";
+  import TaskStatus from "./TaskStatus.svelte";
 
   // One coding session beside its conversation: the agent's work as the conversation's messages show (what it was
   // asked, what it says and thinks, its tool calls, the messages the user sent it, how each task ended), kept current
   // from the steps each `agent_task_step` event brings, and a box to write to the agent: between its steps while it
   // works, else as its next task in the same session. While it works it can be stopped, asked inline first; once it
-  // ended, its tab closed.
+  // ended, its tab closed. Under the box, its status line (TaskStatus).
   type Props = { threadId: string; session: TaskSession };
   let { threadId, session }: Props = $props();
   const { client, hub, notices } = useDaemon();
@@ -158,6 +159,7 @@
     <p class="hint text-caption">
       {busy ? t("tasks.hintWorking", { agent: session.name }) : t("tasks.hintIdle", { agent: session.name })}
     </p>
+    <TaskStatus {session} {ended} />
   </div>
 </section>
 

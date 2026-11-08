@@ -14458,6 +14458,21 @@
             "type": "integer",
             "title": "Waiting",
             "default": 0
+          },
+          "context_tokens": {
+            "type": "integer",
+            "title": "Context Tokens",
+            "default": 0
+          },
+          "context_limit": {
+            "type": "integer",
+            "title": "Context Limit",
+            "default": 0
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": ""
           }
         },
         "type": "object",

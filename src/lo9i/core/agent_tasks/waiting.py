@@ -84,13 +84,16 @@ class _Look:
         self._measured_at = 0
 
     async def __call__(self) -> TaskState:
+        # The state first: a worker writes its steps and context before its result, so once the state says it ended,
+        # what's read after it holds every one of them.
+        state = await asyncio.to_thread(self._store.state, self._task_id)
         if self._report is not None:
             for line in await asyncio.to_thread(self._store.progress_after, self._task_id, self._seen):
                 self._seen += 1
                 await self._report(line)
         if self._measured is not None:
             await self._tell_measured(self._measured)
-        return await asyncio.to_thread(self._store.state, self._task_id)
+        return state
 
     async def _tell_measured(self, measured: Measured) -> None:
         written = await asyncio.to_thread(self._store.context_written, self._task_id)

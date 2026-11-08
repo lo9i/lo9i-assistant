@@ -17,6 +17,9 @@ function session(id: string, status: TaskSession["status"], title: string): Task
     started_at,
     step: "",
     waiting: 0,
+    context_tokens: 0,
+    context_limit: 0,
+    model: "",
   };
 }
 

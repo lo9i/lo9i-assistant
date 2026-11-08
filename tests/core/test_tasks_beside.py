@@ -232,6 +232,26 @@ async def test_a_deleted_conversation_forgets_its_tasks(service, script, tmp_pat
     assert await service.task_sessions("owner", session.thread_id) == []
 
 
+async def test_its_context_and_model_show_with_the_session_and_each_new_one_is_told(service, script, tmp_path):
+    after = service.bus.last_id
+    session = await _started(service, script, tmp_path, "work a while at context 42000")
+    session_id = await _session_id(service, session)
+    told = await _next_event(service, after, "agent_task_context")
+    assert told == {"thread_id": session.thread_id, "session_id": session_id}
+    [listed] = await service.task_sessions("owner", session.thread_id)
+    assert (listed.context_tokens, listed.context_limit, listed.model) == (42_000, 200_000, "claude-test")
+    (tmp_path / "release").touch()
+    await _until(lambda: _status(service, session, "done"))
+
+
+async def test_a_session_whose_worker_doesnt_say_its_context_has_none(service, script, tmp_path):
+    session = await _started(service, script, tmp_path, "work a while")
+    [listed] = await service.task_sessions("owner", session.thread_id)
+    assert (listed.context_tokens, listed.context_limit, listed.model) == (0, 0, "")
+    (tmp_path / "release").touch()
+    await _until(lambda: _status(service, session, "done"))
+
+
 async def test_written_before_its_worker_takes_messages_it_gets_it_once_it_does(service, script, tmp_path):
     session = await _started(service, script, tmp_path, "take messages once released")
     session_id = await _session_id(service, session)
@@ -243,9 +263,13 @@ async def test_written_before_its_worker_takes_messages_it_gets_it_once_it_does(
 
 
 async def _next_step(service: AssistantService, after: int) -> dict[str, Any]:
+    return await _next_event(service, after, "agent_task_step")
+
+
+async def _next_event(service: AssistantService, after: int, kind: str) -> dict[str, Any]:
     async with asyncio.timeout(30):
         async for event in service.bus.subscribe(after):
-            if event.kind == "agent_task_step":
+            if event.kind == kind:
                 return event.data
     raise AssertionError("the bus stopped")
 

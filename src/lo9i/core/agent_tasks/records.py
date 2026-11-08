@@ -83,10 +83,12 @@ class Outcome:
 
 @dataclass(frozen=True)
 class Context:
-    """How full the agent's context is: `tokens` in it, of the model's `window`."""
+    """How full the agent's context is: `tokens` in it, of the model's `window`; the `model`, "" when the worker
+    doesn't say."""
 
     tokens: int
     window: int
+    model: str = ""
 
 
 @dataclass(frozen=True)
@@ -169,8 +171,12 @@ class TaskStore:
         return 0
 
     def pid(self, task_id: str) -> int | None:
+        """None until the worker wrote it: the file may be there and still empty, as it's being written."""
         path = self.folder(task_id) / _PID
-        return int(path.read_text()) if path.is_file() else None
+        with contextlib.suppress(FileNotFoundError):
+            if (written := path.read_text().strip()).isdigit():
+                return int(written)
+        return None
 
     def mark_stopped(self, task_id: str) -> None:
         (self.folder(task_id) / _STOPPED).write_text(_now())
@@ -265,12 +271,11 @@ class TaskStore:
     def _alive(self, task: Task) -> bool:
         """Its worker is running: the process with its pid is the one started for this task's folder,
         not another that got the same pid after a restart. Without a pid yet, it's starting, for a while."""
-        folder = self.folder(task.id)
-        pid_file = folder / _PID
-        if not pid_file.is_file():
+        pid = self.pid(task.id)
+        if pid is None:
             age = datetime.now(UTC) - datetime.fromisoformat(task.started_at)
             return age.total_seconds() < _START_SECONDS
-        return str(folder) in _command_of(int(pid_file.read_text()))
+        return str(self.folder(task.id)) in _command_of(pid)
 
 
 def lost(state: TaskState) -> bool:
@@ -290,7 +295,7 @@ def _read_context(path: Path) -> Context | None:
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return Context(int(data["tokens"]), int(data["window"]))
+        return Context(int(data["tokens"]), int(data["window"]), str(data.get("model") or ""))
     except (OSError, ValueError, KeyError, TypeError) as e:
         logger.warning("Can't read %s, left out: %s", path, e)
         return None

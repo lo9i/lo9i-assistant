@@ -921,7 +921,8 @@ export class HomeGroup {
 
 /** Coding agents' tasks running in the background, with their latest steps; and those a conversation started, shown
  * beside it a session per tab (core/agent_tasks/beside.py): a `tasks_beside` event says its sessions changed, an
- * `agent_task_step` event brings each step of their tasks. */
+ * `agent_task_step` event brings each step of their tasks, an `agent_task_context` event that one said how full its
+ * agent's context is. */
 export class TasksGroup {
   constructor(private readonly transport: Transport) {}
 

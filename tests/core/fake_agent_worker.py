@@ -81,7 +81,7 @@ def _work(folder: Path, task: dict) -> tuple[bool, str]:
 
 def _work_at_context(folder: Path, repository: Path, tokens: int) -> tuple[bool, str]:
     """Says how full its context is while it works, as a worker does after each step, then works until `release`."""
-    (folder / "context.partial").write_text(json.dumps({"tokens": tokens, "window": 200_000}))
+    (folder / "context.partial").write_text(json.dumps({"tokens": tokens, "window": 200_000, "model": "claude-test"}))
     os.replace(folder / "context.partial", folder / "context.json")
     while not (repository / "release").exists():
         time.sleep(0.02)

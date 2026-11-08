@@ -101,7 +101,7 @@
   const subagentsOpen = $derived(!!subagents.data?.length && subagentsPanel.isOpen(threadId));
   // The coding tasks it started, beside it: a tab per session, the conversation staying the assistant's. Loaded with the
   // conversation they're of, so another's never reads as new here.
-  const tasks = resource(async (c) => ({ threadId, sessions: await c.tasks.sessions(threadId) }), ["tasks_beside"]);
+  const tasks = resource(async (c) => ({ threadId, sessions: await c.tasks.sessions(threadId) }), ["tasks_beside", "agent_task_context"]);
   const taskSessions = $derived(tasks.data?.threadId === threadId ? tasks.data.sessions : []);
   let knownSessions: { threadId: string; ids: string[] } | null = null;
   // A session that comes while the conversation is shown is the tab its panel shows; the panel stays as the user left it.
