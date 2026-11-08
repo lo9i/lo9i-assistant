@@ -6,12 +6,15 @@
   import { overall, shownSession } from "$lib/chat/codingTasks";
   import { taskTabs } from "$lib/chat/taskTabs.svelte";
   import { t } from "$lib/i18n.svelte";
+  import { panelWidth } from "$lib/panelWidths.svelte";
+  import PanelDivider from "../PanelDivider.svelte";
   import StatusMark from "../subagents/StatusMark.svelte";
   import TaskSessionView from "./TaskSessionView.svelte";
 
   // Beside a conversation that started coding tasks: the agents at work, a tab per session (the task the assistant
   // started and the turns that followed it up), each its work as it comes and a box to write to the agent. Minimized,
-  // a thin bar saying how they're doing, which opens it again; the conversation beside it stays the assistant's.
+  // a thin bar saying how they're doing, which opens it again; the conversation beside it stays the assistant's. Open,
+  // the divider before it drags it wider or narrower.
   type Props = { threadId: string; sessions: TaskSession[]; open: boolean; ontoggle: () => void };
   let { threadId, sessions, open, ontoggle }: Props = $props();
   const shown = $derived(shownSession(sessions, taskTabs.get(threadId)));
@@ -21,7 +24,9 @@
 </script>
 
 {#if open}
-  <aside class="panel surface--glass" aria-label={t("tasks.title")}>
+  {@const width = panelWidth("tasks")}
+  <PanelDivider name="tasks" />
+  <aside class="panel surface--glass" class:sized={width !== undefined} style:--chosen-width={width} aria-label={t("tasks.title")}>
     <header>
       <span class="icon"><SquareTerminal size={14} /></span>
       <div class="tabs" role="tablist" aria-label={t("tasks.sessions")}>
@@ -77,6 +82,12 @@
     min-height: 0;
     height: 100%;
     padding: 10px 8px 8px;
+  }
+  /* Dragged to a width of its own: that one, the chat keeping some room whatever the window. */
+  .panel.sized {
+    flex: none;
+    width: var(--chosen-width);
+    max-width: calc(100% - 320px);
   }
   header {
     display: flex;
@@ -175,7 +186,8 @@
   }
   /* Narrow, it covers the chat from the right instead of taking room beside it; minimized, it stays a thin bar. */
   @media (max-width: 900px) {
-    .panel {
+    .panel,
+    .panel.sized {
       position: absolute;
       top: 0;
       right: 0;

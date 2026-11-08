@@ -10,10 +10,12 @@
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
+  import { panelWidth, panelWidths } from "$lib/panelWidths.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import ChangedFiles from "./ChangedFiles.svelte";
   import FileText from "./FileText.svelte";
   import FolderLevel from "./FolderLevel.svelte";
+  import PanelDivider from "../PanelDivider.svelte";
 
   // Beside a conversation handed to an agent (/claude): the folder it works in, as a tree opened a folder at a time
   // (what git says was deleted shown where it was), what git says changed there at the top, and a file when one is
@@ -49,6 +51,9 @@
   let preview = $state<FilePreview | null>(null);
   let diff = $state<FileDiff | null>(null);
   let previewError = $state("");
+  // The divider before it drags it wider or narrower: the tree and a file open each keep their own width.
+  const widthName = $derived(picked === null ? "folder" : "folder.file");
+  const width = $derived(panelWidth(widthName));
   let refreshing = $state(false);
   // The file the user asked to delete, until they confirm or cancel.
   let deleting = $state<string | null>(null);
@@ -154,7 +159,15 @@
   }
 </script>
 
-<aside class="panel surface--glass" class:previewing={picked !== null} aria-label={t("handedFolder.title")}>
+<PanelDivider name={widthName} />
+<aside
+  class="panel surface--glass"
+  class:previewing={picked !== null}
+  class:sized={width !== undefined}
+  class:resizing={panelWidths.dragging === widthName}
+  style:--chosen-width={width}
+  aria-label={t("handedFolder.title")}
+>
   <header>
     <FolderIcon size={14} />
     {#if handoff}
@@ -227,6 +240,14 @@
   .panel.previewing {
     width: min(50%, 720px);
   }
+  /* Dragged to a width of its own: that one, the chat keeping some room whatever the window. */
+  .panel.sized {
+    width: var(--chosen-width);
+    max-width: calc(100% - 320px);
+  }
+  .panel.resizing {
+    transition: none;
+  }
   header {
     display: flex;
     align-items: center;
@@ -266,7 +287,8 @@
   /* Narrow, it covers the chat from the right instead of taking room beside it. */
   @media (max-width: 900px) {
     .panel,
-    .panel.previewing {
+    .panel.previewing,
+    .panel.sized {
       position: absolute;
       top: 0;
       right: 0;

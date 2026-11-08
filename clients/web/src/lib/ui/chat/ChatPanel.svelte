@@ -498,7 +498,8 @@
       margin-right: 13px;
     }
   }
-  /* The chat, and beside it its coding tasks, the folder of the agent it's handed to, and its background subagents. */
+  /* The chat, and beside it its coding tasks, the folder of the agent it's handed to, and its background subagents,
+   each after a divider that drags it wider or narrower (PanelDivider). */
   .row {
     position: relative;
     display: flex;

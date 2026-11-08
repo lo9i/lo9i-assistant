@@ -188,7 +188,8 @@
     "conversation": "Conversation",
     "theAssistant": "the assistant",
     "queued": "Queued messages",
-    "dropHint": "Drop files to attach them"
+    "dropHint": "Drop files to attach them",
+    "resizePanel": "Drag to resize the panel; double-click for its usual width"
   },
   "queue": {
     "count": {

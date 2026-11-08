@@ -188,7 +188,8 @@
     "conversation": "Conversación",
     "theAssistant": "el asistente",
     "queued": "Mensajes en cola",
-    "dropHint": "Suelta archivos para adjuntarlos"
+    "dropHint": "Suelta archivos para adjuntarlos",
+    "resizePanel": "Arrastra para cambiar el ancho del panel; doble clic para su ancho habitual"
   },
   "queue": {
     "count": {

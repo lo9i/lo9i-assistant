@@ -64,6 +64,8 @@
 
   let scroller = $state<HTMLElement>();
   let height = $state(0);
+  // A panel beside it dragged wider or narrower wraps its lines again: a reader at the bottom stays there.
+  let width = $state(0);
   let atBottom = true;
   // Scrolled up from the newest message, far enough that the live chat offers to go back down.
   let away = $state(false);
@@ -93,9 +95,16 @@
     void items;
     void thinking;
     void height;
+    void width;
     if (follow && scroller && atBottom) scroller.scrollTop = scroller.scrollHeight;
     measure();
   });
+
+  // Where the reader is, for when the thread's size changes without new content (no scroll comes then).
+  function scrolled(): void {
+    if (scroller) atBottom = below(scroller) < 80;
+    measure();
+  }
 
   function measure(): void {
     if (scroller) away = below(scroller) > 100;
@@ -141,7 +150,7 @@
 <svelte:window onkeydown={keydown} />
 
 <div class="frame">
-  <div class="thread" bind:this={scroller} bind:clientHeight={height} onscroll={measure}>
+  <div class="thread" bind:this={scroller} bind:clientHeight={height} bind:clientWidth={width} onscroll={scrolled}>
     {#if items.length === 0 && !thinking}
       <div class="empty">
         <span class="empty-icon"><Sparkles size={28} /></span>

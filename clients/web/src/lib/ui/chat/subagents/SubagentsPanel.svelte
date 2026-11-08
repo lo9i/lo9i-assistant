@@ -8,6 +8,8 @@
   import { clock } from "$lib/clock.svelte";
   import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
+  import { panelWidth, panelWidths } from "$lib/panelWidths.svelte";
+  import PanelDivider from "../PanelDivider.svelte";
   import ActiveOnly from "./ActiveOnly.svelte";
   import StatusMark from "./StatusMark.svelte";
   import SubagentView from "./SubagentView.svelte";
@@ -22,13 +24,24 @@
   let picked = $state<string | null>(null);
   let activeOnly = $state(true);
   const shown = $derived(activeOnly ? subagents.filter(working) : subagents);
+  // The divider before it drags it wider or narrower: the list and a subagent open each keep their own width.
+  const widthName = $derived(picked === null ? "subagents" : "subagents.view");
+  const width = $derived(panelWidth(widthName));
   // One removed meanwhile goes back to the list.
   $effect(() => {
     if (picked !== null && !subagents.some((s) => s.id === picked)) picked = null;
   });
 </script>
 
-<aside class="panel surface--glass" class:viewing={picked !== null} aria-label={t("subagents.title")}>
+<PanelDivider name={widthName} />
+<aside
+  class="panel surface--glass"
+  class:viewing={picked !== null}
+  class:sized={width !== undefined}
+  class:resizing={panelWidths.dragging === widthName}
+  style:--chosen-width={width}
+  aria-label={t("subagents.title")}
+>
   <header>
     <Bot size={14} />
     <span class="title">{t("subagents.title")}</span>
@@ -82,6 +95,14 @@
   /* Its steps need more room than its card. */
   .panel.viewing {
     width: min(45%, 560px);
+  }
+  /* Dragged to a width of its own: that one, the chat keeping some room whatever the window. */
+  .panel.sized {
+    width: var(--chosen-width);
+    max-width: calc(100% - 320px);
+  }
+  .panel.resizing {
+    transition: none;
   }
   header {
     display: flex;
@@ -182,7 +203,8 @@
   /* Narrow, it covers the chat from the right instead of taking room beside it. */
   @media (max-width: 900px) {
     .panel,
-    .panel.viewing {
+    .panel.viewing,
+    .panel.sized {
       position: absolute;
       top: 0;
       right: 0;
