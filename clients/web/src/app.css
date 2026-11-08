@@ -48,8 +48,8 @@
   --surface-glass-border: rgba(255, 255, 255, 0.08);
   --surface-glass-blur: blur(20px) saturate(160%) brightness(1.05);
   --surface-glass-shadow: none;
-  /* Near solid: a menu sits over text, which must not read through it. */
-  --surface-popover-bg: rgba(22, 28, 29, 0.97);
+  /* The sidebar's ground, solid: a menu sits over text, which must not read through it. */
+  --surface-popover-bg: var(--sidebar-bg);
   --surface-modal-bg: rgba(25, 32, 33, 0.85);
   --scrim-bg: color-mix(in srgb, #000 34%, transparent);
   --scrim-blur: blur(8px) saturate(125%);
@@ -101,7 +101,6 @@
   --surface-glass-border: var(--color-border);
   --surface-glass-blur: blur(26px) saturate(140%);
   --surface-glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 20px 44px -30px rgba(15, 23, 42, 0.22);
-  --surface-popover-bg: rgba(255, 255, 255, 0.97);
   --surface-modal-bg: rgba(255, 255, 255, 0.92);
   --shadow-popover: 0 10px 28px -16px rgba(15, 23, 42, 0.22);
   --shadow-modal: 0 40px 90px -45px rgba(15, 23, 42, 0.45);
