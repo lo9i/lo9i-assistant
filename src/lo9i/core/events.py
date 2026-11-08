@@ -43,6 +43,20 @@ class ToolFinished:
 
 
 @dataclass
+class SubagentProgress:
+    """How the subagent of the delegate call `within` is doing, after each of its model calls
+    (core/subagent.py): its model calls so far, of `max_steps`; the tokens its last call took, against its
+    model's window (0 when not known); and when it started, as ISO 8601. The apps show it as the call's status line."""
+
+    within: str
+    steps: int
+    max_steps: int
+    context_tokens: int
+    context_limit: int
+    started_at: str
+
+
+@dataclass
 class UserSaid:
     """A message the user sent an agent the conversation is handed to while it worked
     (core/agent_tasks/steps.py), shown among its steps where it was passed on."""
@@ -197,6 +211,7 @@ Event = (
     | Thinking
     | ToolStarted
     | ToolFinished
+    | SubagentProgress
     | UserSaid
     | UserTaken
     | UserWithdrawn

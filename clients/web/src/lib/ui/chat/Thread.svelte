@@ -24,6 +24,7 @@
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
   import FindBar from "./FindBar.svelte";
+  import SubagentStatus from "./SubagentStatus.svelte";
 
   type Props = {
     items: ChatItem[];
@@ -266,6 +267,7 @@
                 {@const wholeStep = wholes.getStep(item.callId, i)}
                 {@const step = wholeStep?.state === "loaded" ? withWholeStep(shownStep, wholeStep.call) : shownStep}
                 {@const stepArg = inlineArg(step.args)}
+                {@const stepStarted = callTime(step.at)}
                 <details
                   class="tool step {step.state}"
                   ontoggle={(e) => e.currentTarget.open && loadStep && wholes.openStep(item, i, shownStep, loadStep)}
@@ -276,6 +278,7 @@
                     {#if stepArg}<span class="detail" title={stepArg}>{stepArg}</span>{/if}
                     {#if step.state === "running"}<span class="dots"><i></i><i></i><i></i></span>{/if}
                     {#if step.state === "cancelled"}<span class="stopped">{t("thread.stoppedTag")}</span>{/if}
+                    {#if stepStarted}<time class="started" datetime={step.at} title={stepStarted.whole}>{stepStarted.shown}</time>{/if}
                     <span class="chevron"><ChevronRight size={12} /></span>
                   </summary>
                   <!-- A note a handed-off agent reports is a line of text, with no arguments. -->
@@ -289,6 +292,7 @@
             </div>
           {/if}
           {#if call.output}<pre>{call.output}</pre>{/if}
+          {#if call.subagent}<div class="subagent-status"><SubagentStatus status={call.subagent} /></div>{/if}
           {#if whole?.state === "loading"}<p class="text-caption whole-note">{t("thread.loadingCall")}</p>{/if}
           {#if whole?.state === "failed"}<p class="text-caption whole-note">{t("thread.callFailed")}</p>{/if}
         </details>

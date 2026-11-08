@@ -41,8 +41,8 @@ _LABELS: dict[PromptPart, str] = {
     "plugins": translatable("Plugins to offer"),
     "profile": translatable("Profile"),
     "facts": translatable("Saved facts"),
-    "relevant": translatable("Relevant facts"),
-    "recent": translatable("Recent conversations"),
+    "relevant_facts": translatable("Relevant facts"),
+    "relevant_conversations": translatable("Relevant conversations"),
     "summary": translatable("Conversation so far"),
 }
 

@@ -1088,5 +1088,7 @@
   "{tokens} tokens, estimated at about 4 characters each.": "{tokens} tokens, estimados en unos 4 caracteres cada uno.",
   "{share}% of the {window} window.": "{share}% de la ventana de {window}.",
   "What a new conversation's context is made of, part by part": "De qué está hecho el contexto de una conversación nueva, parte por parte",
-  "Context": "Contexto"
+  "Context": "Contexto",
+  "Model calls: {count}": "Llamadas al modelo: {count}",
+  "Context: {percent}": "Contexto: {percent}"
 }

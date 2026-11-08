@@ -18,8 +18,8 @@ PromptPart = Literal[
     "plugins",
     "profile",
     "facts",
-    "relevant",
-    "recent",
+    "relevant_facts",
+    "relevant_conversations",
     "summary",
 ]
 

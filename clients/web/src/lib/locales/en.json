@@ -1239,7 +1239,7 @@
     "saved": "Saved. It applies from your next message in each conversation.",
     "kept": "Your edit stays as it is.",
     "wasReset": "Back to the built-in text, from your next message.",
-    "title": "Context",
+    "title": "Prompts",
     "sub": "The instructions the assistant's system prompt starts with. Memory, skills and accounts follow them. An edit applies from your next message in each conversation.",
     "unsaved": "Unsaved changes",
     "edited": "Edited",

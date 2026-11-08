@@ -5,12 +5,12 @@
   // so the box doesn't move when an item comes or goes; and one line however narrow the chat gets (a side panel
   // open beside it): items with text to spare (the conversation's figures) are cut short instead. Only where even the
   // controls don't fit, on a phone or a conversation sharing the page with others, it wraps: it goes by its own width,
-  // not the window's.
-  let { children }: { children?: Snippet } = $props();
+  // not the window's. `compact`: under something smaller than a conversation (a subagent's), with less room around it.
+  let { children, compact = false }: { children?: Snippet; compact?: boolean } = $props();
 </script>
 
 <div class="room">
-  <footer class="status-bar" role="status">
+  <footer class="status-bar" class:compact role="status">
     {@render children?.()}
   </footer>
 </div>
@@ -29,6 +29,11 @@
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     white-space: nowrap;
+  }
+  .status-bar.compact {
+    min-height: 24px;
+    padding: 4px 10px;
+    gap: 4px 12px;
   }
   @container status-bar (max-width: 640px) {
     .status-bar {

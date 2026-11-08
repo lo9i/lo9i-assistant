@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.base import BaseStore
 
 from lo9i.core.config import settings
-from lo9i.core.conversation import pending, pinned, prompt_edits, relevant_facts, summaries
+from lo9i.core.conversation import pending, pinned, prompt_edits, relevant, summaries
 from lo9i.core.conversation.pending import PendingPart
 from lo9i.core.conversation.prompt import build_system_prompt
 from lo9i.core.conversation.summary import Summarizer
@@ -35,14 +35,14 @@ async def open_epoch(
 ) -> dict[str, Any]:
     """State update that starts an epoch with a freshly built system prompt. `plugin_tools`: the plugins
     whose tools it can load (core/plugin_loading.py), which the graph keeps with the epoch. `messages`: the epoch's
-    so far, whose notes show the facts they brought up (relevant_facts.py), so the prompt lists only the others."""
+    so far, whose notes show the memories they brought up (relevant.py), so the prompt lists only the others."""
     name = await load_name(store)
     pinned_skills = await pinned.load(store, user_id, thread_id)
     texts = await prompt_edits.current()
-    relevant = await relevant_facts.kept(store, user_id, thread_id, messages)
+    brought = await relevant.kept(store, user_id, thread_id, messages)
     return {
         "system_prompt": await build_system_prompt(
-            store, user_id, name, summary, pinned_skills, texts, plugin_tools, relevant
+            store, user_id, name, summary, pinned_skills, texts, plugin_tools, brought
         ),
         "assistant_name": name,
         "prompt_texts": prompt_edits.digest(texts),

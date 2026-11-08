@@ -52,7 +52,7 @@ class MemoryMixin(ServiceBase):
 
     async def saved_facts(self, user_id: str) -> list[Fact]:
         """Every saved fact, newest first: the system prompt holds the basic ones, a message brings up the others it
-        touches (core/conversation/relevant_facts.py), and search_memory finds them all."""
+        touches (core/conversation/relevant.py), and search_memory finds them all."""
         return sorted(await facts.load_all(self._storage.store, user_id), key=lambda f: f.saved_at, reverse=True)
 
     async def edit_fact(self, user_id: str, fact_id: str, text: str) -> Fact:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { RunEvent } from "../api/types";
+import type { RunEvent, ShownMessage } from "../api/types";
 import {
   addBrief,
   addCarried,
@@ -335,6 +335,42 @@ describe("transcript", () => {
     expect(stopped?.kind === "tool" && stopped.steps?.map((s) => s.state)).toEqual(["done", "cancelled"]);
   });
 
+  it("keeps when each step started and the subagent's status line, its time stopping when the call ends", () => {
+    const progress = { within: "d1", max_steps: 25, context_limit: 200000, started_at: "2026-11-08T10:00:00Z" };
+    const t = play([
+      { type: "ToolStarted", name: "delegate", args: {}, id: "d1" },
+      { type: "SubagentProgress", ...progress, steps: 1, context_tokens: 1200 },
+      { type: "ToolStarted", name: "bash", args: { command: "ls" }, within: "d1", at: "2026-11-08T10:00:05Z" },
+      { type: "SubagentProgress", ...progress, steps: 2, context_tokens: 1500 },
+    ]);
+    const running = t.items.find((i) => i.kind === "tool");
+    expect(running?.kind === "tool" && running.steps?.[0].at).toBe("2026-11-08T10:00:05Z");
+    expect(running?.kind === "tool" && running.subagent).toEqual({
+      steps: 2,
+      max_steps: 25,
+      context_tokens: 1500,
+      context_limit: 200000,
+      started_at: "2026-11-08T10:00:00Z",
+      ended_at: "",
+    });
+    const done = apply(t, { type: "ToolFinished", name: "delegate", output: "found" }).items.find((i) => i.kind === "tool");
+    expect(done?.kind === "tool" && done.subagent?.ended_at).toBeTruthy();
+  });
+
+  it("shows a delegate call's status line and its steps' times from history", () => {
+    const subagent = { steps: 3, max_steps: 25, context_tokens: 900, context_limit: 0, started_at: "a", ended_at: "b" };
+    const [call] = fromHistory([
+      {
+        role: "tool",
+        text: "delegate",
+        call_id: "d1",
+        steps: [{ name: "bash", args: {}, output: "ok", at: "2026-11-08T10:00:05Z" }],
+        subagent,
+      } as ShownMessage,
+    ]).items;
+    expect(call.kind === "tool" && [call.subagent, call.steps?.[0].at]).toEqual([subagent, "2026-11-08T10:00:05Z"]);
+  });
+
   it("shows a handed-off agent's thinking apart from its text", () => {
     const t = play([
       { type: "Thinking", text: "The test expects a list." },
@@ -443,8 +479,8 @@ describe("transcript", () => {
 
   it("shows a delegate call's task, the subagent's steps and its answer again in history", () => {
     const steps = [
-      { name: "bash", args: { command: "grep -r token logs" }, output: "token=42", partial: false },
-      { name: "bash", args: { command: "cat log" }, output: "line…", partial: true },
+      { name: "bash", args: { command: "grep -r token logs" }, output: "token=42", partial: false, at: "" },
+      { name: "bash", args: { command: "cat log" }, output: "line…", partial: true, at: "" },
     ];
     const history = fromHistory([
       {

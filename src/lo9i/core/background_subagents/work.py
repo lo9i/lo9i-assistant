@@ -1,12 +1,13 @@
 """One background subagent at work: its graph run under a thread of its own (so its checkpoints are its own, and an
 approval pauses only it), from where it stopped when the daemon started again. Each tool call it makes is a step,
-kept and published as it starts and as it finishes; what it waits for the user's answer to is kept on its record
-until it's answered."""
+kept and published as it starts and as it finishes; its model calls and the context its last one took are kept on its
+record as its graph counts them; what it waits for the user's answer to is kept on its record until it's answered."""
 
 import asyncio
 import sys
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
@@ -20,11 +21,12 @@ from lo9i.core.background_subagents import records
 from lo9i.core.background_subagents.records import RUNNING, WAITING, BackgroundStep, BackgroundSubagent
 from lo9i.core.bus import EventBus
 from lo9i.core.context import CONVERSATION_ID, Context
+from lo9i.core.conversation import called_at
 from lo9i.core.events import ApprovalRequired
 from lo9i.core.health import HealthLog
 from lo9i.core.skills.tracker import SkillScriptTracker
 from lo9i.core.stream_events import approval_events
-from lo9i.core.subagent import NO_BACKGROUND_ANSWER, SubagentGraph, SubagentRunner, answer
+from lo9i.core.subagent import NO_BACKGROUND_ANSWER, SubagentGraph, SubagentRunner, answer, status
 from lo9i.core.usage.meter import CHANNEL, CONVERSATION
 
 # How long a step's line is.
@@ -61,6 +63,7 @@ class SubagentWork:
         input: Any = (
             None if saved.values else await runner.background_start(subagent.task, subagent.plugins, subagent.agent)
         )
+        subagent.context_limit = status(saved.values or input, 0).context_limit
         while True:
             await self._stream(graph, input, config, context)
             state = await graph.aget_state(config)
@@ -97,14 +100,23 @@ class SubagentWork:
     async def _stream(self, graph: SubagentGraph, input: Any, config: RunnableConfig, context: Context) -> None:
         async for update in graph.astream(input, config, context=context, stream_mode="updates"):
             for node, value in update.items():
-                if node != "__interrupt__":
-                    for message in _messages(value):
-                        await self._took(message)
+                if node == "__interrupt__":
+                    continue
+                if isinstance(value, dict) and "steps" in value:
+                    self._counted(value)
+                for message in _messages(value):
+                    await self._took(message)
+
+    def _counted(self, update: Mapping[str, Any]) -> None:
+        """After a model call: kept with the step it asks for, or with how it ended."""
+        now = status(update, 0)
+        self.subagent.model_calls, self.subagent.context_tokens = now.steps, now.context_tokens
 
     async def _took(self, message: BaseMessage) -> None:
         if isinstance(message, AIMessage) and message.tool_calls:
+            at = called_at.of(message) or datetime.now(UTC).isoformat()
             for call in message.tool_calls:
-                step = BackgroundStep(self.subagent.steps, call["id"] or "", call["name"], call["args"])
+                step = BackgroundStep(self.subagent.steps, call["id"] or "", call["name"], call["args"], at=at)
                 self.subagent.steps += 1
                 self._open[step.call_id] = step
                 await self._step(step)

@@ -16,13 +16,16 @@ function subagent(status: BackgroundSubagent["status"], waiting: BackgroundSubag
     ended_at: "",
     step: "",
     steps: 0,
+    model_calls: 0,
+    context_tokens: 0,
+    context_limit: 0,
     result: "",
     waiting,
   };
 }
 
 function step(index: number, done = false): BackgroundStep {
-  return { index, call_id: `c${index}`, name: "bash", args: { command: "ls" }, output: done ? "a" : "", done };
+  return { index, call_id: `c${index}`, name: "bash", args: { command: "ls" }, output: done ? "a" : "", done, at: "" };
 }
 
 describe("background subagents", () => {

@@ -85,16 +85,22 @@ class Settings(BaseSettings):
     episode_min_turns: int = 2
 
     # How much long-term memory goes into the system prompt. The profile is always loaded in full; of the saved
-    # facts, only the basic ones, newest first within MEMORY_BASIC_FACTS_TOKENS (core/memory/facts.py).
-    # MEMORY_MAX_FACTS: the most recent facts the apps' snapshot and the memory digest read.
+    # facts, only the basic ones, newest first within MEMORY_BASIC_FACTS_TOKENS (core/memory/facts.py); no summary
+    # of a past conversation. MEMORY_MAX_FACTS and MEMORY_MAX_EPISODES: the most recent facts and summaries the apps'
+    # memory snapshot shows, and the facts the memory digest reads.
     memory_max_facts: int = 200
     memory_basic_facts_tokens: int = 300
     memory_max_episodes: int = 5
-    # The other facts come into a turn when the user's message is this close to them in meaning (the cosine
-    # similarity of their E5 vectors, core/memory/e5.py, which puts unrelated texts around 0.8), at most
-    # MEMORY_RELEVANT_FACTS a message (core/conversation/relevant_facts.py).
+    # The other facts, and the summaries of past conversations, come into a turn when the user's message is close to
+    # them in meaning (core/conversation/relevant.py): at least this cosine similarity of their E5 vectors
+    # (core/memory/e5.py, which puts unrelated texts around 0.8), at most this many a message. A summary's score
+    # also has to stand out from the rest by MEMORY_RELEVANT_CONVERSATIONS_MARGIN above the median of every
+    # summary's, since how close all of them are moves with the message (a long one, a greeting).
     memory_relevant_facts: int = 5
     memory_relevant_similarity: float = 0.835
+    memory_relevant_conversations: int = 3
+    memory_relevant_conversations_similarity: float = 0.83
+    memory_relevant_conversations_margin: float = 0.05
 
     # The assistant's persona. Used instead of the built-in one when the file exists.
     persona_path: str = "~/.lo9i/SOUL.md"

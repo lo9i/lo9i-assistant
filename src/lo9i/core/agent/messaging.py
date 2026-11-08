@@ -22,7 +22,6 @@ from lo9i.core.conversation import (
     introduction,
     moved,
     pinned,
-    relevant_facts,
     sent,
 )
 from lo9i.core.conversation import resent as resent_mark
@@ -97,7 +96,7 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         if isinstance(handoff, Handoff):
             events = self._to_agent(session, handoff, kept.said, [], kept.content, brief)
         else:
-            notes = await self._header_notes(session, kept.said, relevant_facts.ids_in(kept.content))
+            notes = await self._header_notes(session, kept.said, kept.content)
             message = _message(session, [*notes, *kept.content], kept.carried, brief)
             events = self._run(session, {"messages": [message]}, text=kept.said, brief=brief)
         async for event in events:
@@ -150,14 +149,14 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
 
     async def _inbox_notes(self, session: Session, said: str) -> list[Block]:
         """Messages sent on this channel from elsewhere, background work started in the inbox that ended,
-        the one-time offer to get to know the user, and the saved facts the message touches, which the inbox
-        doesn't keep (core/conversation/relevant_facts.py)."""
+        the one-time offer to get to know the user, and the saved facts and past conversations the message touches,
+        which the inbox doesn't keep (core/conversation/relevant.py)."""
         store = self._storage.store
         sent_here = await sent.take(store, session.user_id, session.channel)
         work_ended = await ended.take(store, session.user_id, session.thread_id, "background_ended_in_inbox")
         offer = await introduction.offer(store, session.user_id, session.channel)
-        facts = await self._relevant_facts.note(session.user_id, session.thread_id, said, keep=False)
-        return [*sent_here, *work_ended, *offer, *facts]
+        memories = await self._relevant.notes(session.user_id, session.thread_id, said, keep=False)
+        return [*sent_here, *work_ended, *offer, *memories]
 
     async def _to_agent(
         self,
@@ -178,12 +177,13 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         async for event in self._handed_off(session, handoff, message, to_agent, text, brief, resent):
             yield event
 
-    async def _header_notes(self, session: Session, said: str = "", carried: Sequence[str] = ()) -> list[Block]:
+    async def _header_notes(self, session: Session, said: str = "", carried: Sequence[Block] = ()) -> list[Block]:
         """What goes in the turn header after the date: messages sent here from elsewhere, a change in
         the pinned skills, background work started here that ended, the coding tasks started here still running,
         messages moved out of here, what was said in a voice call here after its last request, the one-time offer
-        to get to know the user, and the saved facts a message saying `said` touches that the conversation hasn't
-        brought up yet, but those it `carried` from the inbox (core/conversation/relevant_facts.py)."""
+        to get to know the user, and the saved facts and past conversations a message saying `said` touches that the
+        conversation hasn't brought up yet, but those the notes it `carried` from the inbox show
+        (core/conversation/relevant.py)."""
         store = self._storage.store
         sent_here = await sent.take(store, session.user_id, session.channel)
         repinned = await pinned.take_notice(store, session.user_id, session.thread_id)
@@ -193,8 +193,18 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         moved_away = await moved.take(store, session.user_id, session.thread_id)
         unheard = await voice_notes.take(store, session.user_id, session.thread_id)
         offer = await introduction.offer(store, session.user_id, session.channel)
-        facts = await self._relevant_facts.note(session.user_id, session.thread_id, said, carried=carried)
-        return [*sent_here, *repinned, *handed_back, *work_ended, *tasks_running, *moved_away, *unheard, *offer, *facts]
+        memories = await self._relevant.notes(session.user_id, session.thread_id, said, carried=carried)
+        return [
+            *sent_here,
+            *repinned,
+            *handed_back,
+            *work_ended,
+            *tasks_running,
+            *moved_away,
+            *unheard,
+            *offer,
+            *memories,
+        ]
 
     async def resume(self, session: Session, decisions: dict[str, dict[str, Any]]) -> AsyncIterator[Event]:
         """Answer pending approvals. `decisions` maps interrupt id to {"approved": bool, "reason": str}."""

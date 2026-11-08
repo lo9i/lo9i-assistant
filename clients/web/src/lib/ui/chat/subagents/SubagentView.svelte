@@ -4,6 +4,7 @@
   import Wrench from "@lucide/svelte/icons/wrench";
   import { untrack } from "svelte";
   import type { Decision, SubagentChanged, SubagentDetails, SubagentStepTaken } from "$lib/api/types";
+  import { callTime } from "$lib/chat/callTime";
   import { asked, asks, withStep, working } from "$lib/chat/subagents";
   import { inlineArg } from "$lib/chat/transcript";
   import { clock } from "$lib/clock.svelte";
@@ -14,12 +15,14 @@
   import { describe } from "$lib/notices";
   import Confirm from "$lib/ui/Confirm.svelte";
   import ApprovalModal from "../ApprovalModal.svelte";
+  import SubagentStatus from "../SubagentStatus.svelte";
   import StatusMark from "./StatusMark.svelte";
 
   // One background subagent in place of the cards: its task, what it waits for the user's answer to, its steps as they
-  // come (each step's tool and what it was called with, and once it finished, what it answered), and how it ended.
-  // While it works it can be stopped, which asks first; once it ended, removed. Back to the cards only in the panel: the
-  // Subagents page lists them beside it.
+  // come (each step's tool, what it was called with and when, and once it finished, what it answered), and how it
+  // ended; under it, its status line (its context and model calls; its time is in the header). While it works it can
+  // be stopped, which asks first; once it ended, removed. Back to the cards only in the panel: the Subagents page lists
+  // them beside it.
   type Props = { id: string; onback?: () => void };
   let { id, onback }: Props = $props();
   const { client, hub, notices } = useDaemon();
@@ -135,12 +138,14 @@
       <div class="steps">
         {#each details.steps as step (step.index)}
           {@const arg = inlineArg(step.args)}
+          {@const started = callTime(step.at)}
           <details class="step" class:running={!step.done}>
             <summary>
               <Wrench size={12} />
               <span class="name">{step.name}</span>
               {#if arg}<span class="arg" title={arg}>{arg}</span>{/if}
               {#if !step.done}<span class="dots"><i></i><i></i><i></i></span>{/if}
+              {#if started}<time class="started" datetime={step.at} title={started.whole}>{started.shown}</time>{/if}
               <span class="chevron"><ChevronRight size={12} /></span>
             </summary>
             {#if arg}<pre>{arg}</pre>{:else if Object.keys(step.args).length}<pre>{JSON.stringify(step.args, null, 2)}</pre>{/if}
@@ -149,6 +154,17 @@
         {/each}
       </div>
     </div>
+    <SubagentStatus
+      elapsed={false}
+      status={{
+        steps: subagent.model_calls,
+        max_steps: 0,
+        context_tokens: subagent.context_tokens,
+        context_limit: subagent.context_limit,
+        started_at: subagent.started_at,
+        ended_at: subagent.ended_at,
+      }}
+    />
   {/if}
 </section>
 
@@ -248,6 +264,16 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-family: var(--font-mono);
+  }
+  .started {
+    flex: none;
+    margin-left: auto;
+    padding-left: 6px;
+    border-left: 1px solid var(--color-border);
+    font-variant-numeric: tabular-nums;
+  }
+  .started + .chevron {
+    margin-left: 0;
   }
   .chevron {
     display: flex;

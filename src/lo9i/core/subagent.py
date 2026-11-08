@@ -12,12 +12,17 @@ tool calls stream live inside the delegate call, and are kept with the call's re
 (core/subagent_steps.py). A call refused as too large is made again with its tool results and files left out
 (core/conversation/oversized.py); refused again, the task ends with an answer saying so.
 
+After each model call it reports how it's doing (a SubagentProgress event): its model calls against the step
+limit, and the tokens the call took against its model's window, which the apps show as the delegate call's status line
+and which are kept with its result too.
+
 A subagent sent off in the background (core/background_subagents/) runs on a graph of its own kind: its
 checkpoints go under a thread of its own, so an approval pauses only it, and it has no step limit."""
 
 import asyncio
-from collections.abc import Awaitable, Callable, Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -33,20 +38,22 @@ from langgraph.types import Send
 from lo9i.core.attachments import hydrate
 from lo9i.core.config import settings
 from lo9i.core.context import Context, Subagents
-from lo9i.core.conversation import prompts
+from lo9i.core.conversation import called_at, prompts
+from lo9i.core.conversation.epochs import usage_anchor
 from lo9i.core.conversation.oversized import within_size
-from lo9i.core.events import ToolFinished, ToolStarted
+from lo9i.core.events import SubagentProgress, ToolFinished, ToolStarted
 from lo9i.core.graph import McpTools, Node, each_tool_call, mcp_calls
 from lo9i.core.i18n import said
 from lo9i.core.llm import build_llm, metered
 from lo9i.core.llm.choice import ModelChoice
 from lo9i.core.llm.errors import too_large
 from lo9i.core.llm.providers import IMAGES_IN_TOOL_RESULTS
+from lo9i.core.llm.windows import ContextWindows
 from lo9i.core.mcp import subagents as named
 from lo9i.core.mcp.sanitize import MCP_PREFIX
 from lo9i.core.mcp.subagents import NamedSubagent, UnknownSubagentError
 from lo9i.core.storage import Storage
-from lo9i.core.subagent_steps import SubagentAnswer, SubagentStep
+from lo9i.core.subagent_steps import SubagentAnswer, SubagentStatus, SubagentStep
 from lo9i.core.tools.registry import subagent_tools
 from lo9i.core.usage.meter import TokenMeter
 
@@ -73,6 +80,11 @@ class SubagentState(MessagesState):
     call_id: str
     # Before which tool results and files are sent as stubs: the end, once a call was refused as too large.
     trimmed_before: int
+    # The tokens its last model call took, as the provider reported them, and its model's window.
+    context_tokens: int
+    context_limit: int
+    # When it started, as ISO 8601.
+    started_at: str
 
 
 SubagentGraph = CompiledStateGraph[SubagentState, Context, SubagentState, SubagentState]
@@ -81,10 +93,11 @@ SubagentGraph = CompiledStateGraph[SubagentState, Context, SubagentState, Subage
 class SubagentRunner(Subagents):
     """Runs delegated tasks: the general subagent's on one graph, each named subagent's on its own."""
 
-    def __init__(self, storage: Storage, choice: ModelChoice, mcp: McpTools) -> None:
+    def __init__(self, storage: Storage, choice: ModelChoice, mcp: McpTools, windows: ContextWindows) -> None:
         self._storage = storage
         self._choice = choice
         self._mcp = mcp
+        self._windows = windows
         llm, tools = _llm(storage, choice, choice.worker_model), subagent_tools(settings.toolsets)
         self._graph = _compiled(llm, tools, choice, mcp)
         self._background = _compiled(llm, tools, choice, mcp, saved=storage)
@@ -105,7 +118,7 @@ class SubagentRunner(Subagents):
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
             context=replace(context, subagents=None, background=None),
         )
-        return SubagentAnswer(answer(state["messages"]), steps(state["messages"]))
+        return SubagentAnswer(answer(state["messages"]), steps(state["messages"]), _ended(state))
 
     def readable_plugins(self) -> set[str]:
         return {plugin for d in self._mcp.read_only_definitions() if (plugin := self._mcp.plugin_of(_name(d)))}
@@ -123,16 +136,20 @@ class SubagentRunner(Subagents):
     async def _prepared(
         self, task: str, call_id: str, plugins: Collection[str], agent: str, background: bool
     ) -> tuple[SubagentGraph, SubagentState]:
-        graph = self._background if background else self._graph
+        graph, model = (self._background if background else self._graph), self._choice.worker_model
         if agent:
             subagent = await self._find(agent)
             graph, plugins = self._graph_of(subagent, background), [*plugins, *subagent.plugins]
+            model = self._model_of(subagent)
         start = SubagentState(
             messages=[HumanMessage(task)],
             mcp_tools=self._read_only(plugins),
             steps=0,
             call_id=call_id,
             trimmed_before=0,
+            context_tokens=0,
+            context_limit=await self._windows.of(replace(self._choice, model=model)),
+            started_at=datetime.now(UTC).isoformat(),
         )
         return graph, start
 
@@ -150,13 +167,17 @@ class SubagentRunner(Subagents):
         if kept is not None and kept[0] == subagent:
             return kept[1]
         choice = self._choice
-        model = {"main": choice.model, "worker": choice.worker_model}.get(subagent.model, subagent.model)
         tools = [t for t in subagent_tools(settings.toolsets) if not subagent.tools or t.name in subagent.tools]
         prompt = f"{prompts.load('subagent')}\n\n{subagent.prompt}"
         saved = self._storage if background else None
-        graph = _compiled(_llm(self._storage, choice, model), tools, choice, self._mcp, prompt, saved)
+        llm = _llm(self._storage, choice, self._model_of(subagent))
+        graph = _compiled(llm, tools, choice, self._mcp, prompt, saved)
         self._named[(subagent.name, background)] = (subagent, graph)
         return graph
+
+    def _model_of(self, subagent: NamedSubagent) -> str:
+        choice = self._choice
+        return {"main": choice.model, "worker": choice.worker_model}.get(subagent.model, subagent.model)
 
     def _read_only(self, plugins: Collection[str]) -> list[dict[str, Any]]:
         """The read-only tools of these plugins: the others' would fill every request of the task."""
@@ -175,14 +196,32 @@ def answer(messages: Sequence[Any], missing: str = NO_ANSWER) -> str:
 
 
 def steps(messages: Sequence[Any]) -> list[SubagentStep]:
-    """Its tool calls that ran, each with its result. The last step's calls end the task unrun."""
+    """Its tool calls that ran, each with its result and when it was asked for. The last step's calls end the task
+    unrun."""
     results = {m.tool_call_id: m.text for m in messages if isinstance(m, ToolMessage)}
-    calls = [call for m in messages if isinstance(m, AIMessage) for call in m.tool_calls]
-    return [SubagentStep(c["name"], c["args"], results[c["id"]]) for c in calls if c["id"] in results]
+    calls = [(call, called_at.of(m)) for m in messages if isinstance(m, AIMessage) for call in m.tool_calls]
+    return [SubagentStep(c["name"], c["args"], results[c["id"]], at) for c, at in calls if c["id"] in results]
 
 
-def build_subagents(storage: Storage, choice: ModelChoice, mcp: McpTools) -> SubagentRunner:
-    return SubagentRunner(storage, choice, mcp)
+def status(state: Mapping[str, Any], max_steps: int) -> SubagentStatus:
+    """How it's doing: its model calls of `max_steps` (0 for no limit), the context its last call took and when it
+    started. The answer after the last step is one more call, still shown as the last. One whose checkpoints were
+    kept before it was measured has none of it."""
+    calls = min(state["steps"], max_steps) if max_steps else state["steps"]
+    started = state.get("started_at", "")
+    return SubagentStatus(calls, max_steps, _tokens(state), state.get("context_limit", 0), started)
+
+
+def _tokens(state: Mapping[str, Any]) -> int:
+    return state.get("context_tokens", 0)
+
+
+def _ended(state: Mapping[str, Any]) -> SubagentStatus:
+    return replace(status(state, settings.subagent_max_steps), ended_at=datetime.now(UTC).isoformat())
+
+
+def build_subagents(storage: Storage, choice: ModelChoice, mcp: McpTools, windows: ContextWindows) -> SubagentRunner:
+    return SubagentRunner(storage, choice, mcp, windows)
 
 
 def _llm(storage: Storage, choice: ModelChoice, model: str) -> BaseChatModel:
@@ -226,9 +265,13 @@ def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_re
             return await bound.ainvoke([SystemMessage(system), *hydrated])
 
         response, before = await _within_size(_call, state)
+        anchor = usage_anchor(response, 0)
+        update = {"steps": state["steps"] + 1, "context_tokens": anchor["tokens"] if anchor else _tokens(state)}
         if isinstance(response, AIMessage):
+            called_at.stamp(response, datetime.now(UTC))
+            _report_progress({**state, **update}, state["call_id"])
             _report_calls(response, state["call_id"])
-        return {"messages": [response], "steps": state["steps"] + 1, "trimmed_before": before}
+        return {"messages": [response], "trimmed_before": before, **update}
 
     return _agent
 
@@ -243,6 +286,16 @@ async def _within_size(
         if not too_large(e):
             raise
         return AIMessage(TOO_LARGE), len(state["messages"])
+
+
+def _report_progress(state: Mapping[str, Any], call_id: str) -> None:
+    """Inside a delegate call only: one in the background keeps it on its record (core/background_subagents/)."""
+    if not call_id:
+        return
+    now = status(state, settings.subagent_max_steps)
+    get_stream_writer()(
+        SubagentProgress(call_id, now.steps, now.max_steps, now.context_tokens, now.context_limit, now.started_at)
+    )
 
 
 def _report_calls(response: AIMessage, call_id: str) -> None:

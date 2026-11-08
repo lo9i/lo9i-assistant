@@ -9,9 +9,17 @@ from textual.widgets import Button, OptionList, Static
 
 from lo9i.core.agent import BackgroundStep, BackgroundSubagent, Conversation, Session
 from lo9i.core.background_subagents.records import Status
+from lo9i.core.config import settings
 from lo9i.core.events import ApprovalRequired
 from lo9i_terminal.repl import Repl
-from lo9i_terminal.subagents_text import conversation_titles, elapsed, running_line, subagent_line
+from lo9i_terminal.subagents_text import (
+    context_line,
+    conversation_titles,
+    elapsed,
+    running_line,
+    subagent_detail,
+    subagent_line,
+)
 from lo9i_terminal.tui.screens import ApprovalScreen, SubagentsScreen
 from tests.terminal.conftest import FakeConversations, FakeSubagents, wait_for
 
@@ -42,6 +50,16 @@ def test_a_line_says_its_status_how_long_and_its_task():
         "2 subagents working (/subagents), 1 waiting for you"
     )
     assert running_line([ended]) == ""
+
+
+def test_its_detail_says_its_context_and_model_calls_and_when_each_step_was_asked_for(monkeypatch):
+    monkeypatch.setattr(settings, "timezone", "UTC")
+    subagent = _subagent("t1", model_calls=3, context_tokens=12_000, context_limit=200_000)
+    assert context_line(subagent) == "Context: 6% · 12k / 200k tokens · Model calls: 3"
+    assert context_line(_subagent("t1")) == "Context: \u2013 · Model calls: 0"
+    step = BackgroundStep(0, "c1", "bash", {"command": "ls"}, "a\n", True, at="2026-11-01T10:01:00+00:00")
+    assert "✓ 10:01 bash ls" in subagent_detail(subagent, [step], _NOW)
+    assert "✓ 01 Nov 10:01 bash ls" in subagent_detail(subagent, [step], datetime(2026, 11, 2, tzinfo=UTC))
 
 
 async def test_subagents_show_with_their_steps_and_what_they_wait_for_is_answered(app, client):

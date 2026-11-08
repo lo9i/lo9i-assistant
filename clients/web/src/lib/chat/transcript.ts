@@ -1,6 +1,6 @@
 // What the chat shows: past messages, then each run's events as they arrive (like
 // clients/terminal/src/lo9i_terminal/tui/turn.py). Pure functions, so the rules are testable without a page.
-import type { RunEvent, ShownCall, ShownMessage } from "../api/types";
+import type { RunEvent, ShownCall, ShownMessage, SubagentStatus } from "../api/types";
 import { withoutMarkers } from "./choices";
 
 /** A live voice call's message (core/voice/): what the user or the voice "said" in it, or what the voice "asked" the
@@ -40,13 +40,20 @@ export type UserNote = "resent" | "waiting" | "untaken" | "later";
 export type Waiting = { messageId: string; text: string; files: string[] };
 
 /** A tool call, started `at` (ISO 8601; none for one from before that was kept). A delegate call's subagent reports
- * its own calls as `steps`. One from history that's `partial` shows its arguments on one line and the start of its
- * output: the whole call loads by `callId` when opened. */
-export type ToolItem = ToolStep & { kind: "tool"; id: number; callId?: string; partial?: boolean; steps?: ToolStep[]; at?: string };
+ * its own calls as `steps`, and how it's doing as `subagent` (its status line). One from history that's `partial`
+ * shows its arguments on one line and the start of its output: the whole call loads by `callId` when opened. */
+export type ToolItem = ToolStep & {
+  kind: "tool";
+  id: number;
+  callId?: string;
+  partial?: boolean;
+  steps?: ToolStep[];
+  subagent?: SubagentStatus;
+};
 
 /** One from history that's `partial` shows the start of its arguments and output: it loads whole by its call's
- * `callId` and its place when opened. */
-export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState; partial?: boolean };
+ * `callId` and its place when opened. `at`: when it started (ISO 8601), when known. */
+export type ToolStep = { name: string; args?: Record<string, unknown>; output?: string; state: ToolState; partial?: boolean; at?: string };
 
 export type Transcript = {
   items: ChatItem[];
@@ -132,11 +139,16 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
   const ended = { ...t, streaming: null };
   switch (event.type) {
     case "ToolStarted":
-      if (event.within) return stepStarted(ended, event.within, { name: event.name, args: event.args, state: "running" });
+      if (event.within) return stepStarted(ended, event.within, { name: event.name, args: event.args, state: "running", ...at(event.at) });
       return toolStarted(ended, event.name, event.args, event.id, event.at);
     case "ToolFinished":
       if (event.within) return stepFinished(ended, event.within, event.name, event.output);
       return toolFinished(ended, event.name, event.output);
+    case "SubagentProgress": {
+      const { steps, max_steps, context_tokens, context_limit, started_at } = event;
+      const subagent = { steps, max_steps, context_tokens, context_limit, started_at, ended_at: "" };
+      return updateCallItem(ended, event.within, (item) => ({ ...item, subagent }));
+    }
     case "Thinking":
       return addThinking(ended, event.text);
     case "UserSaid":
@@ -219,15 +231,21 @@ function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
     output: s.output,
     state: "done",
     ...(s.partial ? { partial: true } : {}),
+    ...at(s.at),
   }));
   const item = { kind: "tool" as const, name: message.text, args, output: message.output || undefined, state: "done" as const };
   const call = {
     ...item,
     ...(message.call_id ? { callId: message.call_id } : {}),
     ...(message.partial ? { partial: true } : {}),
-    ...(message.at ? { at: message.at } : {}),
+    ...at(message.at),
+    ...(message.subagent ? { subagent: message.subagent } : {}),
   };
   return steps?.length ? { ...call, steps } : call;
+}
+
+function at(when: string | undefined): { at?: string } {
+  return when ? { at: when } : {};
 }
 
 /** A call from history with all its arguments and its whole output, loaded when it was opened. */
@@ -273,17 +291,25 @@ function stepFinished(t: Transcript, within: string, name: string, output: strin
 }
 
 function updateCall(t: Transcript, callId: string, change: (steps: ToolStep[]) => ToolStep[]): Transcript {
-  const items = t.items.map((item) =>
-    item.kind === "tool" && item.callId === callId ? { ...item, steps: change(item.steps ?? []) } : item,
-  );
+  return updateCallItem(t, callId, (item) => ({ ...item, steps: change(item.steps ?? []) }));
+}
+
+function updateCallItem(t: Transcript, callId: string, change: (item: ToolItem) => ToolItem): Transcript {
+  const items = t.items.map((item) => (item.kind === "tool" && item.callId === callId ? change(item) : item));
   return { ...t, items };
 }
 
 function toolFinished(t: Transcript, name: string, output: string): Transcript {
   const [id, ...rest] = t.pending[name] ?? [];
   if (id === undefined) return t;
-  const finished = update(t, id, (item) => (item.kind === "tool" ? { ...item, output, state: "done" } : item));
+  const finished = update(t, id, (item) => (item.kind === "tool" ? { ...endSubagent(item), output, state: "done" } : item));
   return { ...finished, pending: { ...t.pending, [name]: rest } };
+}
+
+/** A delegate call that ended: its subagent's time stops where the page saw it end, as history keeps it. */
+function endSubagent(item: ToolItem): ToolItem {
+  if (!item.subagent || item.subagent.ended_at) return item;
+  return { ...item, subagent: { ...item.subagent, ended_at: new Date().toISOString() } };
 }
 
 function shownNote(message: ShownMessage): { note?: UserNote } {
@@ -316,7 +342,7 @@ function cancelled(t: Transcript): Transcript {
 
 function cancelCall(item: ToolItem): ToolItem {
   const steps = item.steps?.map((s) => (s.state === "running" ? { ...s, state: "cancelled" as const } : s));
-  return { ...item, steps, state: "cancelled" };
+  return { ...endSubagent(item), steps, state: "cancelled" };
 }
 
 function update(t: Transcript, id: number, change: (item: ChatItem) => ChatItem): Transcript {

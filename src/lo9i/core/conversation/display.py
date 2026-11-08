@@ -30,6 +30,7 @@ from lo9i.core.agent_tasks.steps import (
 from lo9i.core.conversation import briefs, called_at, carried, ended, failed, own_model, resent
 from lo9i.core.conversation.dispatched import DISPATCH_ID
 from lo9i.core.conversation.turn_header import channel_of, is_header
+from lo9i.core.subagent_steps import SubagentStatus
 from lo9i.core.voice import spoken
 
 # The most of a call's arguments and of its output history sends: enough to tell what the call was, without
@@ -50,6 +51,8 @@ class ShownStep:
     args: dict[str, Any]
     output: str
     partial: bool = False
+    # When it started, as ISO 8601; "" when not known.
+    at: str = field(default="", compare=False)
 
 
 @dataclass
@@ -90,6 +93,8 @@ class ShownMessage:
     voice: str = ""
     # A tool call: when it started, as ISO 8601; "" for one from before that was kept.
     at: str = ""
+    # A delegate call: how its subagent did (its status line); None for any other call, or one kept before.
+    subagent: SubagentStatus | None = None
 
 
 @dataclass
@@ -164,7 +169,9 @@ def _whole_steps(messages: Sequence[BaseMessage], call_id: str) -> list[ShownSte
         agent_call = _agent_call(messages, call_id)
         return agent_call.steps if agent_call is not None else []
     result = _result(messages, call_id) if _assistant_call(messages, call_id) is not None else None
-    return [ShownStep(s.name, s.args, s.output) for s in subagent_steps.of(result)] if result is not None else []
+    return (
+        [ShownStep(s.name, s.args, s.output, at=s.at) for s in subagent_steps.of(result)] if result is not None else []
+    )
 
 
 def _assistant_call(messages: Sequence[BaseMessage], call_id: str) -> ToolCall | None:
@@ -192,10 +199,12 @@ def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
     if result is None or not (steps := subagent_steps.of(result)):
         return _preview(call, result)
     about = str(call["args"].get("task") or call["args"].get("task_id", ""))
-    whole = [ShownStep(s.name, s.args, s.output) for s in steps]
-    return _cut(
-        ShownMessage("tool", call["name"], detail=about, output=result.text, steps=whole, call_id=call["id"] or "")
+    whole = [ShownStep(s.name, s.args, s.output, at=s.at) for s in steps]
+    subagent = subagent_steps.status_of(result)
+    shown = ShownMessage(
+        "tool", call["name"], detail=about, output=result.text, steps=whole, call_id=call["id"] or "", subagent=subagent
     )
+    return _cut(shown)
 
 
 def _cut(message: ShownMessage) -> ShownMessage:
@@ -213,7 +222,7 @@ def _cut_step(step: ShownStep) -> ShownStep:
     output = _start(step.output, _OUTPUT)
     line = _one_line(step.args)
     args = step.args if len(line) <= _DETAIL else {"detail": _start(line, _DETAIL)}
-    return ShownStep(step.name, args, output, partial=output != step.output or args is not step.args)
+    return ShownStep(step.name, args, output, partial=output != step.output or args is not step.args, at=step.at)
 
 
 def _about(detail: str) -> dict[str, Any]:
@@ -341,11 +350,12 @@ def _add_inner(call: ShownMessage | None, step: dict[str, str]) -> None:
         return
     name = step.get("tool", "")
     if step.get("kind") == "tool":
-        call.steps.append(ShownStep(name, args_of(step), ""))
+        call.steps.append(ShownStep(name, args_of(step), "", at=step.get("at", "")))
     elif step.get("kind") == "result":
         index = next((i for i, s in enumerate(call.steps) if s.name == name and not s.output), None)
         if index is not None:
-            call.steps[index] = ShownStep(name, call.steps[index].args, step.get("text", "") or "(no output)")
+            kept = call.steps[index]
+            call.steps[index] = replace(kept, output=step.get("text", "") or "(no output)")
 
 
 def _finish(shown: list[ShownMessage], tool: str, output: str) -> None:

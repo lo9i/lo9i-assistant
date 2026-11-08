@@ -3688,7 +3688,8 @@ export interface components {
         };
         /**
          * BackgroundStep
-         * @description One of its tool calls: the tool, what it was called with, and once it finished, what it answered.
+         * @description One of its tool calls: the tool, what it was called with, when its model asked for it (ISO 8601; "" for one
+         *     kept before), and once it finished, what it answered.
          */
         BackgroundStep: {
             /** Index */
@@ -3711,6 +3712,11 @@ export interface components {
              * @default false
              */
             done: boolean;
+            /**
+             * At
+             * @default
+             */
+            at: string;
         };
         /** BackgroundSubagent */
         BackgroundSubagent: {
@@ -3751,6 +3757,21 @@ export interface components {
              * @default 0
              */
             steps: number;
+            /**
+             * Model Calls
+             * @default 0
+             */
+            model_calls: number;
+            /**
+             * Context Tokens
+             * @default 0
+             */
+            context_tokens: number;
+            /**
+             * Context Limit
+             * @default 0
+             */
+            context_limit: number;
             /**
              * Result
              * @default
@@ -6518,6 +6539,7 @@ export interface components {
              * @default
              */
             at: string;
+            subagent?: components["schemas"]["SubagentStatus"] | null;
         };
         /**
          * ShownStep
@@ -6539,6 +6561,11 @@ export interface components {
              * @default false
              */
             partial: boolean;
+            /**
+             * At
+             * @default
+             */
+            at: string;
         };
         /**
          * ShutdownStatus
@@ -6809,6 +6836,29 @@ export interface components {
             subagent: components["schemas"]["BackgroundSubagent"];
             /** Steps */
             steps: components["schemas"]["BackgroundStep"][];
+        };
+        /**
+         * SubagentStatus
+         * @description How a subagent did, as the apps' status line under it shows: its model calls (`steps`, of `max_steps`, 0 for
+         *     no limit), the tokens its last call took against its model's window (0 when not known), and when it started and
+         *     ended (ISO 8601; "" while it works).
+         */
+        SubagentStatus: {
+            /** Steps */
+            steps: number;
+            /** Max Steps */
+            max_steps: number;
+            /** Context Tokens */
+            context_tokens: number;
+            /** Context Limit */
+            context_limit: number;
+            /** Started At */
+            started_at: string;
+            /**
+             * Ended At
+             * @default
+             */
+            ended_at: string;
         };
         /**
          * Suggested

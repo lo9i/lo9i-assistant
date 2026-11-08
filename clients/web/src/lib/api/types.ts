@@ -91,6 +91,8 @@ export type TaskMessageSent = Schemas["TaskMessageSent"]["sent"];
 export type BackgroundSubagent = Schemas["BackgroundSubagent"];
 export type BackgroundStep = Schemas["BackgroundStep"];
 export type SubagentDetails = Schemas["SubagentDetails"];
+// How a subagent did: its model calls (of `max_steps`, 0 for no limit), its context, when it started and ended.
+export type SubagentStatus = Schemas["SubagentStatus"];
 export type RunInProgress = Schemas["RunInProgress"];
 export type ShownConversation = Schemas["ShownConversation"];
 export type DispatchSetting = Schemas["DispatchSetting"];
@@ -225,6 +227,8 @@ export type RunEvent =
   // started, ISO 8601.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string; at?: string }
   | { type: "ToolFinished"; name: string; output: string; within?: string }
+  // How the subagent of the delegate call `within` is doing, after each of its model calls: its status line.
+  | ({ type: "SubagentProgress"; within: string } & Omit<SubagentStatus, "ended_at">)
   // A message the user sent the agent the conversation is handed to while it worked, where it was passed on. `id`: its
   // id in the task's inbox; `waiting`: the agent gets to it only later, which a UserTaken with its id says.
   | { type: "UserSaid"; text: string; files?: string[]; id?: string; waiting?: boolean }

@@ -43,7 +43,12 @@ class BackgroundSubagent:
     ended_at: str = ""
     # What it's doing now: its tool calls in progress, one line; "" while it thinks.
     step: str = ""
+    # Its tool calls so far.
     steps: int = 0
+    # Its model calls so far, the tokens its last one took and its model's window (0 when not known): its status line.
+    model_calls: int = 0
+    context_tokens: int = 0
+    context_limit: int = 0
     # Its answer once done; what went wrong when it failed.
     result: str = ""
     # What it waits for the user's answer to.
@@ -56,7 +61,8 @@ class BackgroundSubagent:
 
 @dataclass
 class BackgroundStep:
-    """One of its tool calls: the tool, what it was called with, and once it finished, what it answered."""
+    """One of its tool calls: the tool, what it was called with, when its model asked for it (ISO 8601; "" for one
+    kept before), and once it finished, what it answered."""
 
     index: int
     call_id: str
@@ -64,6 +70,7 @@ class BackgroundStep:
     args: dict[str, Any]
     output: str = ""
     done: bool = False
+    at: str = field(default="", compare=False)
 
 
 async def save(store: BaseStore, subagent: BackgroundSubagent) -> None:

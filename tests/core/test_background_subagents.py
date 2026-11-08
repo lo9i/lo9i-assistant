@@ -90,6 +90,26 @@ async def test_it_has_no_step_limit(service, script, monkeypatch):
         await _status(service, after, "done")
     details = await service.subagent_details(subagent_id)
     assert details.subagent.result == "Three steps." and details.subagent.steps == 3
+    assert details.subagent.model_calls == 4
+
+
+async def test_it_keeps_its_context_and_when_each_step_was_asked_for(service, script, model_windows):
+    async def window(choice, model):
+        return 100_000
+
+    model_windows["anthropic"] = window
+    _, subagent_id = await _sent_off(service, script)
+    usage = {"input_tokens": 2900, "output_tokens": 100, "total_tokens": 3000}
+    script.reply(tool_calls=[{"name": "bash", "args": {"command": "echo 1"}, "id": "b1"}], usage_metadata=usage)
+    script.reply("One step.")
+    after = service.bus.last_id
+    async with _working(service):
+        await _status(service, after, "done")
+    details = await service.subagent_details(subagent_id)
+    subagent = details.subagent
+    # The answer's call reported nothing: the context stays as the last call that did said.
+    assert (subagent.model_calls, subagent.context_tokens, subagent.context_limit) == (2, 3000, 100_000)
+    assert details.steps[0].at >= subagent.started_at
 
 
 async def test_an_approval_pauses_only_the_subagent(service, script):

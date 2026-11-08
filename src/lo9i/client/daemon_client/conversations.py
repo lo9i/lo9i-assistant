@@ -25,6 +25,7 @@ from lo9i.core.agent import (
 )
 from lo9i.core.attachments import Attachment
 from lo9i.core.events import ApprovalRequired
+from lo9i.core.subagent_steps import SubagentStatus
 
 
 @dataclass(frozen=True)
@@ -187,4 +188,5 @@ class ConversationsApi:
 
 def _shown(message: dict) -> ShownMessage:
     steps = [ShownStep(**step) for step in message.pop("steps", [])]
-    return ShownMessage(**message, steps=steps)
+    subagent = message.pop("subagent", None)
+    return ShownMessage(**message, steps=steps, subagent=SubagentStatus(**subagent) if subagent else None)

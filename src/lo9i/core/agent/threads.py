@@ -20,7 +20,7 @@ from lo9i.core.conversation import (
     own_model,
     pinned,
     queued,
-    relevant_facts,
+    relevant,
     summaries,
 )
 from lo9i.core.i18n import said
@@ -118,7 +118,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
             await self._forget_channel_pointers(user_id, thread_id)
             await inbox.forget(self._storage.store, user_id, thread_id)
             await pinned.forget(self._storage.store, user_id, thread_id)
-            await relevant_facts.forget(self._storage.store, user_id, thread_id)
+            await relevant.forget(self._storage.store, user_id, thread_id)
             await own_model.forget(self._storage.store, user_id, thread_id)
             await summaries.forget(self._storage.store, user_id, thread_id)
             await file_index.forget(self._storage.store, user_id, thread_id)

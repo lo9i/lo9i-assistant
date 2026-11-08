@@ -14,6 +14,7 @@ _EVENT_TYPES = {
         events.Thinking,
         events.ToolStarted,
         events.ToolFinished,
+        events.SubagentProgress,
         events.UserSaid,
         events.UserTaken,
         events.UserWithdrawn,

@@ -7,7 +7,7 @@ from lo9i.core import subagent_steps
 from lo9i.core.agent import Session, ShownStep
 from lo9i.core.config import settings
 from lo9i.core.context import UNATTENDED_CHANNEL
-from lo9i.core.events import ApprovalRequired, Done, ToolFinished, ToolStarted
+from lo9i.core.events import ApprovalRequired, Done, SubagentProgress, ToolFinished, ToolStarted
 from lo9i.core.subagent import LIMIT_REACHED
 from tests.conftest import collect
 
@@ -156,3 +156,31 @@ async def test_kept_steps_stop_at_a_length_and_other_tools_keep_none(service, sc
     assert delegate.steps[0].output == "exit code:\n…"
     assert (bash.text, bash.detail, bash.output, bash.steps) == ("bash", "echo hi", "exit code: 0\nhi\n", [])
     assert not bash.partial
+
+
+def _used(tokens: int) -> dict[str, int]:
+    return {"input_tokens": tokens - 100, "output_tokens": 100, "total_tokens": tokens}
+
+
+async def test_the_subagent_reports_its_model_calls_and_context_and_history_keeps_them(service, script, model_windows):
+    async def window(choice, model):
+        return 200_000
+
+    model_windows["anthropic"] = window
+    script.call("delegate", task="dig")
+    script.reply(tool_calls=[{"name": "bash", "args": {"command": "echo hi"}, "id": "b1"}], usage_metadata=_used(1200))
+    script.reply("hi", usage_metadata=_used(1500)).reply("ok")
+    session = await service.session("u", "cli")
+    events = await collect(service.send(session, "go"))
+    progress = [e for e in events if isinstance(e, SubagentProgress)]
+    assert [(p.within, p.steps, p.max_steps, p.context_tokens, p.context_limit) for p in progress] == [
+        ("call-0", 1, settings.subagent_max_steps, 1200, 200_000),
+        ("call-0", 2, settings.subagent_max_steps, 1500, 200_000),
+    ]
+    delegate = next(m for m in await service.conversation_messages(session.thread_id) if m.role == "tool")
+    assert delegate.subagent is not None
+    assert (delegate.subagent.steps, delegate.subagent.context_tokens) == (2, 1500)
+    assert delegate.subagent.started_at == progress[0].started_at and delegate.subagent.ended_at
+    # Each step keeps when the subagent's model asked for it, as the conversation's own calls do.
+    started = next(e for e in events if isinstance(e, ToolStarted) and e.within)
+    assert delegate.steps[0].at and delegate.steps[0].at <= started.at

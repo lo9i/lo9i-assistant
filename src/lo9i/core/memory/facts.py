@@ -1,6 +1,6 @@
 """Saved facts: details about the user that stay true. A basic one goes in every system prompt (core/conversation/
 prompt.py), within a budget of tokens; the others come into a turn when a message is close to them in meaning
-(core/conversation/relevant_facts.py), and search_memory finds them all."""
+(core/conversation/relevant.py), and search_memory finds them all."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass

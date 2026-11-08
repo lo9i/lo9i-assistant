@@ -2,8 +2,8 @@
 
 Order runs from stable to volatile: persona, the assistant's name, operating instructions, channel hints,
 skills, the plugins whose tools load on demand, the skills pinned to the conversation, connected accounts,
-plugins it can offer, then profile, the basic facts, the facts the conversation brought up (relevant_facts.py),
-recent episodes and the running summary. Prompt texts live in
+plugins it can offer, then profile, the basic facts, the other facts and the past conversations the conversation
+brought up (relevant.py), and the running summary. Prompt texts live in
 `prompts/`; the persona, operating instructions and channel hints are the user's edits when there are some
 (prompt_edits.py).
 """
@@ -24,9 +24,11 @@ from lo9i.core.conversation.prompt_sections import (
     headed,
     listed,
 )
+from lo9i.core.conversation.relevant import Brought
 from lo9i.core.integrations.email import accounts
 from lo9i.core.mcp import servers, subagents
 from lo9i.core.memory import episodes, facts, profile
+from lo9i.core.memory.episodes import Episode
 from lo9i.core.memory.facts import Fact
 from lo9i.core.repositories import offers
 from lo9i.core.skills import store as skills
@@ -39,7 +41,8 @@ _PLUGINS = prompts.load("plugins")
 _PINNED = prompts.load("pinned")
 _PLUGIN_TOOLS = prompts.load("plugin_tools")
 _FACTS = prompts.load("facts")
-_RELEVANT = prompts.load("relevant_facts")
+_RELEVANT_FACTS = prompts.load("relevant_facts")
+_RELEVANT_CONVERSATIONS = prompts.load("relevant_conversations")
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +57,12 @@ async def build_system_prompt(
     pinned: Sequence[str] = (),
     texts: Mapping[str, str] | None = None,
     plugin_tools: Mapping[str, Sequence[str]] | None = None,
-    relevant: Sequence[Fact] = (),
+    brought: Brought | None = None,
 ) -> str:
     """`texts`: the texts the user can edit, by name (prompt_edits.current()); read now when left out.
     `plugin_tools`: each plugin with tools and their names, which a conversation loads when it needs them
-    (core/plugin_loading.py). `relevant`: the facts the conversation brought up (relevant_facts.py)."""
-    sections = await prompt_sections(store, user_id, name, conversation_summary, pinned, texts, plugin_tools, relevant)
+    (core/plugin_loading.py). `brought`: the memories the conversation brought up (relevant.py)."""
+    sections = await prompt_sections(store, user_id, name, conversation_summary, pinned, texts, plugin_tools, brought)
     return "\n\n".join(section.text for section in sections)
 
 
@@ -71,7 +74,7 @@ async def prompt_sections(
     pinned: Sequence[str] = (),
     texts: Mapping[str, str] | None = None,
     plugin_tools: Mapping[str, Sequence[str]] | None = None,
-    relevant: Sequence[Fact] = (),
+    brought: Brought | None = None,
 ) -> list[PromptSection]:
     """The system prompt's sections in order, each with the part it is and the items it lists (the doctor measures
     each one, core/doctor/context.py). Parts with nothing to say are left out."""
@@ -88,8 +91,8 @@ async def prompt_sections(
         await _accounts_section(store),
         await _plugins_section(store),
         await _profile_section(store, user_id),
-        *await _facts_sections(store, user_id, relevant),
-        await _recent_section(store, user_id),
+        *await _facts_sections(store, user_id, (brought or Brought()).facts),
+        _conversations_section((brought or Brought()).episodes),
         _summary_section(conversation_summary),
     ]
     return [section for section in sections if section is not None]
@@ -192,19 +195,22 @@ async def _facts_sections(store: BaseStore, user_id: str, relevant: Sequence[Fac
             ", ".join(f.id for f in left_out),
         )
     held = {f.id for f in basic}
-    brought = [_fact_item(f) for f in relevant if f.id not in held]
+    others = [_fact_item(f) for f in relevant if f.id not in held]
     sections = [listed("facts", f"# Saved facts\n\n{_FACTS}\n\n", [_fact_item(f) for f in basic], "(none yet)")]
-    return [*sections, listed("relevant", f"# Relevant facts\n\n{_RELEVANT}\n\n", brought, "")] if brought else sections
+    if not others:
+        return sections
+    return [*sections, listed("relevant_facts", f"# Relevant facts\n\n{_RELEVANT_FACTS}\n\n", others, "")]
 
 
 def _fact_item(fact: Fact) -> PromptItem:
     return PromptItem(fact.text, facts.line(fact), key=fact.id)
 
 
-async def _recent_section(store: BaseStore, user_id: str) -> PromptSection:
-    recent = await episodes.recent(store, user_id, settings.memory_max_episodes)
-    items = [PromptItem(episodes.when(e), episodes.line(e), e.summary) for e in recent]
-    return listed("recent", "# Recent conversations\n\n", items, "(none yet)")
+def _conversations_section(brought: Sequence[Episode]) -> PromptSection | None:
+    """The past conversations the conversation brought up; no section without any."""
+    items = [PromptItem(episodes.when(e), episodes.line(e), e.summary) for e in brought]
+    head = f"# Relevant conversations\n\n{_RELEVANT_CONVERSATIONS}\n\n"
+    return listed("relevant_conversations", head, items, "") if items else None
 
 
 def _summary_section(summary: str) -> PromptSection | None:

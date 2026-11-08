@@ -8372,6 +8372,11 @@
             "type": "boolean",
             "title": "Done",
             "default": false
+          },
+          "at": {
+            "type": "string",
+            "title": "At",
+            "default": ""
           }
         },
         "type": "object",
@@ -8382,7 +8387,7 @@
           "args"
         ],
         "title": "BackgroundStep",
-        "description": "One of its tool calls: the tool, what it was called with, and once it finished, what it answered."
+        "description": "One of its tool calls: the tool, what it was called with, when its model asked for it (ISO 8601; \"\" for one\nkept before), and once it finished, what it answered."
       },
       "BackgroundSubagent": {
         "properties": {
@@ -8446,6 +8451,21 @@
           "steps": {
             "type": "integer",
             "title": "Steps",
+            "default": 0
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls",
+            "default": 0
+          },
+          "context_tokens": {
+            "type": "integer",
+            "title": "Context Tokens",
+            "default": 0
+          },
+          "context_limit": {
+            "type": "integer",
+            "title": "Context Limit",
             "default": 0
           },
           "result": {
@@ -13614,6 +13634,16 @@
             "type": "string",
             "title": "At",
             "default": ""
+          },
+          "subagent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SubagentStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -13642,6 +13672,11 @@
             "type": "boolean",
             "title": "Partial",
             "default": false
+          },
+          "at": {
+            "type": "string",
+            "title": "At",
+            "default": ""
           }
         },
         "type": "object",
@@ -14249,6 +14284,45 @@
           "steps"
         ],
         "title": "SubagentDetails"
+      },
+      "SubagentStatus": {
+        "properties": {
+          "steps": {
+            "type": "integer",
+            "title": "Steps"
+          },
+          "max_steps": {
+            "type": "integer",
+            "title": "Max Steps"
+          },
+          "context_tokens": {
+            "type": "integer",
+            "title": "Context Tokens"
+          },
+          "context_limit": {
+            "type": "integer",
+            "title": "Context Limit"
+          },
+          "started_at": {
+            "type": "string",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "type": "string",
+            "title": "Ended At",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "steps",
+          "max_steps",
+          "context_tokens",
+          "context_limit",
+          "started_at"
+        ],
+        "title": "SubagentStatus",
+        "description": "How a subagent did, as the apps' status line under it shows: its model calls (`steps`, of `max_steps`, 0 for\nno limit), the tokens its last call took against its model's window (0 when not known), and when it started and\nended (ISO 8601; \"\" while it works)."
       },
       "Suggested": {
         "properties": {
