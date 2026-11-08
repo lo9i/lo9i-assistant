@@ -94,7 +94,9 @@ async def test_its_steps_show_beside_the_conversation_as_they_come(service, scri
     after = service.bus.last_id
     with (folders.data("claude-code") / "tasks" / running.id / "progress.log").open("a") as log:
         log.write('{"kind": "text_delta", "text": "Run"}\n')
-        log.write('{"kind": "tool", "tool": "Bash", "detail": "pytest", "id": "t1"}\n')
+        log.write(
+            '{"kind": "tool", "tool": "Bash", "detail": "pytest", "id": "t1", "at": "2026-11-08T10:00:00+00:00"}\n'
+        )
     step = await _next_step(service, after)
     assert step == {
         "thread_id": session.thread_id,
@@ -109,12 +111,15 @@ async def test_its_steps_show_beside_the_conversation_as_they_come(service, scri
             "id": "t1",
             "within": "",
             "waiting": False,
+            "at": "2026-11-08T10:00:00+00:00",  # when its worker wrote it, which the panel shows the call with
         },
     }
     details = await service.task_session("owner", session.thread_id, session_id)
     [turn] = details.turns
     assert (turn.asked, turn.from_user, turn.status) == ("work a while", False, "running")
-    assert turn.steps == [TaskStep("tool", tool="Bash", detail="pytest", id="t1")]  # not the words streamed
+    assert turn.steps == [  # not the words streamed
+        TaskStep("tool", tool="Bash", detail="pytest", id="t1", at="2026-11-08T10:00:00+00:00")
+    ]
     (tmp_path / "release").touch()
     await _until(lambda: _status(service, session, "done"))
     [turn] = (await service.task_session("owner", session.thread_id, session_id)).turns

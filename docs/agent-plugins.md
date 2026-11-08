@@ -119,7 +119,9 @@ Each line of `progress.log` is a JSON object with a `kind`; fields that are empt
 | `taken` | `id` | The agent got to a message whose `user` step was `waiting`: it no longer shows as waiting. |
 | `withdrawn` | `id` | The worker took back a message whose `user` step was `waiting`, as a `withdraw` asked: the agent never gets it. |
 
-`within` on any step is the id of the tool call whose subagent took it. In a conversation handed to the
+`within` on any step is the id of the tool call whose subagent took it, and `at` when the worker wrote it (ISO 8601,
+optional), which the apps show a tool call with; without it, the daemon's time of reading it in a conversation
+handed to the agent, and none beside a conversation. In a conversation handed to the
 agent, the daemon shows text as the reply, thinking apart, and each tool call with its result
 (`core/agent_tasks/steps.py`); notes go inside a call named after the agent, and `user` steps show as the
 user's messages (a `UserSaid` event). Words stream as they're

@@ -20,7 +20,7 @@ function session(id: string, status: TaskSession["status"], started_at = "2026-1
 }
 
 function step(kind: string, fields: Partial<TaskStep> = {}): TaskStep {
-  return { kind, text: "", tool: "", detail: "", id: "", within: "", waiting: false, ...fields };
+  return { kind, text: "", tool: "", detail: "", id: "", within: "", waiting: false, at: "", ...fields };
 }
 
 function turn(id: string, steps: TaskStep[], fields: Partial<TaskTurn> = {}): TaskTurn {
@@ -101,6 +101,17 @@ describe("coding tasks beside a conversation", () => {
       "tool Claude Code running [Downloading the CLI done, Starting done]",
       "tool Task running [Grep done]",
     ]);
+  });
+
+  it("show each call, a subagent's too, with when its worker wrote it, as a conversation's", () => {
+    const steps = [
+      step("tool", { tool: "Task", id: "t1", at: "2026-11-08T10:00:00+00:00" }),
+      step("tool", { tool: "Grep", id: "s1", within: "t1", at: "2026-11-08T10:00:05+00:00" }),
+      step("tool", { tool: "Bash", id: "t2" }),
+    ];
+    const [, task, bash] = shownItems(details([turn("1", steps)]), "Claude Code");
+    expect(task.kind === "tool" && [task.at, task.steps?.[0].at]).toEqual(["2026-11-08T10:00:00+00:00", "2026-11-08T10:00:05+00:00"]);
+    expect(bash.kind === "tool" && bash.at).toBe(undefined);
   });
 
   it("show the user's messages to it waiting until it takes them, and those it ended without as gone on next", () => {

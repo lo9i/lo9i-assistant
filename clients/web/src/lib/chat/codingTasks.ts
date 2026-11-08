@@ -3,7 +3,7 @@
 // kept current from the `agent_task_step` events that bring each step as its task writes it.
 import type { TaskSession, TaskSessionDetails, TaskStep, TaskTurn } from "$lib/api/types";
 import { t } from "$lib/i18n.svelte";
-import type { ChatItem, ToolItem, ToolStep, UserNote } from "./transcript";
+import { at, type ChatItem, type ToolItem, type ToolStep, type UserNote } from "./transcript";
 
 export type TaskStatus = TaskSession["status"];
 
@@ -106,12 +106,12 @@ class Shown {
     const args = step.detail ? { detail: step.detail } : undefined;
     const parent = step.within ? this.calls.get(step.within) : undefined;
     if (parent && isItem(parent)) {
-      const inner: ToolStep = { name: step.tool, args, state: "running" };
+      const inner: ToolStep = { name: step.tool, args, state: "running", ...at(step.at) };
       parent.steps = [...(parent.steps ?? []), inner];
       if (step.id) this.calls.set(step.id, inner);
       return;
     }
-    const item: ToolItem = { kind: "tool", id: this.nextId++, name: step.tool, args, state: "running" };
+    const item: ToolItem = { kind: "tool", id: this.nextId++, name: step.tool, args, state: "running", ...at(step.at) };
     this.items.push(item);
     this.notes = null;
     if (step.id) this.calls.set(step.id, item);

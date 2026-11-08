@@ -553,11 +553,11 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
   }
-  /* Closed, a call is a line at most 70% as wide as the conversation, however wide that is (alone, or beside others):
-   its command is cut short there. Open, it's a card as wide as it needs. */
+  /* Closed, a call is a line at most 90% as wide as the conversation, as a message is, however wide that is (alone, or
+   beside others): its command is cut short there. Open, it's a card as wide as it needs. */
   .tool:not([open]),
   .thinking {
-    max-width: 70%;
+    max-width: 90%;
   }
   .tool summary,
   .thinking {

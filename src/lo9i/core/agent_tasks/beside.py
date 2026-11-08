@@ -63,6 +63,8 @@ class TaskStep:
     within: str = ""
     # A message the user sent that the agent hasn't got to yet.
     waiting: bool = False
+    # When its worker wrote it (ISO 8601), which the panel shows a tool call with; "" when the worker doesn't say.
+    at: str = ""
 
 
 @dataclass
@@ -419,6 +421,7 @@ def _step(message: str) -> TaskStep:
         fields.get("id", ""),
         fields.get("within", ""),
         waiting(fields),
+        fields.get("at", ""),
     )
 
 

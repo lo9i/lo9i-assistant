@@ -244,7 +244,8 @@ function shownTool(message: ShownMessage): Omit<ToolItem, "id"> {
   return steps?.length ? { ...call, steps } : call;
 }
 
-function at(when: string | undefined): { at?: string } {
+/** When a call started, for the thread to show it with; nothing when that isn't known. */
+export function at(when: string | undefined): { at?: string } {
   return when ? { at: when } : {};
 }
 
