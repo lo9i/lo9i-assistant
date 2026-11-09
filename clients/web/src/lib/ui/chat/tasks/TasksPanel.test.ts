@@ -47,7 +47,9 @@ describe("TasksPanel", () => {
   it("minimized, is a thin bar saying how they're doing that opens it again", () => {
     const { body } = render(TasksPanel, { props: { threadId: "t", sessions, open: false, ontoggle: () => {} } });
     expect(body).toMatch(/class="rail surface--glass status--running[^"]*"[^>]*aria-label="Show the coding agents' work"/);
-    expect(body).toContain("Claude Code · working…");
+    expect(body).toMatch(/class="rail-label[^"]*">Claude Code<\/span>/);
+    expect(body).toMatch(/class="working[^"]*" role="img" title="working…" aria-label="working…"><span class="mark mark--running/);
+    expect(body).not.toContain("· working…");
     expect(body).not.toContain("Write to Claude Code");
     const ended = [session("a", "failed", "Fix the tests")];
     expect(render(TasksPanel, { props: { threadId: "t", sessions: ended, open: false, ontoggle: () => {} } }).body).toContain(

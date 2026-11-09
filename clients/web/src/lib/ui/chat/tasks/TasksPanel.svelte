@@ -125,7 +125,13 @@
     <span class="marks">
       {#each sessions as session (session.id)}<StatusMark status={session.status} />{/each}
     </span>
-    {#if status}
+    {#if status === "running"}
+      <!-- Working shows as a spinner in the agent's colour, its words only on hover and to a screen reader. -->
+      {#if agents.length === 1}<span class="rail-label">{agents[0]}</span>{/if}
+      <span class="working" role="img" title={t("tasks.status.running")} aria-label={t("tasks.status.running")}
+        ><StatusMark status="running" /></span
+      >
+    {:else if status}
       <span class="rail-label">{agents.length === 1 ? `${agents[0]} · ` : ""}{t(`tasks.status.${status}`)}</span>
     {/if}
   </button>
@@ -295,6 +301,10 @@
     min-height: 0;
     font-size: var(--font-size-xs);
     letter-spacing: 0.02em;
+  }
+  .working {
+    display: flex;
+    flex: none;
   }
   .status--running .rail-label {
     color: var(--glow);
