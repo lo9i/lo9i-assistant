@@ -100,6 +100,9 @@ class McpServer:
     # Its count beside its page in the web app's sidebar, a tool of its MCP server lo9i calls itself
     # (core/mcp/badges.py), which the agent never gets; "" for none.
     badge_tool: str = ""
+    # The SSH hosts it keeps, a tool of its MCP server lo9i calls itself to move to one (core/mcp/ssh_hosts.py), which
+    # the agent never gets: it gives their passwords. "" for none.
+    ssh_hosts_tool: str = ""
     # Which env or header values are the user's keys (keys.py): its fields, for a plugin installed
     # from a repository. One added by hand has all of them as keys.
     keys: list[str] = field(default_factory=list)
@@ -130,9 +133,10 @@ class McpServer:
         return not _matches(tool, self.exclude)
 
     def only_lo9i_calls(self, tool: str) -> bool:
-        """Its check, its list for the day (core/mcp/today.py) and its badge (core/mcp/badges.py): lo9i calls them
-        itself; the apps don't list them."""
-        return self.checks_with(tool) or (bool(tool) and tool in (self.today_tool, self.badge_tool))
+        """Its check, its list for the day (core/mcp/today.py), its badge (core/mcp/badges.py) and its SSH hosts
+        (core/mcp/ssh_hosts.py): lo9i calls them itself; the apps don't list them."""
+        only_lo9i = (self.today_tool, self.badge_tool, self.ssh_hosts_tool)
+        return self.checks_with(tool) or (bool(tool) and tool in only_lo9i)
 
     def checks_with(self, tool: str) -> bool:
         """Whether this tool is the check of the values its plugin was given (core/mcp/checks.py)."""

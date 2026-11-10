@@ -3417,10 +3417,30 @@ export interface paths {
         put?: never;
         /**
          * Export Data
-         * @description lo9i's data, sealed with the password: a file to import on another computer. 400: a password too short,
-         *     or the data couldn't be read.
+         * @description lo9i's data, sealed with the password, written to a file to import on another computer, downloaded once
+         *     from `url` within 15 minutes. 400: a password too short, or the data couldn't be read.
          */
         post: operations["export_data_system_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/exports/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Export
+         * @description The export, once. 404: an unknown token, or one used or expired.
+         */
+        get: operations["download_export_system_exports__token__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3443,6 +3463,55 @@ export interface paths {
          *     or the file isn't an export or is damaged.
          */
         post: operations["import_data_system_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Move Status
+         * @description The move running, or the last one; `state` is "" when there was none. A `move` event says it changed.
+         */
+        get: operations["move_status_system_move_get"];
+        put?: never;
+        /**
+         * Start Move
+         * @description Starts moving lo9i to another computer over SSH, in the background. 409: one is running. 400: a plugin's
+         *     host that can't be read.
+         */
+        post: operations["start_move_system_move_post"];
+        /**
+         * Cancel Move
+         * @description Cancels the move running; the copied file is deleted there. 409: none is running.
+         */
+        delete: operations["cancel_move_system_move_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/move/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Move Hosts
+         * @description The SSH hosts plugins keep (core/mcp/ssh_hosts.py), without how to sign in to them.
+         */
+        get: operations["move_hosts_system_move_hosts_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4530,6 +4599,13 @@ export interface components {
              * @default
              */
             id: string;
+        };
+        /** ExportReady */
+        ExportReady: {
+            /** Url */
+            url: string;
+            /** Name */
+            name: string;
         };
         /** ExportRequest */
         ExportRequest: {
@@ -5662,6 +5738,89 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * MoveRequest
+         * @description A host typed in (`host`, with `user`, `port`, `password` and `key_path` as needed), or one a plugin keeps
+         *     (`plugin` and `host`, its name there). `replace`: set aside the data lo9i has there.
+         */
+        MoveRequest: {
+            /** Host */
+            host: string;
+            /**
+             * Plugin
+             * @default
+             */
+            plugin: string;
+            /**
+             * User
+             * @default
+             */
+            user: string;
+            /**
+             * Port
+             * @default 0
+             */
+            port: number;
+            /**
+             * Password
+             * @default
+             */
+            password: string;
+            /**
+             * Key Path
+             * @default
+             */
+            key_path: string;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+        };
+        /** MoveStatus */
+        MoveStatus: {
+            /**
+             * State
+             * @default
+             */
+            state: string;
+            /**
+             * Host
+             * @default
+             */
+            host: string;
+            /** Steps */
+            steps?: components["schemas"]["MoveStep"][];
+            /**
+             * Progress
+             * @default -1
+             */
+            progress: number;
+            /** To Redo */
+            to_redo?: string[];
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+        };
+        /** MoveStep */
+        MoveStep: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * State
+             * @default waiting
+             */
+            state: string;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
         /** Moving */
         Moving: {
             /** Channel */
@@ -6414,6 +6573,15 @@ export interface components {
             started_at: string;
             /** Steps */
             steps: string[];
+        };
+        /** SavedHost */
+        SavedHost: {
+            /** Plugin */
+            plugin: string;
+            /** Name */
+            name: string;
+            /** Address */
+            address: string;
         };
         /** SectionResult */
         SectionResult: {
@@ -13510,6 +13678,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["ExportReady"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_export_system_exports__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/octet-stream": unknown;
                 };
             };
@@ -13553,6 +13752,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_status_system_move_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveStatus"];
+                };
+            };
+        };
+    };
+    start_move_system_move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_move_system_move_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveStatus"];
+                };
+            };
+        };
+    };
+    move_hosts_system_move_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedHost"][];
                 };
             };
         };

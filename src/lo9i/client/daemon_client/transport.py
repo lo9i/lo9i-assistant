@@ -60,14 +60,12 @@ class Transport:
         path: str,
         target: BinaryIO,
         *,
-        json: Any,
         errors: Mapping[int, type[Exception]] | None = None,
         timeout: httpx.Timeout | None = None,
     ) -> None:
-        """POSTs `json` and writes the response's body to `target` as it comes (a large file), with the same errors as
-        `request`."""
+        """Writes the body of the GET to `target` as it comes (a large file), with the same errors as `request`."""
         try:
-            async with self._http.stream("POST", path, json=json, timeout=timeout) as response:
+            async with self._http.stream("GET", path, timeout=timeout) as response:
                 if response.is_error:
                     await response.aread()
                     if (error := (errors or {}).get(response.status_code)) is not None:

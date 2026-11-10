@@ -32,6 +32,8 @@ DRY_RUN=0
 LINK_COMMAND=1
 COMPLETION=1
 EDIT_PROFILES=1
+# Set by --model-later: .env from .env.example, the model set in the app or brought by an import.
+MODEL_LATER=0
 # Set when a profile got a PATH line: the command is on PATH only in a new terminal.
 PATH_ADDED=0
 # The checkout being installed; in a dry run of a first install, where it would be cloned.
@@ -52,6 +54,7 @@ Options:
   --no-path        Don't link the lo9i command into ~/.local/bin or add that folder to PATH.
   --no-completion  Don't install shell completion.
   --skip-shell     Don't change shell profiles (.zshrc, .bashrc, .bash_profile, config.fish).
+  --model-later    Don't ask for the model: it's set in the app, or comes with an import (lo9i migrate).
   --dry-run        Say what it would do, and change nothing.
   -h, --help       Show this help.
 
@@ -67,6 +70,7 @@ parse_args() {
       --no-path) LINK_COMMAND=0 ;;
       --no-completion) COMPLETION=0 ;;
       --skip-shell) EDIT_PROFILES=0 ;;
+      --model-later) MODEL_LATER=1 ;;
       --dry-run) DRY_RUN=1 ;;
       -h | --help) usage; exit 0 ;;
       *) say "Unknown option: $1"; usage >&2; exit 2 ;;
@@ -121,6 +125,11 @@ ensure_uv() {
 
 ensure_env() {
   [[ -f "$ROOT/.env" ]] && return
+  if ((MODEL_LATER)); then
+    dry "write $ROOT/.env from .env.example, the model to be set in the app" && return
+    env_from_example
+    return
+  fi
   dry "ask for the model provider and its key, and write $ROOT/.env" && return
   # Opening /dev/tty fails without a terminal (ssh host cmd, CI), even when its permissions allow it.
   if ! { : </dev/tty; } 2>/dev/null; then
@@ -133,6 +142,15 @@ ensure_env() {
   chmod 600 .env.tmp
   mv .env.tmp .env
   say "Saved $PWD/.env. More settings are listed in .env.example."
+}
+
+# .env without the model's settings, which the app's Settings → Model (or an import) gives.
+env_from_example() {
+  cp .env.example .env.tmp
+  echo "TIMEZONE=$(system_timezone)" >>.env.tmp
+  chmod 600 .env.tmp
+  mv .env.tmp .env
+  say "Saved $PWD/.env from .env.example; the model is set in the app."
 }
 
 # Prints the provider settings for .env, asking on the terminal. Keys are read without echo.

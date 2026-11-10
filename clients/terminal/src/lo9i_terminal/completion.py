@@ -4,7 +4,8 @@ the two never differ. install.sh installs the one for the user's shell."""
 from lo9i_terminal.cli import COMMANDS, DAEMON_ACTIONS, SHELLS
 
 _DOCTOR_OPTIONS = ("--json",)
-_IMPORT_OPTIONS = ("--force",)
+_IMPORT_OPTIONS = ("--force", "--password-stdin", "--json", "--wait")
+_MIGRATE_OPTIONS = ("--user", "--port", "--key", "--password", "--replace")
 _TOP_OPTIONS = ("--help", "--version")
 
 
@@ -23,6 +24,7 @@ _lo9i() {{
     2:doctor) COMPREPLY=($(compgen -W "{" ".join(_DOCTOR_OPTIONS)}" -- "$cur")) ;;
     2:export) COMPREPLY=($(compgen -f -- "$cur")) ;;
     *:import) COMPREPLY=($(compgen -W "{" ".join(_IMPORT_OPTIONS)}" -f -- "$cur")) ;;
+    *:migrate) COMPREPLY=($(compgen -W "{" ".join(_MIGRATE_OPTIONS)}" -- "$cur")) ;;
     2:completion) COMPREPLY=($(compgen -W "{" ".join(SHELLS)}" -- "$cur")) ;;
   esac
 }}
@@ -49,6 +51,7 @@ _lo9i() {{
     doctor) compadd -- {" ".join(_DOCTOR_OPTIONS)} ;;
     export) _files ;;
     import) compadd -- {" ".join(_IMPORT_OPTIONS)}; _files ;;
+    migrate) compadd -- {" ".join(_MIGRATE_OPTIONS)} ;;
     completion) compadd -- {" ".join(SHELLS)} ;;
   esac
 }}
@@ -75,6 +78,9 @@ def _fish() -> str:
         "complete -c lo9i -n '__fish_seen_subcommand_from doctor' -l json -d 'Print the report as JSON'",
         "complete -c lo9i -n '__fish_seen_subcommand_from export import' -F",
         "complete -c lo9i -n '__fish_seen_subcommand_from import' -l force -d 'Replace the data lo9i has here'",
+        "complete -c lo9i -n '__fish_seen_subcommand_from migrate' -l replace -d 'Replace the data lo9i has there'",
+        "complete -c lo9i -n '__fish_seen_subcommand_from migrate' -l password -d 'Ask for the password'",
+        "complete -c lo9i -n '__fish_seen_subcommand_from migrate' -l key -r -F -d 'A key file to sign in with'",
         f"complete -c lo9i -n '__fish_seen_subcommand_from completion' -a '{' '.join(SHELLS)}'",
     ]
     return "\n".join(lines) + "\n"

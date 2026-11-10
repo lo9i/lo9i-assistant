@@ -1824,7 +1824,7 @@
     "export": "Exportar",
     "exporting": "Exportando…",
     "exportHint": "Los entornos de los plugins, los modelos descargados y los registros quedan aquí: la otra computadora hace los suyos. Sin la contraseña la exportación no se puede abrir.",
-    "exported": "Se descargó {name}.",
+    "exported": "Descargando {name}.",
     "password": "Contraseña",
     "import": "Importar",
     "importing": "Importando…",
@@ -1836,6 +1836,19 @@
       "one": "lo9i se reinicia para usarla cuando termine la ejecución en curso.",
       "other": "lo9i se reinicia para usarla cuando terminen las {count} ejecuciones en curso."
     },
-    "toRedo": "Para hacer en esta computadora"
+    "toRedo": "Para hacer en esta computadora",
+    "overSsh": "Directo a otra computadora por SSH",
+    "host": "Host",
+    "anotherHost": "Otra computadora…",
+    "address": "Dirección o nombre de ssh",
+    "user": "Usuario",
+    "port": "Puerto",
+    "sshPassword": "Su contraseña (opcional)",
+    "keyPath": "Archivo de clave en esta computadora (opcional)",
+    "replaceThere": "Reemplazar los datos que lo9i tiene allí (se guardan en una carpeta junto a la de lo9i)",
+    "move": "Mudar",
+    "sshHint": "lo9i se instala allí si falta, exporta con una clave hecha para esta mudanza, la copia allí, la importa y borra la copia. Para iniciar sesión se usan tu agente y tus claves ssh; no se escribe nada en tu configuración de SSH y no se copia ninguna clave.",
+    "moved": "lo9i funciona en {host} con los datos de esta computadora.",
+    "toRedoThere": "Para hacer allí"
   }
 }

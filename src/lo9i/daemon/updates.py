@@ -394,6 +394,17 @@ def write_version(root: Path, commit: Commit) -> None:
     (root / VERSION_FILE).write_text(json.dumps(asdict(commit)) + "\n")
 
 
+async def version_of(root: Path) -> Commit | None:
+    """The commit the files at `root` come from: its repository's, or a deployed copy's; None when it can't be
+    told."""
+    if installed_from(root) == "git":
+        try:
+            return await _this_version(root)
+        except _FailedError:
+            return None
+    return _deployed(root)
+
+
 def _deployed(root: Path) -> Commit | None:
     try:
         return Commit(**json.loads((root / VERSION_FILE).read_text()))

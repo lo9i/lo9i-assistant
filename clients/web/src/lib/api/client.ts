@@ -47,6 +47,10 @@ import type {
   Handoff,
   HostStatus,
   ImportReport,
+  ExportReady,
+  SavedHost,
+  MoveRequest,
+  MoveStatus,
   InstalledFromRepository,
   Job,
   KeptKeys,
@@ -1208,10 +1212,11 @@ export class SystemGroup {
     return this.transport.request("POST", "/system/update");
   }
 
-  /** lo9i's data, sealed with `password`, to import on another computer (src/lo9i/core/migration/). Throws ApiError
+  /** lo9i's data, sealed with `password`, to import on another computer (src/lo9i/core/migration/): written on the
+   * host, then downloaded once from `url`, which the browser follows itself to save it as it comes. Throws ApiError
    * (400) for a password too short. */
-  exportData(password: string): Promise<Blob> {
-    return this.transport.blob("POST", "/system/export", { password });
+  exportData(password: string): Promise<ExportReady> {
+    return this.transport.request("POST", "/system/export", { password });
   }
 
   /** Stages an export for the daemon's next start, which it restarts for once no run is in progress. Throws
@@ -1222,6 +1227,27 @@ export class SystemGroup {
     form.append("password", password);
     form.append("replace", String(replace));
     return this.transport.request("POST", "/system/import", form);
+  }
+
+  /** The SSH hosts plugins keep (the hosts plugin's), to move to one. */
+  savedHosts(): Promise<SavedHost[]> {
+    return this.transport.request("GET", "/system/move/hosts");
+  }
+
+  /** Starts moving lo9i to another computer over SSH (src/lo9i/daemon/moves.py); a `move` event says how it goes.
+   * Throws ApiError: 409 when one is running, 400 for a plugin's host that can't be read. */
+  move(request: MoveRequest): Promise<MoveStatus> {
+    return this.transport.request("POST", "/system/move", request);
+  }
+
+  /** The move running, or the last one; `state` is "" when there was none. */
+  moveStatus(): Promise<MoveStatus> {
+    return this.transport.request("GET", "/system/move");
+  }
+
+  /** Cancels the move running; what it copied there is deleted. Throws ApiError (409) when none runs. */
+  cancelMove(): Promise<MoveStatus> {
+    return this.transport.request("DELETE", "/system/move");
   }
 }
 
