@@ -64,7 +64,7 @@
     <SettingRow label={t("proactiveCard.weekly")}>
       {#snippet hint()}{t("proactiveCard.weeklyHint")}{/snippet}
       <select
-        class="input"
+        class="input day"
         value={chosen.weekly_day ?? 6}
         aria-label={`${t("proactiveCard.weekly")}: ${t("proactiveCard.day")}`}
         onchange={(e) => change({ weekly_day: Number(e.currentTarget.value) })}
@@ -102,8 +102,10 @@
 </SettingsCard>
 
 <style>
-  .time {
-    width: 7.5em;
+  /* Sized to what they show (a time input's AM/PM included, where the browser shows one), not the card's width. */
+  .time,
+  .day {
+    width: auto;
   }
   .muted {
     display: flex;

@@ -22,15 +22,20 @@
     gap: 16px;
     flex-wrap: wrap;
   }
+  /* The text takes the room the controls leave, so a long hint wraps beside them instead of pushing them under it. */
   .label {
+    flex: 1 1 16rem;
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
   }
+  /* The controls stay together on one line at the right edge, so every row's last control lines up. */
   .control {
+    flex: none;
+    margin-left: auto;
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
   }
 </style>
