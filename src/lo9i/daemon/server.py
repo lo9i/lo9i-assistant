@@ -180,6 +180,8 @@ def _ending(service: AssistantService, stop: asyncio.Event) -> tuple[Shutdown, U
         runs=service,
     )
     shutdown = Shutdown(service, stop, managers.current(), _announcer(service), updater, service.ending)
+    # The assistant's restart_daemon asks through it (core/ending.py), since core can't reach the daemon.
+    service.ending.restarts_with(lambda by: shutdown.request(Ending.RESTART, by))
     return shutdown, updater
 
 

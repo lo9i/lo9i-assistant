@@ -15,10 +15,11 @@ from lo9i.core.conversation.queued import Queued
 from lo9i.core.events import ApprovalRequired, Dispatched, ToolFinished, ToolStarted
 from lo9i.core.mcp import folders
 from lo9i.core.plugin_loading import LOAD_TOOLS
+from lo9i.daemon.shutdown import Ending, Shutdown
 from tests.conftest import collect
 from tests.core.test_handoffs import agent_plugin
 
-_TOOLS = ["list_tasks", "start_task", "stop_task", "task_status"]
+_TOOLS = ["list_tasks", "restart_daemon", "start_task", "stop_task", "task_status"]
 
 
 @pytest.fixture
@@ -275,3 +276,38 @@ def test_a_context_the_worker_wrote_that_cant_be_read_counts_as_none(tmp_path, c
     (tasks.folder(follow_up.id) / "context.json").write_text(written)
     assert tasks.context(follow_up.id) == Context(61_000, 200_000)  # as if it wrote none: the one before
     assert "context.json" in caplog.text
+
+
+class _Manager:
+    """Started by hand: nothing to do before a stop."""
+
+    def stop_refusal(self) -> str | None:
+        return None
+
+    def stop_note(self) -> str | None:
+        return None
+
+    async def before_stop(self) -> str | None:
+        return None
+
+    async def stop(self, stop: asyncio.Event) -> None:
+        stop.set()
+
+
+async def test_restart_daemon_asks_for_a_restart_that_waits_for_the_reply_calling_it(service, script):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    stop = asyncio.Event()
+    shutdown = Shutdown(service, stop, _Manager(), recorded=service.ending)
+    service.ending.restarts_with(lambda by: shutdown.request(Ending.RESTART, by))
+    script.call("restart_daemon").reply("Restarting once this reply ends.")
+    events = await collect(service.send(await side(service, "web"), "restart yourself"))
+    called = next(e for e in events if isinstance(e, ToolFinished)).output
+    assert called == "Restart asked for: it goes ahead once the 1 run(s) in progress end, this reply's included."
+    await asyncio.wait_for(stop.wait(), 5)
+    assert shutdown.ending is Ending.RESTART
+    assert (await _call(service, "restart_daemon")).startswith("A restart of lo9i is pending, asked by the assistant")
+
+
+async def test_restart_daemon_outside_the_daemon_says_it_cant(service):
+    await service.add_mcp_server(agent_plugin(trusted=True))
+    assert "isn't running as the daemon" in await _call(service, "restart_daemon")

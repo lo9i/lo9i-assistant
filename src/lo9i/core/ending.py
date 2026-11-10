@@ -1,7 +1,8 @@
 """The restart or stop of the daemon that was asked for and waits for the runs in progress (daemon/shutdown.py), as
 the rest of lo9i sees it: who asked and when, and what it waits for. While it waits, messages queued in a
 conversation (core/conversation/queued.py) aren't sent (daemon/queued.py), so the assistant's own tools need to know
-(list_tasks: core/agent_tasks/tools.py), and so do the apps (GET /system/ending).
+(list_tasks: core/agent_tasks/tools.py), and so do the apps (GET /system/ending). The assistant asks for a restart
+through it too (restart_daemon), once the daemon gave it its restart.
 
 It's kept in a small file in the data folder too (RESTART_PENDING_PATH, ~/.lo9i/restart-pending.json), readable
 without the daemon: written when one is asked for, deleted when it's taken back and when the daemon starts, so one
@@ -35,6 +36,16 @@ class EndingState:
         self._path = path
         self._running = running
         self._asked: AskedEnding | None = None
+        self._restart: Callable[[str], int] | None = None
+
+    def restarts_with(self, restart: Callable[[str], int]) -> None:
+        """The daemon's restart (daemon/shutdown.py): takes who asks, returns how many runs it waits for."""
+        self._restart = restart
+
+    def restart(self, by: str) -> int | None:
+        """Asks for a restart once no run is in progress; how many runs it waits for, or None when nothing can
+        restart lo9i (it isn't running as the daemon)."""
+        return self._restart(by) if self._restart else None
 
     def clear_left_over(self) -> None:
         """At start: a file left by the daemon before is about an ending that has happened."""

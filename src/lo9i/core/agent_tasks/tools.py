@@ -3,7 +3,8 @@ agent plugin is installed, with the agents named in their descriptions, so they 
 frozen per epoch, and a new epoch when the agents change (core/graph.py). Starting and stopping a task
 change the user's code and spend their plan, so the user approves them unless the plugin is trusted. A task
 started in a conversation shows beside it (beside.py), which stays the assistant's. A task's end is told to the
-conversation that started it (ends.py), unless these tools showed it first."""
+conversation that started it (ends.py), unless these tools showed it first. restart_daemon comes with them, for
+applying the code an agent changed in lo9i itself: it waits for the runs in progress, so it never cuts a reply off."""
 
 from typing import Annotated, Any
 
@@ -167,18 +168,34 @@ def _build(
             await reports.seen(task_id, current_origin())
         return f"Stopped task {task_id}. Check the repository for what it changed before it stopped."
 
+    async def restart_daemon() -> str:
+        """Restart lo9i once no run is in progress (this reply's included), so merged code or a rebuilt web app
+        takes effect. Says how many runs it waits for."""
+        if (asked := ending.current()) is not None:
+            return await restart_note(asked, store, *_where())
+        waiting = ending.restart("the assistant")
+        if waiting is None:
+            return "lo9i can't restart itself here: it isn't running as the daemon."
+        return f"Restart asked for: it goes ahead once the {waiting} run(s) in progress end, this reply's included."
+
     return [
         StructuredTool.from_function(coroutine=start_task, description=_START, args_schema=_Start),
         StructuredTool.from_function(coroutine=task_status, args_schema=_Status),
         StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
+        StructuredTool.from_function(coroutine=restart_daemon, args_schema=_Nothing),
     ]
+
+
+def _where() -> tuple[str, str]:
+    """The user and the conversation the tool runs in ("" outside one)."""
+    origin = current_origin()
+    return (origin.user_id, origin.thread_id) if origin else (settings.owner_id, "")
 
 
 async def _waiting(ending: EndingState, store: BaseStore) -> list[str]:
     """A restart or stop that's pending and the messages queued meanwhile, for the assistant."""
-    origin = current_origin()
-    user_id, here = (origin.user_id, origin.thread_id) if origin else (settings.owner_id, "")
+    user_id, here = _where()
     asked = ending.current()
     restart = await restart_note(asked, store, user_id, here) if asked else ""
     return [restart, await queue_note(await queued.waiting(store, user_id), store, user_id, here)]
