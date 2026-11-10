@@ -22,8 +22,9 @@ const config = {
         "img-src": ["self", "data:", "blob:"],
         "media-src": ["self", "blob:"],
         "connect-src": ["self"],
-        // MCP servers' pages: the daemon on the next port, on localhost or over HTTPS (src/lib/pages.ts).
-        "frame-src": ["http://127.0.0.1:*", "http://localhost:*", "https:"],
+        // MCP servers' pages: the daemon on the next port, on localhost or over HTTPS (src/lib/pages.ts); and the
+        // replies' apps, run from the page's own html-app.html (src/lib/htmlApp.ts).
+        "frame-src": ["self", "http://127.0.0.1:*", "http://localhost:*", "https:"],
         "object-src": ["none"],
         "base-uri": ["self"],
         "form-action": ["self"],

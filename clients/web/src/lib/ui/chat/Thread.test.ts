@@ -4,7 +4,10 @@ import type { ChatItem } from "$lib/chat/transcript";
 import Thread from "./Thread.svelte";
 
 // Markdown is cleaned with the browser's DOM, which a server render hasn't got; the text is enough here.
-vi.mock("$lib/markdown", () => ({ markdown: (text: string) => text }));
+vi.mock("$lib/markdown", () => ({
+  markdown: (text: string) => text,
+  markdownParts: (text: string) => [{ kind: "html", html: text }],
+}));
 
 const reply: ChatItem = { kind: "assistant", id: 1, text: "Done." };
 const routed: ChatItem = { kind: "assistant", id: 2, text: "→ Continued in “Trip”.", dispatchId: "d1" };

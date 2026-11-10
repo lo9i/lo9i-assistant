@@ -176,7 +176,7 @@ from lo9i.daemon.passkeys import add_passkey_routes
 from lo9i.daemon.runs import Run, RunHub
 from lo9i.daemon.shutdown import Ending
 from lo9i.daemon.voice_calls import VoiceCalls
-from lo9i.daemon.web_ui import BUILD_DIR, add_web_ui, is_web_ui
+from lo9i.daemon.web_ui import BUILD_DIR, add_web_ui, frame_ancestors, is_web_ui
 from lo9i.protocol import (
     CLIENT_HEADER,
     CLIENT_ID_HEADER,
@@ -879,7 +879,7 @@ def _add_security_headers(app: FastAPI) -> None:
         if request.url.scheme == "https":
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         if is_web_ui(request.url.path):
-            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+            response.headers["Content-Security-Policy"] = f"frame-ancestors {frame_ancestors(request.url.path)}"
         return response
 
 

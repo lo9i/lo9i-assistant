@@ -26,6 +26,15 @@ async def test_the_built_page_is_served_without_the_client_header(service, tmp_p
         assert (await http.get("/conversations")).status_code == 403
 
 
+async def test_only_the_page_frames_the_file_its_apps_run_in(service, tmp_path):
+    (tmp_path / "index.html").write_text("<title>lo9i</title>")
+    (tmp_path / "html-app.html").write_text("<script></script>")
+    async with _http(create_app(service, RunHub(), web_ui=tmp_path)) as http:
+        response = await http.get("/app/html-app.html")
+        assert response.headers["content-security-policy"] == "frame-ancestors 'self'"
+        assert (await http.get("/app/jobs")).headers["content-security-policy"] == "frame-ancestors 'none'"
+
+
 async def test_the_daemons_address_alone_opens_the_page(service, tmp_path):
     (tmp_path / "index.html").write_text("<title>lo9i</title>")
     async with _http(create_app(service, RunHub(), web_ui=tmp_path), "localhost") as http:

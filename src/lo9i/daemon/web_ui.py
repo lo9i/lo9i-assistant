@@ -21,6 +21,8 @@ _IMMUTABLE = "_app/immutable/"
 _KEEP = "public, max-age=31536000, immutable"
 # Everything else (the page, version.json) is asked again each time, so a reload always gets the build served now.
 _ASK_AGAIN = "no-cache"
+# Where a reply's interactive app runs, framed by the page (clients/web/src/lib/htmlApp.ts): the one file it may frame.
+_APP_FRAME = f"{PREFIX}/html-app.html"
 
 
 def add_web_ui(app: FastAPI, directory: Path) -> None:
@@ -37,6 +39,11 @@ def add_web_ui(app: FastAPI, directory: Path) -> None:
 def is_web_ui(path: str) -> bool:
     """The page and the root that sends a browser to it, which load without the client header or a device."""
     return path in ("/", PREFIX) or path.startswith(f"{PREFIX}/")
+
+
+def frame_ancestors(path: str) -> str:
+    """Who may show a file of the web UI in a frame: the page itself for its apps' frame, no one for the rest."""
+    return "'self'" if path == _APP_FRAME else "'none'"
 
 
 class _SinglePageApp(StaticFiles):

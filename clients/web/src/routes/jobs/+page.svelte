@@ -8,6 +8,7 @@
   import { every, local, state as jobState, timing } from "$lib/jobs";
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
+  import Markdown from "$lib/ui/Markdown.svelte";
   import Confirm from "$lib/ui/Confirm.svelte";
   import EmptyState from "$lib/ui/EmptyState.svelte";
   import SearchField from "$lib/ui/SearchField.svelte";
@@ -174,7 +175,7 @@
                       {local(run.at, job.timezone)} · <strong>{status(run.status)}</strong>
                     </button>
                     {#if run.at === opened && reply?.at === run.at}
-                      <div class="prose reply">{@html markdown(reply.text)}</div>
+                      <div class="prose reply"><Markdown text={reply.text} /></div>
                     {:else if run.summary}
                       <p class="text-meta">{run.summary}</p>
                     {/if}

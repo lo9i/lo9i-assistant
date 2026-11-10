@@ -23,6 +23,7 @@
   import { WholeCalls } from "$lib/chat/wholeCalls.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
   import { markdown } from "$lib/markdown";
+  import Markdown from "$lib/ui/Markdown.svelte";
   import FindBar from "./FindBar.svelte";
   import SubagentStatus from "./SubagentStatus.svelte";
 
@@ -194,7 +195,7 @@
               {#if copied === item.id}<Check size={14} />{:else}<Copy size={14} />{/if}
             </button>
             {#if item.voice}<span class="micro-label call-part"><AudioLines size={11} />{t(CALL_PARTS[item.voice])}</span>{/if}
-            <div class="prose" data-findable>{@html markdown(reply.text)}</div>
+            <div class="prose" data-findable><Markdown text={reply.text} /></div>
           </div>
           {#if onchoose && reply.choices.length && i === items.length - 1}
             <div class="choices">

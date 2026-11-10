@@ -1509,6 +1509,7 @@
     "howCanHelp": "How can {name} help?",
     "askAnything": "Ask anything, attach a file or a screenshot, or type / for commands.",
     "copy": "Copy",
+    "app": "Interactive app",
     "move": "Move",
     "moveHint": "Move to another conversation",
     "thinking": "Thinking",
