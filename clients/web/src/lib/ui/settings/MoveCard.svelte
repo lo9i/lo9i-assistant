@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FileUp from "@lucide/svelte/icons/file-up";
   import type { ImportReport } from "$lib/api/types";
   import { useDaemon } from "$lib/daemon.svelte";
   import { formatDate, t } from "$lib/i18n.svelte";
@@ -6,6 +7,7 @@
   import SettingsCard from "../Card.svelte";
   import SecretInput from "../SecretInput.svelte";
   import MoveOverSsh from "./MoveOverSsh.svelte";
+  import MovePart from "./MovePart.svelte";
 
   // Moving lo9i to another computer (src/lo9i/core/migration/): straight there over SSH (MoveOverSsh), or by hand: the
   // export downloads here, sealed with a password; the import uploads one, and the daemon restarts to move it into
@@ -23,6 +25,9 @@
   let importing = $state(false);
   let report = $state<ImportReport | null>(null);
   let importError = $state("");
+
+  const canExport = $derived(!exporting && !!exportPassword);
+  const canImport = $derived(!importing && !!file && !!importPassword);
 
   async function exportData(): Promise<void> {
     exporting = true;
@@ -62,41 +67,32 @@
 
 <SettingsCard id="move" title={t("move.title")} sub={t("move.sub")}>
   <MoveOverSsh />
-  <form
-    class="part"
-    onsubmit={(e) => {
-      e.preventDefault();
-      void exportData();
-    }}
-  >
-    <span class="micro-label">{t("move.export")}</span>
-    <div class="row">
+  <MovePart title={t("move.export")} caption={t("move.exportHint")} onsubmit={() => void exportData()}>
+    <div class="fields inline">
       <SecretInput bind:value={exportPassword} label={t("move.password")} placeholder={t("move.password")} required />
-      <button class="btn btn--primary" type="submit" disabled={exporting || !exportPassword}>
+      <button class="btn" class:btn--primary={canExport} class:btn--neutral={!canExport} type="submit" disabled={!canExport}>
         {exporting ? t("move.exporting") : t("move.export")}
       </button>
     </div>
-    <span class="text-caption">{t("move.exportHint")}</span>
     {#if exported}<p class="text-meta">{exported}</p>{/if}
     {#if exportError}<p class="error-text">{exportError}</p>{/if}
-  </form>
+  </MovePart>
 
-  <form
-    class="part"
-    onsubmit={(e) => {
-      e.preventDefault();
-      void importData();
-    }}
-  >
-    <span class="micro-label">{t("move.import")}</span>
-    <input class="input" type="file" aria-label={t("move.file")} onchange={(e) => (file = e.currentTarget.files?.[0] ?? null)} />
-    <div class="row">
+  <MovePart title={t("move.import")} caption={t("move.importHint")} onsubmit={() => void importData()}>
+    <div class="fields pair">
+      <label class="input picker" class:picked={file}>
+        <input class="hidden" type="file" aria-label={t("move.file")} onchange={(e) => (file = e.currentTarget.files?.[0] ?? null)} />
+        <FileUp size={16} />
+        <span class="name">{file ? file.name : t("move.chooseFile")}</span>
+      </label>
       <SecretInput bind:value={importPassword} label={t("move.password")} placeholder={t("move.password")} required />
-      <button class="btn" type="submit" disabled={importing || !file || !importPassword}>
+    </div>
+    <div class="actions">
+      <label class="check" title={t("move.replaceKept")}><input type="checkbox" bind:checked={replace} />{t("move.replace")}</label>
+      <button class="btn" class:btn--primary={canImport} class:btn--neutral={!canImport} type="submit" disabled={!canImport}>
         {importing ? t("move.importing") : t("move.import")}
       </button>
     </div>
-    <label class="check"><input type="checkbox" bind:checked={replace} />{t("move.replace")}</label>
     {#if importError}<p class="error-text">{importError}</p>{/if}
     {#if report}
       <p class="text-meta">
@@ -108,30 +104,51 @@
         {#each report.to_redo as item (item)}<li>{item}</li>{/each}
       </ul>
     {/if}
-  </form>
+  </MovePart>
 </SettingsCard>
 
 <style>
-  .part {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  /* The password takes the room the button leaves. */
+  .inline {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
-  .row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  .pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .text-meta,
-  .text-caption {
-    margin: 0;
+  @container (max-width: 420px) {
+    .pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
-  .check {
+  /* The file input itself stays for the keyboard and screen readers; the field over it shows it in the app's language. */
+  .picker {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: var(--font-size-sm);
+    min-width: 0;
+    color: var(--color-text-muted);
     cursor: pointer;
+  }
+  .picker.picked {
+    color: var(--color-text-primary);
+  }
+  .picker:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 62%, var(--color-border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+  }
+  .hidden {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .redo {
     margin: 0;

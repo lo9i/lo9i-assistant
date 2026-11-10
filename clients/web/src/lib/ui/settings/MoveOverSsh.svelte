@@ -6,6 +6,7 @@
   import { t } from "$lib/i18n.svelte";
   import { describe } from "$lib/notices";
   import SecretInput from "../SecretInput.svelte";
+  import MovePart from "./MovePart.svelte";
 
   // Moving lo9i straight to another computer over SSH (src/lo9i/daemon/moves.py): the daemon signs in, installs lo9i
   // there when it's missing, exports with a key made for this move, copies it there, imports it and deletes the
@@ -27,6 +28,7 @@
   const s = $derived(status.data);
   const running = $derived(s?.state === "running");
   const pickedHost = $derived(saved.data?.find((h) => key(h.plugin, h.name) === picked));
+  const ready = $derived(!running && (!!pickedHost || !!host.trim()));
 
   function key(plugin: string, name: string): string {
     return `${plugin}/${name}`;
@@ -55,37 +57,40 @@
   }
 </script>
 
-<form
-  class="part"
-  onsubmit={(e) => {
-    e.preventDefault();
-    void move();
-  }}
->
-  <span class="micro-label">{t("move.overSsh")}</span>
-  <select class="input" bind:value={picked} aria-label={t("move.host")} disabled={running}>
-    <option value={ANOTHER}>{t("move.anotherHost")}</option>
-    {#each saved.data ?? [] as h (key(h.plugin, h.name))}
-      <option value={key(h.plugin, h.name)}>{h.address ? `${h.name} (${h.address})` : h.name}</option>
-    {/each}
-  </select>
-  {#if !pickedHost}
-    <div class="row">
-      <input class="input grow" bind:value={host} placeholder={t("move.address")} aria-label={t("move.address")} disabled={running} />
-      <input class="input" bind:value={user} placeholder={t("move.user")} aria-label={t("move.user")} disabled={running} />
-      <input class="input port" bind:value={port} inputmode="numeric" placeholder="22" aria-label={t("move.port")} disabled={running} />
-    </div>
-    <div class="row">
-      <SecretInput bind:value={password} label={t("move.sshPassword")} placeholder={t("move.sshPassword")} />
-      <input class="input grow" bind:value={keyPath} placeholder={t("move.keyPath")} aria-label={t("move.keyPath")} disabled={running} />
-    </div>
-  {/if}
-  <label class="check"><input type="checkbox" bind:checked={replace} disabled={running} />{t("move.replaceThere")}</label>
-  <div class="row">
-    <button class="btn btn--primary" type="submit" disabled={running || (!pickedHost && !host.trim())}>{t("move.move")}</button>
-    {#if running}<button class="btn" type="button" onclick={cancel}>{t("common.cancel")}</button>{/if}
+<MovePart title={t("move.overSsh")} caption={t("move.sshHint")} onsubmit={() => void move()}>
+  <div class="fields">
+    <select class="input" bind:value={picked} aria-label={t("move.host")} disabled={running}>
+      <option value={ANOTHER}>{t("move.anotherHost")}</option>
+      {#each saved.data ?? [] as h (key(h.plugin, h.name))}
+        <option value={key(h.plugin, h.name)}>{h.address ? `${h.name} (${h.address})` : h.name}</option>
+      {/each}
+    </select>
+    {#if !pickedHost}
+      <div class="fields where">
+        <input class="input address" bind:value={host} placeholder={t("move.address")} aria-label={t("move.address")} disabled={running} />
+        <input class="input" bind:value={user} placeholder={t("move.user")} aria-label={t("move.user")} disabled={running} />
+        <input class="input" bind:value={port} inputmode="numeric" placeholder="22" aria-label={t("move.port")} disabled={running} />
+      </div>
+      <div class="fields pair">
+        <SecretInput bind:value={password} label={t("move.sshPassword")} placeholder={t("move.sshPassword")} />
+        <input
+          class="input"
+          bind:value={keyPath}
+          placeholder={t("move.keyPath")}
+          title={t("move.keyPathHint")}
+          aria-label={t("move.keyPathHint")}
+          disabled={running}
+        />
+      </div>
+    {/if}
   </div>
-  <span class="text-caption">{t("move.sshHint")}</span>
+  <div class="actions">
+    <label class="check" title={t("move.replaceKept")}>
+      <input type="checkbox" bind:checked={replace} disabled={running} />{t("move.replaceThere")}
+    </label>
+    {#if running}<button class="btn btn--ghost" type="button" onclick={cancel}>{t("common.cancel")}</button>{/if}
+    <button class="btn" class:btn--primary={ready} class:btn--neutral={!ready} type="submit" disabled={!ready}>{t("move.move")}</button>
+  </div>
   {#if error}<p class="error-text">{error}</p>{/if}
   {#if s && s.state}
     <ul class="steps" aria-live="polite">
@@ -113,36 +118,26 @@
       </ul>
     {/if}
   {/if}
-</form>
+</MovePart>
 
 <style>
-  .part {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  /* Address, user and a narrow port on one line; the password and key file on the next. */
+  .where {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 5.5rem;
   }
-  .row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+  .pair {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  .grow {
-    flex: 1 1 160px;
-    min-width: 0;
-  }
-  .port {
-    width: 80px;
-  }
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-  }
-  .text-caption,
-  .text-meta {
-    margin: 0;
+  @container (max-width: 420px) {
+    .where {
+      grid-template-columns: minmax(0, 1fr) 5.5rem;
+    }
+    .address {
+      grid-column: 1 / -1;
+    }
+    .pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .steps,
   .redo {

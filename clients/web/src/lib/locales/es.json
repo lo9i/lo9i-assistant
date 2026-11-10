@@ -1703,9 +1703,9 @@
     "elapsedHint": "Cuánto tiempo lleva trabajando, o trabajó"
   },
   "tasks": {
-    "title": "Agentes de código",
+    "title": "Agentes",
     "sessions": "Sesiones de código",
-    "show": "Mostrar el trabajo de los agentes de código",
+    "show": "Mostrar el trabajo de los agentes",
     "minimize": "Minimizar",
     "status": {
       "running": "trabajando…",
@@ -1819,17 +1819,20 @@
     "unmute": "Volver a sugerir {kind}"
   },
   "move": {
-    "title": "Mudar a otra computadora",
-    "sub": "Exporta todo lo que lo9i guarda aquí, sellado con una contraseña, e impórtalo en la otra computadora.",
+    "title": "Migrar a otra computadora",
+    "sub": "Directo a la otra computadora por SSH, o con una exportación que importas allí.",
     "export": "Exportar",
     "exporting": "Exportando…",
-    "exportHint": "Los entornos de los plugins, los modelos descargados y los registros quedan aquí: la otra computadora hace los suyos. Sin la contraseña la exportación no se puede abrir.",
+    "exportHint": "Un archivo sellado con una contraseña; sin ella no se puede abrir.",
     "exported": "Descargando {name}.",
     "password": "Contraseña",
     "import": "Importar",
     "importing": "Importando…",
+    "importHint": "Una exportación de otra computadora, con su contraseña.",
     "file": "La exportación",
-    "replace": "Reemplazar los datos que lo9i tiene aquí (se guardan en una carpeta junto a la de lo9i)",
+    "chooseFile": "Elegir la exportación…",
+    "replace": "Reemplazar los datos de lo9i aquí",
+    "replaceKept": "Lo reemplazado se guarda en una carpeta junto a la de lo9i.",
     "imported": "Se importó la exportación de {host} ({system}) del {when}.",
     "restarts": "lo9i se reinicia ahora para usarla.",
     "restartsAfter": {
@@ -1837,17 +1840,18 @@
       "other": "lo9i se reinicia para usarla cuando terminen las {count} ejecuciones en curso."
     },
     "toRedo": "Para hacer en esta computadora",
-    "overSsh": "Directo a otra computadora por SSH",
+    "overSsh": "Por SSH",
     "host": "Host",
     "anotherHost": "Otra computadora…",
     "address": "Dirección o nombre de ssh",
     "user": "Usuario",
     "port": "Puerto",
-    "sshPassword": "Su contraseña (opcional)",
-    "keyPath": "Archivo de clave en esta computadora (opcional)",
-    "replaceThere": "Reemplazar los datos que lo9i tiene allí (se guardan en una carpeta junto a la de lo9i)",
-    "move": "Mudar",
-    "sshHint": "lo9i se instala allí si falta, exporta con una clave hecha para esta mudanza, la copia allí, la importa y borra la copia. Para iniciar sesión se usan tu agente y tus claves ssh; no se escribe nada en tu configuración de SSH y no se copia ninguna clave.",
+    "sshPassword": "Contraseña (opcional)",
+    "keyPath": "Archivo de clave (opcional)",
+    "keyPathHint": "Un archivo de clave en esta computadora (opcional)",
+    "replaceThere": "Reemplazar los datos de lo9i allí",
+    "move": "Migrar",
+    "sshHint": "Inicia sesión con tu agente y tus claves ssh; no copia ninguna clave.",
     "moved": "lo9i funciona en {host} con los datos de esta computadora.",
     "toRedoThere": "Para hacer allí"
   }
