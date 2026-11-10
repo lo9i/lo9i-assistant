@@ -1091,5 +1091,18 @@
   "Model calls: {count}": "Llamadas al modelo: {count}",
   "Context: {percent}": "Contexto: {percent}",
   "Context window: {window} tokens, {used} used ({share}).": "Ventana de contexto: {window} tokens, {used} usados ({share}).",
-  "Each part's share is of the window.": "El porcentaje de cada parte es sobre la ventana."
+  "Each part's share is of the window.": "El porcentaje de cada parte es sobre la ventana.",
+  "A password for the export (you'll need it to import it): ": "Una contraseña para la exportación (la necesitarás para importarla): ",
+  "Done. Copy it to the other computer and run: lo9i import {name}": "Listo. Cópiala a la otra computadora y ejecuta: lo9i import {name}",
+  "Exporting to {path}…": "Exportando a {path}…",
+  "Imported the export of {host} ({system}) from {when}.": "Se importó la exportación de {host} ({system}) del {when}.",
+  "Importing {path}…": "Importando {path}…",
+  "Run it again with --force to replace it.": "Vuelve a ejecutarlo con --force para reemplazarlos.",
+  "The daemon restarts now to use it.": "El daemon se reinicia ahora para usarla.",
+  "The daemon restarts to use it once the {count} runs in progress end.": "El daemon se reinicia para usarla cuando terminen las {count} ejecuciones en curso.",
+  "The export's password: ": "La contraseña de la exportación: ",
+  "The passwords don't match.": "Las contraseñas no coinciden.",
+  "The same password again: ": "La misma contraseña otra vez: ",
+  "There's no file at {path}.": "No hay ningún archivo en {path}.",
+  "To do on this computer:": "Para hacer en esta computadora:"
 }

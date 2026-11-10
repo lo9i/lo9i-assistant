@@ -3406,6 +3406,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Data
+         * @description lo9i's data, sealed with the password: a file to import on another computer. 400: a password too short,
+         *     or the data couldn't be read.
+         */
+        post: operations["export_data_system_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Data
+         * @description Stages an export for the daemon's next start, which this asks for: what lo9i has here is set aside in a
+         *     folder beside its own, never deleted. 409: lo9i has data here and `replace` is false. 400: a wrong password,
+         *     or the file isn't an export or is damaged.
+         */
+        post: operations["import_data_system_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/update": {
         parameters: {
             query?: never;
@@ -3806,6 +3849,18 @@ export interface components {
              * @default
              */
             message: string;
+        };
+        /** Body_import_data_system_import_post */
+        Body_import_data_system_import_post: {
+            /** File */
+            file: string;
+            /** Password */
+            password: string;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
         };
         /** Body_message_agent_conversations__thread_id__agent_messages_post */
         Body_message_agent_conversations__thread_id__agent_messages_post: {
@@ -4476,6 +4531,11 @@ export interface components {
              */
             id: string;
         };
+        /** ExportRequest */
+        ExportRequest: {
+            /** Password */
+            password: string;
+        };
         /** Fact */
         Fact: {
             /** Id */
@@ -4962,6 +5022,25 @@ export interface components {
              * @default
              */
             note: string;
+        };
+        /**
+         * ImportReport
+         * @description An import staged: where its export was made, and what has to be done again here.
+         */
+        ImportReport: {
+            /** Host */
+            host: string;
+            /** System */
+            system: string;
+            /** Exported At */
+            exported_at: string;
+            /** To Redo */
+            to_redo?: string[];
+            /**
+             * Waiting For Runs
+             * @default 0
+             */
+            waiting_for_runs: number;
         };
         /** Importable */
         Importable: {
@@ -13408,6 +13487,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CancelledRuns"];
+                };
+            };
+        };
+    };
+    export_data_system_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_data_system_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_data_system_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

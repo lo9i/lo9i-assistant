@@ -1,7 +1,8 @@
 """CLI entry point (its arguments in cli.py). `lo9i` opens the chat, starting the daemon if it isn't running, after
 what the checkout's scripts/prepare.sh does (Ollama, the web app built); `lo9i daemon` runs the daemon in the
 foreground; `lo9i daemon restart` restarts the running one once no run is in progress; `lo9i doctor` checks the
-setup (setup_check_command.py); `lo9i completion <shell>` prints a completion script."""
+setup (setup_check_command.py); `lo9i export` and `lo9i import` move lo9i to another computer
+(migration_command.py); `lo9i completion <shell>` prints a completion script."""
 
 import asyncio
 import subprocess
@@ -11,7 +12,7 @@ from pathlib import Path
 from lo9i.client import DaemonClient, DaemonUnavailableError, connect
 from lo9i.core.agent import Session
 from lo9i.core.config import settings
-from lo9i_terminal import i18n
+from lo9i_terminal import i18n, migration_command
 from lo9i_terminal.cli import CHECKOUT, Command, parse
 from lo9i_terminal.completion import script
 from lo9i_terminal.history import History
@@ -74,6 +75,10 @@ async def _command(command: Command) -> int:
     match command.name:
         case "doctor":
             return await doctor(command.json)
+        case "export":
+            return await migration_command.export(command.argument)
+        case "import":
+            return await migration_command.import_(command.argument, command.force)
         case "daemon":
             await _restart()
         case _:

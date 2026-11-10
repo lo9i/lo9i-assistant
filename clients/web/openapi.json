@@ -7700,6 +7700,80 @@
         }
       }
     },
+    "/system/export": {
+      "post": {
+        "summary": "Export Data",
+        "description": "lo9i's data, sealed with the password: a file to import on another computer. 400: a password too short,\nor the data couldn't be read.",
+        "operationId": "export_data_system_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/import": {
+      "post": {
+        "summary": "Import Data",
+        "description": "Stages an export for the daemon's next start, which this asks for: what lo9i has here is set aside in a\nfolder beside its own, never deleted. 409: lo9i has data here and `replace` is false. 400: a wrong password,\nor the file isn't an export or is damaged.",
+        "operationId": "import_data_system_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_data_system_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/system/update": {
       "get": {
         "summary": "Update Status",
@@ -8541,6 +8615,30 @@
           "chat"
         ],
         "title": "Body_channel_message_channels__name__messages_post"
+      },
+      "Body_import_data_system_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "password"
+        ],
+        "title": "Body_import_data_system_import_post"
       },
       "Body_message_agent_conversations__thread_id__agent_messages_post": {
         "properties": {
@@ -9788,6 +9886,19 @@
         ],
         "title": "Episode"
       },
+      "ExportRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "title": "ExportRequest"
+      },
       "Fact": {
         "properties": {
           "id": {
@@ -10701,6 +10812,42 @@
           "action"
         ],
         "title": "ImportOutcome"
+      },
+      "ImportReport": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "system": {
+            "type": "string",
+            "title": "System"
+          },
+          "exported_at": {
+            "type": "string",
+            "title": "Exported At"
+          },
+          "to_redo": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "To Redo"
+          },
+          "waiting_for_runs": {
+            "type": "integer",
+            "title": "Waiting For Runs",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "host",
+          "system",
+          "exported_at"
+        ],
+        "title": "ImportReport",
+        "description": "An import staged: where its export was made, and what has to be done again here."
       },
       "Importable": {
         "properties": {

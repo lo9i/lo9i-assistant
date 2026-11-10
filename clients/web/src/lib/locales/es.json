@@ -1817,5 +1817,25 @@
     "mutedHint": "Tipos que pediste dejar de ver (\"menos de esto\").",
     "noneMuted": "Nada silenciado.",
     "unmute": "Volver a sugerir {kind}"
+  },
+  "move": {
+    "title": "Mudar a otra computadora",
+    "sub": "Exporta todo lo que lo9i guarda aquí, sellado con una contraseña, e impórtalo en la otra computadora.",
+    "export": "Exportar",
+    "exporting": "Exportando…",
+    "exportHint": "Los entornos de los plugins, los modelos descargados y los registros quedan aquí: la otra computadora hace los suyos. Sin la contraseña la exportación no se puede abrir.",
+    "exported": "Se descargó {name}.",
+    "password": "Contraseña",
+    "import": "Importar",
+    "importing": "Importando…",
+    "file": "La exportación",
+    "replace": "Reemplazar los datos que lo9i tiene aquí (se guardan en una carpeta junto a la de lo9i)",
+    "imported": "Se importó la exportación de {host} ({system}) del {when}.",
+    "restarts": "lo9i se reinicia ahora para usarla.",
+    "restartsAfter": {
+      "one": "lo9i se reinicia para usarla cuando termine la ejecución en curso.",
+      "other": "lo9i se reinicia para usarla cuando terminen las {count} ejecuciones en curso."
+    },
+    "toRedo": "Para hacer en esta computadora"
   }
 }

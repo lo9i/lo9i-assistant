@@ -1817,5 +1817,25 @@
     "mutedHint": "Kinds you asked to stop (\"less of this\").",
     "noneMuted": "Nothing muted.",
     "unmute": "Suggest {kind} again"
+  },
+  "move": {
+    "title": "Move to another computer",
+    "sub": "Export everything lo9i keeps here, sealed with a password, and import it on the other computer.",
+    "export": "Export",
+    "exporting": "Exporting…",
+    "exportHint": "Plugins' environments, downloaded models and logs stay behind: the other computer makes its own. Without the password the export can't be opened.",
+    "exported": "Downloaded {name}.",
+    "password": "Password",
+    "import": "Import",
+    "importing": "Importing…",
+    "file": "The export",
+    "replace": "Replace the data lo9i has here (it's kept in a folder beside lo9i's)",
+    "imported": "Imported the export of {host} ({system}) from {when}.",
+    "restarts": "lo9i restarts now to use it.",
+    "restartsAfter": {
+      "one": "lo9i restarts to use it once the run in progress ends.",
+      "other": "lo9i restarts to use it once the {count} runs in progress end."
+    },
+    "toRedo": "To do on this computer"
   }
 }

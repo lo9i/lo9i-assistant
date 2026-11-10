@@ -21,6 +21,8 @@ from lo9i.core.config import settings
 from lo9i.core.conversation import held
 from lo9i.core.internet import browser
 from lo9i.core.logs import LogSource, LogWriter, configure, log_sources, output_path, process_output
+from lo9i.core.migration import MigrationError, applying
+from lo9i.core.migration.home import home as migration_home
 from lo9i.daemon import https, launchd, managers, output, pages, systemd, updates
 from lo9i.daemon.adapters import Adapter, supervise
 from lo9i.daemon.api import create_app
@@ -57,6 +59,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         logger.info("Another daemon is already running on %s; exiting.", socket_path)
         return None
     socket_path.unlink(missing_ok=True)
+    # Before anything in the data home is opened.
+    imported = await _apply_import()
     async with AssistantService.open() as service:
         await service.apply_log_level()
         # Before any request, so no message lands in the home conversation it retires.
@@ -81,6 +85,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
             return None
         tasks = [asyncio.create_task(s.serve(stop), name="http server") for s in [*servers, *page_servers]]
         background = [asyncio.create_task(_catch_up_conversations(service)), asyncio.create_task(_prune(service))]
+        if imported:
+            background.append(asyncio.create_task(service.settle_import()))
         if https.enabled():
             background.append(asyncio.create_task(https.reload_on_renewal(servers[-1], page_servers[-1])))
         if sys.platform == "darwin":
@@ -127,6 +133,25 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         await until_done(tasks)
     socket_path.unlink(missing_ok=True)
     return shutdown.ending or Ending.STOP
+
+
+async def _apply_import() -> bool:
+    """Moves an import staged before the restart into place (core/migration/applying.py). One that fails is logged
+    and left staged, and the daemon starts on what's there: the next start goes on with it."""
+    try:
+        applied = await asyncio.to_thread(applying.apply_staged, migration_home())
+    except (OSError, MigrationError):
+        logger.exception("Couldn't move the import into place; the next start tries again")
+        return False
+    if applied is None:
+        return False
+    logger.info(
+        "Moved into place the export of %s from %s; what was here before is in %s.",
+        applied.manifest.host,
+        applied.manifest.exported_at,
+        applied.set_aside or "nothing (there was nothing to replace)",
+    )
+    return True
 
 
 def _supervised(adapter: Adapter, stop: asyncio.Event) -> asyncio.Task:

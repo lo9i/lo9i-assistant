@@ -9,6 +9,7 @@
   import HostCard from "$lib/ui/settings/HostCard.svelte";
   import KeptKeysCard from "$lib/ui/settings/KeptKeysCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
+  import MoveCard from "$lib/ui/settings/MoveCard.svelte";
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
@@ -90,6 +91,7 @@
     <div class="grid">
       <div class="stack">
         <HostCard />
+        <MoveCard />
       </div>
       <div class="stack">
         <KeptKeysCard />

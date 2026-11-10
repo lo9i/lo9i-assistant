@@ -192,11 +192,17 @@ class Shutdown:
         """An update was installed: restarts once no run is in progress, so it runs, and can't be taken back. A
         stop asked for before stays a stop: the update runs when the daemon is started again. Returns how many runs
         it waits for."""
-        self._needed_by = self._needed_by or said("An update was installed")
+        return self.restart_needed(said("An update was installed"), "an update")
+
+    def restart_needed(self, needed_by: str, by: str) -> int:
+        """Something only a start does is waiting (an update to run, an import to move into place): restarts once no
+        run is in progress, and can't be taken back. A stop asked for before stays a stop: it's done when the daemon
+        is started again. Returns how many runs it waits for."""
+        self._needed_by = self._needed_by or needed_by
         if self._waiting is not None and not self._going_ahead and self._wanted is Ending.STOP:
             self._announce_pending()  # It can't be taken back any more.
             return self._runs.runs_in_progress()
-        return self.request(Ending.RESTART, "an update")
+        return self.request(Ending.RESTART, by)
 
     def relaunch(self, needed_by: str) -> int:
         """The service manager has new settings for the daemon (start at boot installed again): once no run is in

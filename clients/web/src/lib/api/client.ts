@@ -46,6 +46,7 @@ import type {
   FolderRefresh,
   Handoff,
   HostStatus,
+  ImportReport,
   InstalledFromRepository,
   Job,
   KeptKeys,
@@ -1205,6 +1206,22 @@ export class SystemGroup {
    * nothing to install or it can't be installed there, saying why. */
   update(): Promise<UpdateStatus> {
     return this.transport.request("POST", "/system/update");
+  }
+
+  /** lo9i's data, sealed with `password`, to import on another computer (src/lo9i/core/migration/). Throws ApiError
+   * (400) for a password too short. */
+  exportData(password: string): Promise<Blob> {
+    return this.transport.blob("POST", "/system/export", { password });
+  }
+
+  /** Stages an export for the daemon's next start, which it restarts for once no run is in progress. Throws
+   * ApiError: 409 when lo9i has data here and `replace` is false, 400 for a wrong password or a damaged file. */
+  importData(file: File, password: string, replace: boolean): Promise<ImportReport> {
+    const form = new FormData();
+    form.append("file", file, file.name);
+    form.append("password", password);
+    form.append("replace", String(replace));
+    return this.transport.request("POST", "/system/import", form);
   }
 }
 

@@ -17,6 +17,7 @@ from lo9i.client.daemon_client.language import LanguageApi
 from lo9i.client.daemon_client.logs import LogsApi
 from lo9i.client.daemon_client.mcp import McpApi
 from lo9i.client.daemon_client.memory import MemoryApi
+from lo9i.client.daemon_client.migration import MigrationApi
 from lo9i.client.daemon_client.model import ModelApi
 from lo9i.client.daemon_client.notifications import NotificationsApi
 from lo9i.client.daemon_client.oauth import OAuthApi
@@ -63,6 +64,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.alerts = AlertsApi(transport)
         self.doctor = DoctorApi(transport)
         self.setup_check = SetupCheckApi(transport)
+        self.migration = MigrationApi(transport)
         self.notifications = NotificationsApi(transport)
         self.prompts = PromptsApi(transport)
         self.home = HomeApi(transport)
