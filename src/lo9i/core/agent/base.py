@@ -29,6 +29,7 @@ from lo9i.core.llm.choice import ModelChoice
 from lo9i.core.llm.windows import ContextWindows
 from lo9i.core.mcp.badges import Badges
 from lo9i.core.mcp.checks import PluginChecks
+from lo9i.core.mcp.environment import Environments
 from lo9i.core.mcp.hub import McpHub
 from lo9i.core.mcp.pages import McpPages
 from lo9i.core.mcp.today import TodayLists
@@ -68,6 +69,8 @@ class ServiceBase:
     mcp: McpHub
     # Plugins' checks of the values they're given, run before those are saved (core/mcp/checks.py).
     _plugin_checks: PluginChecks
+    # Builds a plugin's environment again when it can't run (core/mcp/environment.py), one build at a time per plugin.
+    _environments: Environments
     # The coding agents plugins bring and their tasks (core/agent_tasks/).
     agent_tasks: AgentTasks
     # The conversation that started each task whose end is still to be told.

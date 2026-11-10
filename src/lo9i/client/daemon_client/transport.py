@@ -1,6 +1,6 @@
 from collections.abc import Mapping
 from contextlib import AbstractAsyncContextManager
-from typing import Any
+from typing import Any, BinaryIO
 
 import httpx
 
@@ -54,6 +54,29 @@ class Transport:
             raise error(response.json()["detail"])
         response.raise_for_status()
         return response.content
+
+    async def download(
+        self,
+        path: str,
+        target: BinaryIO,
+        *,
+        json: Any,
+        errors: Mapping[int, type[Exception]] | None = None,
+        timeout: httpx.Timeout | None = None,
+    ) -> None:
+        """POSTs `json` and writes the response's body to `target` as it comes (a large file), with the same errors as
+        `request`."""
+        try:
+            async with self._http.stream("POST", path, json=json, timeout=timeout) as response:
+                if response.is_error:
+                    await response.aread()
+                    if (error := (errors or {}).get(response.status_code)) is not None:
+                        raise error(response.json()["detail"])
+                    response.raise_for_status()
+                async for part in response.aiter_bytes():
+                    target.write(part)
+        except httpx.TransportError as e:
+            raise DaemonUnavailableError(f"Can't reach the daemon: {e}") from e
 
     def stream(self, path: str, last_event_id: str) -> AbstractAsyncContextManager[httpx.Response]:
         """A Server-Sent Events response, resuming after `last_event_id` ("" to start fresh)."""

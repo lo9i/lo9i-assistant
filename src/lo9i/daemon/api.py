@@ -172,6 +172,7 @@ from lo9i.daemon.channel_runs import ChannelRuns
 from lo9i.daemon.clients import ClientRegistry
 from lo9i.daemon.follows import StreamFollows, StreamKey, log_source, run_source
 from lo9i.daemon.launchd import StartupError
+from lo9i.daemon.migration import add_migration_routes
 from lo9i.daemon.passkeys import add_passkey_routes
 from lo9i.daemon.runs import Run, RunHub
 from lo9i.daemon.shutdown import Ending
@@ -814,6 +815,7 @@ def create_app(
         _add_startup_routes(app, startup)
     if shutdown is not None:
         _add_shutdown_routes(app, shutdown, service)
+        add_migration_routes(app, service, shutdown)
     if updates is not None:
         _add_update_routes(app, updates)
     if logs is not None:

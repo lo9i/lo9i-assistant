@@ -27,6 +27,7 @@ from lo9i.core.agent.log_level import LogLevelMixin
 from lo9i.core.agent.mcp import McpMixin
 from lo9i.core.agent.memory import MemoryMixin
 from lo9i.core.agent.messaging import MessagingMixin
+from lo9i.core.agent.migration import MigrationMixin
 from lo9i.core.agent.model import ModelMixin, usable_choice
 from lo9i.core.agent.notifications import NotificationsMixin
 from lo9i.core.agent.own_model import OwnModelMixin
@@ -134,6 +135,7 @@ class AssistantService(
     AlertsMixin,
     DoctorMixin,
     SetupCheckMixin,
+    MigrationMixin,
     NotificationsMixin,
     HomeMixin,
     ProactiveMixin,
@@ -173,7 +175,7 @@ class AssistantService(
         self._transcriber = HeardOnce(FasterWhisperTranscriber())
         media = ToolMedia(self._transcriber, storage.store)
         auth = McpAuth(storage.store, secrets)
-        environments = Environments(folders.code)
+        environments = self._environments = Environments(folders.code)
         background = BackgroundEnds(storage.store, self.outbox, bus)
         self.mcp = McpHub(
             storage.store,

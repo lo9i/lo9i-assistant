@@ -21,6 +21,7 @@ from lo9i.client.daemon_client.jobs import JobsApi
 from lo9i.client.daemon_client.logs import LogsApi
 from lo9i.client.daemon_client.mcp import McpApi
 from lo9i.client.daemon_client.memory import MemoryApi
+from lo9i.client.daemon_client.migration import MigrationApi
 from lo9i.client.daemon_client.model import ModelApi
 from lo9i.client.daemon_client.notifications import NotificationsApi
 from lo9i.client.daemon_client.oauth import OAuthApi
@@ -53,6 +54,7 @@ __all__ = [
     "LogsApi",
     "McpApi",
     "MemoryApi",
+    "MigrationApi",
     "ModelApi",
     "NotificationsApi",
     "OAuthApi",

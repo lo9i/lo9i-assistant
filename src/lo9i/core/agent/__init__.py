@@ -62,6 +62,7 @@ from lo9i.core.agent.mcp import (
     UpdateNeedsValuesError,
 )
 from lo9i.core.agent.memory import Episode, Fact, MemoryEditError, MemoryNotFoundError
+from lo9i.core.agent.migration import HomeInUseError, ImportReport, MigrationError, WrongPasswordError
 from lo9i.core.agent.model import ModelOption, ModelProvider, ModelSettingsError, ModelStatus, ProviderField
 from lo9i.core.agent.notifications import Notification
 from lo9i.core.agent.own_model import ConversationModel, ModelChangeError
@@ -169,11 +170,13 @@ __all__ = [
     "Handoff",
     "HandoffError",
     "HomeCard",
+    "HomeInUseError",
     "HomeItem",
     "HomePage",
     "HomeSection",
     "HomeSectionsError",
     "ImportOutcome",
+    "ImportReport",
     "Importable",
     "Importables",
     "InstalledFromRepository",
@@ -197,6 +200,7 @@ __all__ = [
     "MemoryEditError",
     "MemoryNotFoundError",
     "MemorySnapshot",
+    "MigrationError",
     "MissingPathError",
     "ModelChangeError",
     "ModelOption",
@@ -270,4 +274,5 @@ __all__ = [
     "VoiceChoiceError",
     "VoiceKeyError",
     "WebSearchStatus",
+    "WrongPasswordError",
 ]
