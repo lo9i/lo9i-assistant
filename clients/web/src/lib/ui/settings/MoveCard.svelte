@@ -5,9 +5,11 @@
   import { describe } from "$lib/notices";
   import SettingsCard from "../Card.svelte";
   import SecretInput from "../SecretInput.svelte";
+  import MoveOverSsh from "./MoveOverSsh.svelte";
 
-  // Moving lo9i to another computer (src/lo9i/core/migration/): the export downloads here, sealed with a password;
-  // the import uploads one, and the daemon restarts to move it into place, saying what has to be set up again.
+  // Moving lo9i to another computer (src/lo9i/core/migration/): straight there over SSH (MoveOverSsh), or by hand: the
+  // export downloads here, sealed with a password; the import uploads one, and the daemon restarts to move it into
+  // place, saying what has to be set up again.
   const { client } = useDaemon();
 
   let exportPassword = $state("");
@@ -26,9 +28,9 @@
     exporting = true;
     exportError = exported = "";
     try {
-      const name = `lo9i-export-${new Date().toISOString().slice(0, 10)}.tar.gz.enc`;
-      save(await client.system.exportData(exportPassword), name);
-      exported = t("move.exported", { name });
+      const ready = await client.system.exportData(exportPassword);
+      download(ready.url, ready.name);
+      exported = t("move.exported", { name: ready.name });
       exportPassword = "";
     } catch (e) {
       exportError = describe(e);
@@ -37,11 +39,9 @@
     }
   }
 
-  function save(blob: Blob, name: string): void {
-    const url = URL.createObjectURL(blob);
-    const link = Object.assign(document.createElement("a"), { href: url, download: name });
-    link.click();
-    URL.revokeObjectURL(url);
+  /** The browser follows the link itself and saves the file as it comes, never holding it whole. */
+  function download(url: string, name: string): void {
+    Object.assign(document.createElement("a"), { href: url, download: name }).click();
   }
 
   async function importData(): Promise<void> {
@@ -61,6 +61,7 @@
 </script>
 
 <SettingsCard id="move" title={t("move.title")} sub={t("move.sub")}>
+  <MoveOverSsh />
   <form
     class="part"
     onsubmit={(e) => {

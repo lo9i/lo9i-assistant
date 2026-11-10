@@ -7703,7 +7703,7 @@
     "/system/export": {
       "post": {
         "summary": "Export Data",
-        "description": "lo9i's data, sealed with the password: a file to import on another computer. 400: a password too short,\nor the data couldn't be read.",
+        "description": "lo9i's data, sealed with the password, written to a file to import on another computer, downloaded once\nfrom `url` within 15 minutes. 400: a password too short, or the data couldn't be read.",
         "operationId": "export_data_system_export_post",
         "requestBody": {
           "content": {
@@ -7715,6 +7715,46 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportReady"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/exports/{token}": {
+      "get": {
+        "summary": "Download Export",
+        "description": "The export, once. 404: an unknown token, or one used or expired.",
+        "operationId": "download_export_system_exports__token__get",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Token"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -7767,6 +7807,102 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/move": {
+      "get": {
+        "summary": "Move Status",
+        "description": "The move running, or the last one; `state` is \"\" when there was none. A `move` event says it changed.",
+        "operationId": "move_status_system_move_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Start Move",
+        "description": "Starts moving lo9i to another computer over SSH, in the background. 409: one is running. 400: a plugin's\nhost that can't be read.",
+        "operationId": "start_move_system_move_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel Move",
+        "description": "Cancels the move running; the copied file is deleted there. 409: none is running.",
+        "operationId": "cancel_move_system_move_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/move/hosts": {
+      "get": {
+        "summary": "Move Hosts",
+        "description": "The SSH hosts plugins keep (core/mcp/ssh_hosts.py), without how to sign in to them.",
+        "operationId": "move_hosts_system_move_hosts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedHost"
+                  },
+                  "type": "array",
+                  "title": "Response Move Hosts System Move Hosts Get"
                 }
               }
             }
@@ -9885,6 +10021,24 @@
           "summary"
         ],
         "title": "Episode"
+      },
+      "ExportReady": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "name"
+        ],
+        "title": "ExportReady"
       },
       "ExportRequest": {
         "properties": {
@@ -12142,6 +12296,118 @@
         ],
         "title": "ModelValues"
       },
+      "MoveRequest": {
+        "properties": {
+          "host": {
+            "type": "string",
+            "title": "Host"
+          },
+          "plugin": {
+            "type": "string",
+            "title": "Plugin",
+            "default": ""
+          },
+          "user": {
+            "type": "string",
+            "title": "User",
+            "default": ""
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port",
+            "default": 0
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "default": ""
+          },
+          "key_path": {
+            "type": "string",
+            "title": "Key Path",
+            "default": ""
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "host"
+        ],
+        "title": "MoveRequest",
+        "description": "A host typed in (`host`, with `user`, `port`, `password` and `key_path` as needed), or one a plugin keeps\n(`plugin` and `host`, its name there). `replace`: set aside the data lo9i has there."
+      },
+      "MoveStatus": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State",
+            "default": ""
+          },
+          "host": {
+            "type": "string",
+            "title": "Host",
+            "default": ""
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/MoveStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress",
+            "default": -1
+          },
+          "to_redo": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "To Redo"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "MoveStatus"
+      },
+      "MoveStep": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "default": "waiting"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "MoveStep"
+      },
       "Moving": {
         "properties": {
           "channel": {
@@ -13459,6 +13725,29 @@
           "steps"
         ],
         "title": "RunningTask"
+      },
+      "SavedHost": {
+        "properties": {
+          "plugin": {
+            "type": "string",
+            "title": "Plugin"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plugin",
+          "name",
+          "address"
+        ],
+        "title": "SavedHost"
       },
       "SectionResult": {
         "properties": {

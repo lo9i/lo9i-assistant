@@ -60,6 +60,8 @@ code from it. In its commands, arguments and env values:
       tool: today                  # morning briefing, the nightly review and Home (today.py, docs/today-lists.md)
     badge:                         # optional: a count beside its page in the web app's sidebar, a read-only tool lo9i
       tool: badge                  # calls itself (badges.py, docs/plugin-badges.md)
+    ssh_hosts:                     # optional, format 8: the SSH hosts it keeps, a read-only tool lo9i calls itself to
+      tool: ssh_hosts              # move to one of them (ssh_hosts.py), never the agent
     check:                         # optional: checks the values it was given before they're saved, so a wrong key
       command: "{bin}/my-check"    # shows in the install dialog (checks.py); or `tool: check_account`, a tool of
                                    # its MCP server that the agent never gets
@@ -115,6 +117,7 @@ from lo9i.core.mcp import (
     plugin_oauth,
     servers,
     ssh_agent,
+    ssh_hosts,
     subagents,
     today,
 )
@@ -533,6 +536,10 @@ def _parse(data: dict[str, Any], name: str, root: Path, folder: Path) -> Candida
         raise ValueError(said("its today list is a tool, which needs an MCP server (command or url)"))
     if template.badge_tool and not template.is_mcp:
         raise ValueError(said("its badge is a tool, which needs an MCP server (command or url)"))
+    if version < 8 and template.ssh_hosts_tool:
+        raise ValueError(said("it gives SSH hosts (ssh_hosts:), which needs format: 8"))
+    if template.ssh_hosts_tool and not template.is_mcp:
+        raise ValueError(said("its SSH hosts are a tool, which needs an MCP server (command or url)"))
     return Candidate(found, template, folder, folder.relative_to(root).as_posix(), systems, version)
 
 
@@ -564,6 +571,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         **checks.parse(data.get("check")),
         **today.parse(data.get("today")),
         **badges.parse(data.get("badge")),
+        **ssh_hosts.parse(data.get("ssh_hosts")),
     )
 
 

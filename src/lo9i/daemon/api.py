@@ -172,7 +172,7 @@ from lo9i.daemon.channel_runs import ChannelRuns
 from lo9i.daemon.clients import ClientRegistry
 from lo9i.daemon.follows import StreamFollows, StreamKey, log_source, run_source
 from lo9i.daemon.launchd import StartupError
-from lo9i.daemon.migration import add_migration_routes
+from lo9i.daemon.migration import EXPORTS, add_migration_routes
 from lo9i.daemon.passkeys import add_passkey_routes
 from lo9i.daemon.runs import Run, RunHub
 from lo9i.daemon.shutdown import Ending
@@ -831,7 +831,10 @@ def _require_client_header(app: FastAPI) -> None:
 
     @app.middleware("http")
     async def check(request: Request, call_next):
-        exempt = request.url.path == "/health" or is_web_ui(request.url.path)
+        # An export's download is a link the browser follows itself, so it can save it to disk as it comes; it works
+        # once, with a token only the app that asked for it got (daemon/migration.py).
+        download = request.method == "GET" and request.url.path.startswith(EXPORTS)
+        exempt = request.url.path == "/health" or is_web_ui(request.url.path) or download
         if not exempt and not request.headers.get(CLIENT_HEADER):
             return JSONResponse({"detail": f"Missing {CLIENT_HEADER} header"}, status_code=403)
         return await call_next(request)

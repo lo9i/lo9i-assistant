@@ -26,5 +26,10 @@ def parse(value: object) -> bool:
 
 def with_agent(server: McpServer) -> McpServer:
     """The server with the agent's socket in its env when it asks for it and the daemon has one."""
-    socket = str(login_session.ssh_agent_link()) if login_session.from_boot() else os.environ.get(ENV, "")
+    socket = agent_socket()
     return replace(server, env={**server.env, ENV: socket}) if server.ssh_agent and socket else server
+
+
+def agent_socket() -> str:
+    """The agent's socket, "" when the daemon has none."""
+    return str(login_session.ssh_agent_link()) if login_session.from_boot() else os.environ.get(ENV, "")

@@ -1104,5 +1104,11 @@
   "The passwords don't match.": "Las contraseñas no coinciden.",
   "The same password again: ": "La misma contraseña otra vez: ",
   "There's no file at {path}.": "No hay ningún archivo en {path}.",
-  "To do on this computer:": "Para hacer en esta computadora:"
+  "To do on this computer:": "Para hacer en esta computadora:",
+  "The daemon didn't restart within {minutes} minutes.": "El daemon no se reinició en {minutes} minutos.",
+  "The move stopped: {error}": "La mudanza se detuvo: {error}",
+  "The password to sign in to {host}: ": "La contraseña para iniciar sesión en {host}: ",
+  "To do there:": "Para hacer allí:",
+  "lo9i runs on {host} with this computer's data.": "lo9i funciona en {host} con los datos de esta computadora.",
+  "{host} as {plugin} keeps it ({address}).": "{host} como lo guarda {plugin} ({address})."
 }

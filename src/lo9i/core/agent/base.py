@@ -32,6 +32,7 @@ from lo9i.core.mcp.checks import PluginChecks
 from lo9i.core.mcp.environment import Environments
 from lo9i.core.mcp.hub import McpHub
 from lo9i.core.mcp.pages import McpPages
+from lo9i.core.mcp.ssh_hosts import SshHosts
 from lo9i.core.mcp.today import TodayLists
 from lo9i.core.memory.indexer import MemoryIndexer
 from lo9i.core.memory.recall import MemoryRecall
@@ -116,6 +117,8 @@ class ServiceBase:
     _classify: Classifier
     # The plugins' lists for the day (core/mcp/today.py): Home, the briefing and the nightly review read them.
     today_lists: TodayLists
+    # The SSH hosts plugins keep, to move lo9i to one (core/mcp/ssh_hosts.py).
+    ssh_hosts: SshHosts
     # The plugins' counts beside their pages in the web app's sidebar (core/mcp/badges.py).
     badges: Badges
     # Builds Home's sections in the background (core/home/), with the builder of the model in use. Requests start

@@ -17,6 +17,7 @@ COMMANDS = {
     "doctor": "Check that lo9i is installed and set up to work.",
     "export": "Export lo9i's data, sealed with a password, to move it to another computer.",
     "import": "Import an export here; the daemon restarts to use it.",
+    "migrate": "Move lo9i to another computer over SSH, installing it there if it's missing.",
     "completion": "Print the shell completion script for bash, zsh or fish.",
 }
 DAEMON_ACTIONS = ("restart",)
@@ -27,14 +28,22 @@ CHECKOUT = Path(lo9i.__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class Command:
     # chat: open the terminal app (no command given).
-    name: Literal["chat", "daemon", "doctor", "export", "import", "completion"]
+    name: Literal["chat", "daemon", "doctor", "export", "import", "migrate", "completion"]
     # daemon: "restart", or "" to run it. completion: the shell. export: where to write it, "" for the folder it runs
-    # in. import: the export.
+    # in. import: the export. migrate: the host.
     argument: str = ""
-    # doctor: print the report as JSON.
+    # doctor and import: print the report as JSON.
     json: bool = False
-    # import: set aside the data lo9i has here.
+    # import and migrate: set aside the data lo9i has there.
     force: bool = False
+    # import: read the password from the input (a move over SSH gives it so), and wait until the daemon restarted.
+    password_stdin: bool = False
+    wait: bool = False
+    # migrate: how to sign in, and whether to ask for a password.
+    user: str = ""
+    port: int = 0
+    key: str = ""
+    password: bool = False
 
 
 def parse(args: list[str]) -> Command:
@@ -50,9 +59,30 @@ def parse(args: list[str]) -> Command:
         case "export":
             return Command("export", found.path or "")
         case "import":
-            return Command("import", found.file, force=found.force)
+            return Command(
+                "import",
+                found.file,
+                json=found.json,
+                force=found.force,
+                password_stdin=found.password_stdin,
+                wait=found.wait,
+            )
+        case "migrate":
+            return _migrate(found)
         case _:
             return Command("completion", found.shell)
+
+
+def _migrate(found: argparse.Namespace) -> Command:
+    return Command(
+        "migrate",
+        found.host,
+        force=found.replace,
+        user=found.user or "",
+        port=found.port or 0,
+        key=found.key or "",
+        password=found.password,
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -73,9 +103,25 @@ def _parser() -> argparse.ArgumentParser:
     importing.add_argument(
         "--force", action="store_true", help="replace the data lo9i has here, which is kept in a folder beside it"
     )
+    importing.add_argument("--password-stdin", action="store_true", help="read the password from the input")
+    importing.add_argument("--json", action="store_true", help="print what to set up again as JSON")
+    importing.add_argument("--wait", action="store_true", help="wait until the daemon restarted with it")
+    _add_migrate(commands)
     completion = commands.add_parser("completion", help=COMMANDS["completion"], description=COMMANDS["completion"])
     completion.add_argument("shell", choices=SHELLS)
     return parser
+
+
+def _add_migrate(commands: argparse._SubParsersAction) -> None:
+    migrate = commands.add_parser("migrate", help=COMMANDS["migrate"], description=COMMANDS["migrate"])
+    migrate.add_argument("host", help="its address or ssh name, or a host the hosts plugin keeps")
+    migrate.add_argument("--user", help="the user to sign in as")
+    migrate.add_argument("--port", type=int, help="its SSH port")
+    migrate.add_argument("--key", help="a private key file on this computer to sign in with (never copied)")
+    migrate.add_argument("--password", action="store_true", help="ask for the password to sign in with")
+    migrate.add_argument(
+        "--replace", action="store_true", help="replace the data lo9i has there, which is kept in a folder beside it"
+    )
 
 
 class _Version(argparse.Action):

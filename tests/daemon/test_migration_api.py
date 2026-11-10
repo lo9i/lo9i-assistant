@@ -44,3 +44,16 @@ async def test_an_export_downloaded_comes_back_as_an_import_and_a_restart(servic
 
     assert report.waiting_for_runs == 1 and shutdown.needed == ["an import"]
     assert (isolated_settings / staging.STAGED / "home" / "uploads" / "photo.txt").read_text() == "mine"
+
+
+async def test_an_export_downloads_once_by_a_link_a_browser_follows_itself(service):
+    transport = httpx.ASGITransport(app=trusted(create_app(service, RunHub(), shutdown=_Shutdown())))
+    async with httpx.AsyncClient(transport=transport, base_url="http://lo9i") as http:
+        ready = await http.post("/system/export", json={"password": "a long password"}, headers={CLIENT_HEADER: "t"})
+        url = ready.json()["url"]
+        # A link the browser follows carries no client header, so the browser saves the file as it comes.
+        first, again = await http.get(url), await http.get(url)
+
+    assert first.status_code == 200 and first.content.startswith(b"lo9i-export\n")
+    assert "attachment" in first.headers["content-disposition"]
+    assert again.status_code == 404

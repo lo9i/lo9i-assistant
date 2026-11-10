@@ -91,6 +91,7 @@ from lo9i.core.mcp.media import ToolMedia
 from lo9i.core.mcp.oauth import McpAuth
 from lo9i.core.mcp.pages import McpPages
 from lo9i.core.mcp.sampling import Sampler
+from lo9i.core.mcp.ssh_hosts import SshHosts
 from lo9i.core.mcp.today import TodayLists
 from lo9i.core.memory import profile
 from lo9i.core.memory.e5 import E5Embedder
@@ -208,6 +209,7 @@ class AssistantService(
             home_sections.LOOPS: LoopsSection(storage.store, settings.owner_id),
         }
         self.today_lists = TodayLists(storage.store, self.mcp)
+        self.ssh_hosts = SshHosts(storage.store, self.mcp)
         self.badges = Badges(storage.store, self.mcp)
         self.home_refresh = HomeRefresh(
             storage.store, bus, lambda: self._home_builder, self._plugin_tools, coded, self.today_lists

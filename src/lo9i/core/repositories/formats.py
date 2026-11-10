@@ -12,7 +12,9 @@ from lo9i.core.i18n import said
 # 6: `subagent`, a named subagent the assistant delegates tasks to (core/mcp/subagents.py).
 # 7: `approve`, tools that ask the user before each call even on a trusted server (core/mcp/servers.py): a
 #    daemon that didn't know it would run them without asking.
-CURRENT = 7
+# 8: `ssh_hosts`, a tool only lo9i calls (core/mcp/ssh_hosts.py): a daemon that didn't know it would give the agent
+#    the hosts' passwords.
+CURRENT = 8
 
 
 def parse(value: object) -> int:
