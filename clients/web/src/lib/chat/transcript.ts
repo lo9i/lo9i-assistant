@@ -13,7 +13,7 @@ export type ChatItem =
   | { kind: "brief"; id: number; text: string; agent: string }
   // `dispatchId`: the inbox's record of a message it sent on, which can be moved.
   | { kind: "assistant"; id: number; text: string; dispatchId?: string; voice?: CallPart }
-  | { kind: "thinking"; id: number; text: string }
+  | { kind: "thinking"; id: number; text: string; at?: string }
   // A quick exchange the inbox carried to this conversation, as Markdown, before the message that followed it up.
   | { kind: "carried"; id: number; text: string }
   // Background work that ended, which the assistant followed up on without a message from the user.
@@ -150,7 +150,7 @@ export function apply(t: Transcript, event: RunEvent): Transcript {
       return updateCallItem(ended, event.within, (item) => ({ ...item, subagent }));
     }
     case "Thinking":
-      return addThinking(ended, event.text);
+      return addThinking(ended, event.text, event.at);
     case "UserSaid":
       return event.waiting ? waitFor(ended, event) : add(ended, { kind: "user", text: event.text, files: event.files ?? [] });
     case "UserTaken":
@@ -206,7 +206,7 @@ function addShown(t: Transcript, message: ShownMessage): Transcript {
   if (message.role === "user")
     return add(t, { kind: "user", ...splitAttachments(message.text), ...shownNote(message), ...inCall(message) });
   if (message.role === "brief") return add(t, { kind: "brief", text: message.text, agent: message.agent });
-  if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text });
+  if (message.role === "thinking") return add(t, { kind: "thinking", text: message.text, ...at(message.at) });
   if (message.role === "carried") return add(t, { kind: "carried", text: message.text });
   if (message.role === "notice") return add(t, { kind: "notice", text: message.text });
   if (message.role === "model") return add(t, { kind: "model", name: message.text });
@@ -260,9 +260,9 @@ export function withWholeStep(step: ToolStep, call: ShownCall): ToolStep {
 }
 
 /** Thinking streams: an event right after another continues it. */
-function addThinking(t: Transcript, text: string): Transcript {
+function addThinking(t: Transcript, text: string, when?: string): Transcript {
   const last = t.items.at(-1);
-  if (last?.kind !== "thinking") return add(t, { kind: "thinking", text });
+  if (last?.kind !== "thinking") return add(t, { kind: "thinking", text, ...at(when) });
   return update(t, last.id, (item) => (item.kind === "thinking" ? { ...item, text: item.text + text } : item));
 }
 

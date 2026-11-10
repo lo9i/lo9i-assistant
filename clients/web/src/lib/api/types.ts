@@ -222,7 +222,7 @@ export type Dispatched = {
 export type RunEvent =
   | { type: "TextDelta"; text: string }
   // A handed-off agent's reasoning, shown apart from its reply.
-  | { type: "Thinking"; text: string }
+  | { type: "Thinking"; text: string; at?: string }
   // `within`: the id of the delegate call whose subagent made this call; empty for the agent's own. `at`: when it
   // started, ISO 8601.
   | { type: "ToolStarted"; name: string; args: Record<string, unknown>; id?: string; within?: string; at?: string }

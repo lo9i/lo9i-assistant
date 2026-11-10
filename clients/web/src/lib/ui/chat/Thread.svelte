@@ -214,12 +214,14 @@
           {/if}
         </div>
       {:else if item.kind === "thinking"}
+        {@const thoughtAt = callTime(item.at)}
         <details class="tool thought">
           <summary>
             <Brain size={12} />
             <span>{t("thread.thinking")}</span>
             <!-- Open, the whole text shows below, so the preview would repeat its first line. -->
             <span class="detail preview">{item.text.split("\n")[0]}</span>
+            {#if thoughtAt}<time class="started" datetime={item.at} title={thoughtAt.whole}>{thoughtAt.shown}</time>{/if}
             <span class="chevron"><ChevronRight size={12} /></span>
           </summary>
           <p class="thought-text" data-findable>{item.text}</p>

@@ -86,7 +86,7 @@ class Shown {
   private step(step: TaskStep): void {
     if (step.within && (step.kind === "text" || step.kind === "thinking")) return;
     if (step.kind === "text") this.text(step.text);
-    else if (step.kind === "thinking") this.add({ kind: "thinking", id: 0, text: step.text });
+    else if (step.kind === "thinking") this.add({ kind: "thinking", id: 0, text: step.text, ...at(step.at) });
     else if (step.kind === "tool") this.call(step);
     else if (step.kind === "result") this.result(step);
     else if (step.kind === "user") this.userStep(step);

@@ -20,6 +20,8 @@ class Thinking:
     Thinking events with nothing between them continue one another, like TextDelta."""
 
     text: str
+    # When it started, as ISO 8601: the apps show it on the thought, as on a tool call.
+    at: str = field(default_factory=_now, compare=False)
 
 
 @dataclass
