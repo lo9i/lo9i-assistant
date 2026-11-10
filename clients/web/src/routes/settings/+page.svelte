@@ -90,11 +90,11 @@
   {:else if tab === "system"}
     <div class="grid">
       <div class="stack">
-        <HostCard />
         <MoveCard />
+        <KeptKeysCard />
       </div>
       <div class="stack">
-        <KeptKeysCard />
+        <HostCard />
       </div>
     </div>
   {:else if tab === "clients"}
