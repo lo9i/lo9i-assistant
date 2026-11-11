@@ -63,6 +63,8 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
     imported = await _apply_import()
     async with AssistantService.open() as service:
         await service.apply_log_level()
+        # Before a browser can ask how to sign in.
+        await service.prepare_setup_code()
         # Before any request, so no message lands in the home conversation it retires.
         if retired := await service.retire_home(settings.owner_id):
             logger.info("Kept the home conversation %s as an archived conversation; the inbox replaces it.", retired)

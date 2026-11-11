@@ -1,7 +1,8 @@
-"""The apps' About you step, at first run and from Settings: the user's name, the language and length of
-replies, and what they mainly want help with. Each answer is one profile item starting with its own label,
-so the step reads its answers back from the profile (to show them again, and to know there's no name yet),
-and the get-to-know-you offer (core/conversation/introduction.py) knows when nothing else is there."""
+"""The apps' About you step, at first run and from Settings: the user's name, their email address (where sign-in
+links go, core/agent/sign_in_links.py), the language and length of replies, and what they mainly want help with. Each
+answer is one profile item starting with its own label, so the step reads its answers back from the profile (to show
+them again, and to know there's no name yet), and the get-to-know-you offer (core/conversation/introduction.py) knows
+when nothing else is there."""
 
 from dataclasses import dataclass, field
 from typing import Literal
@@ -23,12 +24,14 @@ _TOPICS: dict[HelpTopic, str] = {
 _LENGTHS: dict[ReplyLength, str] = {"short": "short and to the point", "detailed": "detailed, with explanations"}
 
 _NAME = "Name: "
+_EMAIL = "Email: "
 _LANGUAGE = "Reply language: "
 _LENGTH = "Reply length: "
 _HELP = "Wants help with: "
 _OTHER_HELP = "Also wants help with: "
 _LABELS: list[tuple[Section, str]] = [
     ("about", _NAME),
+    ("about", _EMAIL),
     ("how_to_reply", _LANGUAGE),
     ("how_to_reply", _LENGTH),
     ("goals", _HELP),
@@ -45,11 +48,17 @@ class AboutYou:
     reply_length: ReplyLength | None = None
     help_with: list[HelpTopic] = field(default_factory=list)
     other_help: str = ""
+    email: str = ""
 
 
 def name(profile: Profile) -> str:
     """The user's name as the profile says it ("Name: …"), or ""."""
     return _value(profile.about, _NAME)
+
+
+def email(profile: Profile) -> str:
+    """The user's email address as the profile says it ("Email: …"), or ""."""
+    return _value(profile.about, _EMAIL)
 
 
 def read(profile: Profile) -> AboutYou:
@@ -62,6 +71,7 @@ def read(profile: Profile) -> AboutYou:
         reply_length=next((key for key, text in _LENGTHS.items() if text == length), None),
         help_with=[topics[t] for t in _value(profile.goals, _HELP).split(", ") if t in topics],
         other_help=_value(profile.goals, _OTHER_HELP),
+        email=email(profile),
     )
 
 
@@ -86,6 +96,7 @@ def _values(answers: AboutYou) -> list[str]:
     """In the order of _LABELS."""
     return [
         answers.name.strip(),
+        answers.email.strip(),
         answers.language.strip(),
         _LENGTHS[answers.reply_length] if answers.reply_length else "",
         ", ".join(_TOPICS[t] for t in dict.fromkeys(answers.help_with)),

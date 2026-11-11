@@ -5,6 +5,8 @@
     "name": "¿Cómo debería llamarte?",
     "language": "Idioma de las respuestas",
     "languageHint": "Por ejemplo español o inglés",
+    "email": "Tu correo",
+    "emailUse": "Aquí llegan los enlaces para iniciar sesión en un navegador nuevo.",
     "replyLength": "Respuestas",
     "short": "Cortas y al grano",
     "detailed": "Detalladas, con explicaciones",
@@ -1136,13 +1138,28 @@
     "namePlaceholder": "Nombre para este dispositivo",
     "name": "Nombre del dispositivo",
     "pair": "Vincular",
-    "passkeyHint": "¿Ya agregaste una llave de acceso para este asistente? Inicia sesión con ella en lugar de un código.",
     "passkey": "Iniciar sesión con una llave de acceso",
-    "orCode": "O vincula con un código",
     "paired": "Este navegador está vinculado",
     "offerPasskey": "Agrega una llave de acceso para iniciar sesión la próxima vez con Face ID, Touch ID o el bloqueo de pantalla, sin código.",
     "addPasskey": "Agregar una llave de acceso",
-    "notNow": "Ahora no"
+    "notNow": "Ahora no",
+    "signIn": "Iniciar sesión",
+    "setupTitle": "Ingresa el código de configuración",
+    "setupHint": "Está impreso en la etiqueta de tu lo9i. Sirve solo para este primer navegador.",
+    "setupCode": "Código de configuración",
+    "continue": "Continuar",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "Tu correo",
+    "emailLink": "Enviarme un enlace para iniciar sesión",
+    "linkAsked": "Si esa es tu dirección, te llega un enlace para iniciar sesión. Ábrelo en este dispositivo dentro de 15 minutos.",
+    "withCode": "Vincular con un código"
+  },
+  "signInLink": {
+    "title": "Iniciar sesión",
+    "hint": "Inicia sesión en el asistente en este navegador.",
+    "signIn": "Iniciar sesión",
+    "incomplete": "Este enlace está incompleto. Pide uno nuevo desde la página para iniciar sesión.",
+    "back": "Ir al inicio de sesión"
   },
   "pluginSetup": {
     "starting": "Iniciando {name}… su configuración aparece aquí cuando esté en marcha."

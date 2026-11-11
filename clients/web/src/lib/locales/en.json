@@ -5,6 +5,8 @@
     "name": "What should it call you?",
     "language": "Language for replies",
     "languageHint": "For example English or Spanish",
+    "email": "Your email",
+    "emailUse": "Links to sign in on a new browser go here.",
     "replyLength": "Replies",
     "short": "Short and to the point",
     "detailed": "Detailed, with explanations",
@@ -1136,13 +1138,28 @@
     "namePlaceholder": "Name for this device",
     "name": "Device name",
     "pair": "Pair",
-    "passkeyHint": "Added a passkey for this assistant before? Sign in with it instead of a code.",
     "passkey": "Sign in with a passkey",
-    "orCode": "Or pair with a code",
     "paired": "This browser is paired",
     "offerPasskey": "Add a passkey to sign in next time with Face ID, Touch ID or your screen lock, without a code.",
     "addPasskey": "Add a passkey",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "signIn": "Sign in",
+    "setupTitle": "Enter the setup code",
+    "setupHint": "It's printed on the label of your lo9i. It works only for this first browser.",
+    "setupCode": "Setup code",
+    "continue": "Continue",
+    "email": "Email address",
+    "emailPlaceholder": "Your email",
+    "emailLink": "Email me a sign-in link",
+    "linkAsked": "If that's your address, a sign-in link is on its way. Open it on this device within 15 minutes.",
+    "withCode": "Pair with a code instead"
+  },
+  "signInLink": {
+    "title": "Sign in",
+    "hint": "Sign in to the assistant on this browser.",
+    "signIn": "Sign in",
+    "incomplete": "This link is incomplete. Ask for a new one from the sign-in page.",
+    "back": "Back to sign-in"
   },
   "pluginSetup": {
     "starting": "Starting {name}… its setup shows here once it's running."

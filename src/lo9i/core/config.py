@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     https_host: str = ""
     https_cert: str = ""
     https_key: str = ""
+    # Other names the HTTPS listener is reached by, its certificate covering them too, as JSON:
+    # HTTPS_OTHER_HOSTS='["lo9i.local", "lo9i.example.ts.net"]'. Requests naming a host that's none of these nor
+    # localhost are refused (daemon/api.py).
+    https_other_hosts: list[str] = []
+    # While no device was ever paired, the first browser pairs with the code in this file (core/setup_code.py). An
+    # appliance's image writes the code printed on its label there (SETUP_CODE_PATH=/etc/lo9i/setup-code); where
+    # there's none, lo9i writes one of its own at start.
+    setup_code_path: str = "~/.lo9i/setup-code"
 
     # Model settings, used until the provider is set in the app (Settings → Model, /model), which
     # then overrides them (core/llm/choice.py). MODEL and WORKER_MODEL must be ids from the chosen
@@ -183,6 +191,11 @@ class Settings(BaseSettings):
     bash_max_output: int = 30_000
     # always: every command. dangerous: only commands matching core/tools/bash_guard.py. never: none.
     bash_approval: Literal["always", "dangerous", "never"] = "dangerous"
+
+    @property
+    def https_hosts(self) -> list[str]:
+        """Every name the HTTPS listener is reached by, HTTPS_HOST first."""
+        return [host for host in [self.https_host, *self.https_other_hosts] if host]
 
 
 settings = Settings()

@@ -231,6 +231,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sign In Ways */
+        get: operations["sign_in_ways_auth_sign_in_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask For Link
+         * @description Emails a sign-in link for this site when the address is the owner's. Answered the same, and at once,
+         *     either way: the link goes after the answer.
+         */
+        post: operations["ask_for_link_auth_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/link/finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign In With Link
+         * @description Pairs this browser as a new device with a link's token, and sets its token cookie.
+         */
+        post: operations["sign_in_with_link_auth_link_finish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -3673,6 +3731,11 @@ export interface components {
              * @default
              */
             other_help: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
         };
         /**
          * AboutYouAnswers
@@ -3695,6 +3758,11 @@ export interface components {
              * @default
              */
             other_help: string;
+            /**
+             * Email
+             * @default
+             */
+            email: string;
         };
         /** AboutYouSaved */
         AboutYouSaved: {
@@ -5277,6 +5345,26 @@ export interface components {
              */
             language: "auto" | "en" | "es";
         };
+        /** LinkAsked */
+        LinkAsked: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /** LinkRequest */
+        LinkRequest: {
+            /** Email */
+            email: string;
+        };
+        /** LinkSignIn */
+        LinkSignIn: {
+            /** Token */
+            token: string;
+            /** Name */
+            name: string;
+        };
         /**
          * ListedFolder
          * @description A folder of the tree as `listed` reads it, or why it couldn't be (gone since, outside the folder).
@@ -6834,6 +6922,16 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * SignInWays
+         * @description How a browser that isn't paired can sign in.
+         */
+        SignInWays: {
+            /** Setup */
+            setup: boolean;
+            /** Email Link */
+            email_link: boolean;
+        };
         /** SignedIn */
         SignedIn: {
             /**
@@ -7855,6 +7953,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PasskeyRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_in_ways_auth_sign_in_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInWays"];
+                };
+            };
+        };
+    };
+    ask_for_link_auth_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkAsked"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_in_with_link_auth_link_finish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkSignIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Device"];
                 };
             };
             /** @description Validation Error */
