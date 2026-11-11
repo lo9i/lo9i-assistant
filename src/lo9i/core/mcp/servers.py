@@ -53,6 +53,8 @@ class McpServer:
     # web app (core/mcp/pages.py). Only servers installed from a repository have one.
     page_command: str = ""
     page_args: list[str] = field(default_factory=list)
+    # When its page is of use (core/mcp/page_shown.py): always, or only on a computer without a screen.
+    page_shown: str = "always"
     # A chat channel the plugin is (core/channels/processes.py), and how to write for it, for the
     # system prompt. Only plugins installed from a repository have one.
     channel_command: str = ""

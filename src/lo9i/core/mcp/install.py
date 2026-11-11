@@ -37,6 +37,8 @@ code from it. In its commands, arguments and env values:
                                    # {"type": "lo9i:theme", "theme"} message from its frame's parent on a change
       command: "{bin}/my-page"
       args: [--socket, "{socket}"]
+      shown: without_screen        # optional: only on a computer without a screen, where it stands in for a
+                                   # window (page_shown.py); `always` if absent
     channel:                       # optional: a chat channel (core/channels/), with or without `command`
       command: "{bin}/my-channel"
       style: A phone chat. Short messages.   # how to write there, for the system prompt
@@ -114,6 +116,7 @@ from lo9i.core.mcp import (
     folders,
     keys,
     logins,
+    page_shown,
     plugin_oauth,
     servers,
     ssh_agent,
@@ -557,6 +560,7 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         approve=_tool_patterns(data.get("approve", [])),
         page_command=str(data.get("page", {}).get("command", "")),
         page_args=[str(a) for a in data.get("page", {}).get("args", [])],
+        page_shown=page_shown.parse(data.get("page", {}).get("shown")),
         channel_command=str(data.get("channel", {}).get("command", "")),
         channel_args=[str(a) for a in data.get("channel", {}).get("args", [])],
         channel_style=str(data.get("channel", {}).get("style", "")).strip(),
@@ -605,7 +609,7 @@ def _found(data: dict[str, Any], template: McpServer, folder: Path, category_fol
         [_field(f) for f in data.get("fields", [])],
         template.trusted,
         _check_skill(folder, template.name),
-        bool(template.page_command),
+        page_shown.of_use(template),
         channel,
         version=str(data.get("version", "")),
         category=category,

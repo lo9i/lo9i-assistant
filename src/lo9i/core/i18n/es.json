@@ -686,5 +686,6 @@
   "Sign in to {name}": "Iniciar sesión en {name}",
   "Someone asked to sign in to {name} at {site} with this address. To sign in on that browser, open this link there:\n\n{link}\n\nIt works once, for {minutes} minutes. If it wasn't you, ignore this email: without the link nobody can sign in.": "Alguien pidió iniciar sesión en {name} en {site} con esta dirección. Para iniciar sesión en ese navegador, abre este enlace allí:\n\n{link}\n\nFunciona una sola vez, durante {minutes} minutos. Si no fuiste tú, ignora este correo: sin el enlace nadie puede iniciar sesión.",
   "This sign-in link was used already or has expired. Ask for a new one.": "Este enlace para iniciar sesión ya se usó o venció. Pide uno nuevo.",
-  "Too many sign-in links asked for. Wait a few minutes and try again.": "Se pidieron demasiados enlaces para iniciar sesión. Espera unos minutos y vuelve a intentarlo."
+  "Too many sign-in links asked for. Wait a few minutes and try again.": "Se pidieron demasiados enlaces para iniciar sesión. Espera unos minutos y vuelve a intentarlo.",
+  "its page's shown must be always or without_screen": "su shown de page debe ser always o without_screen"
 }

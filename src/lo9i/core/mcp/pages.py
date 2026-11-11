@@ -12,7 +12,7 @@ from langgraph.store.base import BaseStore
 from mcp.client.stdio import get_default_environment
 
 from lo9i.core.config import settings
-from lo9i.core.mcp import data_key, folders, keys, servers, user
+from lo9i.core.mcp import data_key, folders, keys, page_shown, servers, user
 from lo9i.core.mcp.environment import Environments
 from lo9i.core.mcp.process import ProcessSpec, keep_running
 from lo9i.core.mcp.servers import McpServer
@@ -55,7 +55,7 @@ class McpPages:
         """Bring the pages in line with the saved servers. Called after every change."""
         if not self._active:
             return
-        found = [s for s in await servers.load_all(self._store) if s.enabled and s.page_command]
+        found = [s for s in await servers.load_all(self._store) if s.enabled and page_shown.of_use(s)]
         filled = await keys.fill_all(self._store, self._secrets, found)
         wanted = {s.name: await data_key.with_key(self._store, self._secrets, s) for s in filled}
         for name, running in list(self._running.items()):
