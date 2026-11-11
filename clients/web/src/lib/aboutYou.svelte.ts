@@ -20,6 +20,7 @@ export function startAnswers(status: AboutYouStatus | null): AboutYou {
     reply_length: answers?.reply_length ?? null,
     help_with: [...(answers?.help_with ?? [])],
     other_help: answers?.other_help ?? "",
+    email: answers?.email ?? "",
   };
 }
 
@@ -32,5 +33,6 @@ export function savedAnswers(form: AboutYou): AboutYou {
     reply_length: form.reply_length ?? null,
     help_with: HELP_TOPICS.filter((topic) => picked.has(topic)),
     other_help: form.other_help.trim(),
+    email: form.email.trim(),
   };
 }

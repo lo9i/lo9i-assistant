@@ -5,8 +5,9 @@ localhost port or HTTPS, must come from a paired device: a browser that entered 
 from a trusted client and got a token, kept in a cookie. 127.0.0.1 isn't trusted, because port
 forwarding and proxies make remote traffic arrive from there.
 
-Without a device, the network only reaches /health, pairing, signing in with a passkey
-(daemon/passkeys.py), and the web UI's files (its login page). Revoking a device ends its open event
+Without a device, the network only reaches /health, pairing (with a pairing code, or the setup code for the
+first device), signing in with a passkey (daemon/passkeys.py) or an emailed link (daemon/sign_in.py), and the web
+UI's files (its login page). Revoking a device ends its open event
 streams.
 
 A channel plugin's process (core/channels/) sends the token the daemon gave it when it started
@@ -38,8 +39,19 @@ logger = logging.getLogger(__name__)
 COOKIE = "lo9i_device"
 _TRUSTED = "lo9i.trusted"
 # A sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time state
-# proves it (core/oauth.py). A passkey proves the device it belongs to (core/passkeys.py).
-_OPEN_PATHS = {"/health", "/auth/pair", "/auth/pair/token", "/oauth/finish", "/auth/passkey", "/auth/passkey/options"}
+# proves it (core/oauth.py). A passkey proves the device it belongs to (core/passkeys.py), an emailed link's token
+# that the owner's mailbox got it (core/sign_in_links.py).
+_OPEN_PATHS = {
+    "/health",
+    "/auth/pair",
+    "/auth/pair/token",
+    "/oauth/finish",
+    "/auth/passkey",
+    "/auth/passkey/options",
+    "/auth/sign-in",
+    "/auth/link",
+    "/auth/link/finish",
+}
 
 
 class PairRequest(BaseModel):

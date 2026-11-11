@@ -42,12 +42,23 @@ class PairingCode:
     expires_at: str
 
 
+def new_code() -> str:
+    """A random code to read and type, as shown, e.g. K7QM-2XPD."""
+    code = "".join(secrets.choice(_ALPHABET) for _ in range(_CODE_LENGTH))
+    return f"{code[:4]}-{code[4:]}"
+
+
+def normalized(code: str) -> str:
+    """The code as typed, without spaces or dashes and in capitals."""
+    return "".join(code.split()).replace("-", "").upper()
+
+
 async def open_pairing(store: BaseStore, now: datetime) -> PairingCode:
     """A new one-time code, replacing any earlier one."""
-    code = "".join(secrets.choice(_ALPHABET) for _ in range(_CODE_LENGTH))
+    code = new_code()
     expires = (now + _PAIRING_LIFETIME).isoformat()
-    await store.aput(_PAIRING, _PAIRING_KEY, {"hash": _hash(code), "expires_at": expires})
-    return PairingCode(f"{code[:4]}-{code[4:]}", expires)
+    await store.aput(_PAIRING, _PAIRING_KEY, {"hash": hashed(normalized(code)), "expires_at": expires})
+    return PairingCode(code, expires)
 
 
 async def take_pairing(store: BaseStore, code: str, now: datetime) -> bool:
@@ -55,7 +66,7 @@ async def take_pairing(store: BaseStore, code: str, now: datetime) -> bool:
     item = await store.aget(_PAIRING, _PAIRING_KEY)
     if item is None or now >= datetime.fromisoformat(item.value["expires_at"]):
         return False
-    if not hmac.compare_digest(item.value["hash"], _hash(_normalized(code))):
+    if not hmac.compare_digest(item.value["hash"], hashed(normalized(code))):
         return False
     await store.adelete(_PAIRING, _PAIRING_KEY)
     return True
@@ -66,7 +77,7 @@ async def add(store: BaseStore, name: str, ip: str, now: datetime) -> tuple[Devi
     token = secrets.token_urlsafe(32)
     stamp = now.isoformat()
     device = Device(secrets.token_hex(6), name.strip()[:60] or "Browser", stamp, stamp, ip)
-    await store.aput(_DEVICES, _hash(token), asdict(device))
+    await store.aput(_DEVICES, hashed(token), asdict(device))
     return device, token
 
 
@@ -80,13 +91,13 @@ async def add_token(store: BaseStore, device_id: str, ip: str, now: datetime) ->
             await store.adelete(_DEVICES, item.key)
     token = secrets.token_urlsafe(32)
     device = Device(**{**tokens[0].value, "last_used_at": now.isoformat(), "last_ip": ip})
-    await store.aput(_DEVICES, _hash(token), asdict(device))
+    await store.aput(_DEVICES, hashed(token), asdict(device))
     return device, token
 
 
 async def find(store: BaseStore, token: str, ip: str, now: datetime) -> Device | None:
     """The device a token belongs to, unless it was revoked or unused too long. Records its use."""
-    item = await store.aget(_DEVICES, _hash(token))
+    item = await store.aget(_DEVICES, hashed(token))
     if item is None:
         return None
     device = Device(**item.value)
@@ -94,7 +105,7 @@ async def find(store: BaseStore, token: str, ip: str, now: datetime) -> Device |
         return None
     if now - datetime.fromisoformat(device.last_used_at) > _TOUCH_EVERY or device.last_ip != ip:
         device.last_used_at, device.last_ip = now.isoformat(), ip
-        await store.aput(_DEVICES, _hash(token), asdict(device))
+        await store.aput(_DEVICES, hashed(token), asdict(device))
     return device
 
 
@@ -116,9 +127,6 @@ async def revoke(store: BaseStore, device_id: str) -> bool:
     return bool(tokens)
 
 
-def _normalized(code: str) -> str:
-    return "".join(code.split()).replace("-", "").upper()
-
-
-def _hash(secret: str) -> str:
+def hashed(secret: str) -> str:
+    """How a token or code is stored."""
     return hashlib.sha256(secret.encode()).hexdigest()

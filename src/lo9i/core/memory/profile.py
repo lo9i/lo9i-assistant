@@ -34,8 +34,8 @@ def _section(description: str) -> list[str]:
 
 class Profile(BaseModel):
     about: list[str] = _section(
-        "Who the user is: name, where they live and their timezone, languages. Never their accounts or ids on a "
-        "channel."
+        "Who the user is: name, email address, where they live and their timezone, languages. Never their accounts "
+        "or ids on a channel."
     )
     people: list[str] = _section("People in the user's life and how they relate, e.g. 'Ana: sister'.")
     how_to_reply: list[str] = _section(

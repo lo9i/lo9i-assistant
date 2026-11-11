@@ -39,6 +39,7 @@ export type PairingCode = Schemas["PairingCode"];
 export type Passkey = Schemas["Passkey"];
 export type PasskeyCeremony = Schemas["PasskeyCeremony"];
 export type Me = Schemas["Me"];
+export type SignInWays = Schemas["SignInWays"];
 export type MemorySnapshot = Schemas["MemorySnapshot"];
 export type AboutYou = Schemas["AboutYouAnswers"];
 export type AboutYouStatus = Schemas["AboutYouStatus"];

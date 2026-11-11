@@ -142,6 +142,11 @@
         <span class="field-label">{t("aboutYou.language")}</span>
         <input class="input" bind:value={form.language} placeholder={t("aboutYou.languageHint")} maxlength="100" />
       </label>
+      <label class="field">
+        <span class="field-label">{t("aboutYou.email")}</span>
+        <input class="input" type="email" bind:value={form.email} autocomplete="email" maxlength="320" />
+        <span class="text-caption">{t("aboutYou.emailUse")}</span>
+      </label>
       <fieldset class="field">
         <legend class="field-label">{t("aboutYou.replyLength")}</legend>
         <div class="choices">

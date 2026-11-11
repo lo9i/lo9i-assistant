@@ -101,6 +101,7 @@ import type {
   ShownMessage,
   ShutdownStatus,
   SignedIn,
+  SignInWays,
   Importables,
   ImportOutcome,
   Skill,
@@ -1332,7 +1333,7 @@ export class AuthGroup {
     return this.transport.request("GET", "/auth/me");
   }
 
-  /** Pairs this browser with a code from a trusted client; the daemon sets the token cookie. */
+  /** Pairs this browser with a code from a trusted client, or the setup code; the daemon sets the token cookie. */
   pair(code: string, name: string): Promise<Device> {
     return this.transport.request("POST", "/auth/pair", { code, name });
   }
@@ -1350,6 +1351,21 @@ export class AuthGroup {
   /** Signs this browser in as the passkey's device; the daemon sets the token cookie. */
   signInWithPasskey(ceremony: string, credential: Record<string, unknown>): Promise<Device> {
     return this.transport.request("POST", "/auth/passkey", { ceremony, credential });
+  }
+
+  /** How a browser that isn't paired can sign in: the setup code (no device paired yet), an emailed link. */
+  ways(): Promise<SignInWays> {
+    return this.transport.request("GET", "/auth/sign-in");
+  }
+
+  /** Emails a sign-in link for this site when the address is the owner's; the answer is the same either way. */
+  async askForLink(email: string): Promise<void> {
+    await this.transport.request("POST", "/auth/link", { email });
+  }
+
+  /** Pairs this browser with an emailed link's token; the daemon sets the token cookie. */
+  signInWithLink(token: string, name: string): Promise<Device> {
+    return this.transport.request("POST", "/auth/link/finish", { token, name });
   }
 }
 

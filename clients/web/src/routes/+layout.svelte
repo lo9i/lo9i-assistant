@@ -23,9 +23,9 @@
   const CHANNEL = "web";
 
   let { children }: { children: Snippet } = $props();
-  // Where a sign-in comes back (routes/oauth): it finishes on its own, maybe in a browser that
-  // isn't paired, so it gets no app around it.
-  const standalone = page.url.pathname === resolve("/oauth");
+  // Where a sign-in comes back (routes/oauth) and where an emailed sign-in link opens (routes/sign-in): each finishes
+  // on its own, maybe in a browser that isn't paired, so it gets no app around it.
+  const standalone = [resolve("/oauth"), resolve("/sign-in")].includes(page.url.pathname);
 
   const client = new DaemonClient(new HttpTransport());
   // The voice and text buttons and each conversation open beside the first talk under ids the daemon ties to

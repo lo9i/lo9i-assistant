@@ -374,6 +374,102 @@
         }
       }
     },
+    "/auth/sign-in": {
+      "get": {
+        "summary": "Sign In Ways",
+        "operationId": "sign_in_ways_auth_sign_in_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInWays"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/link": {
+      "post": {
+        "summary": "Ask For Link",
+        "description": "Emails a sign-in link for this site when the address is the owner's. Answered the same, and at once,\neither way: the link goes after the answer.",
+        "operationId": "ask_for_link_auth_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkAsked"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/link/finish": {
+      "post": {
+        "summary": "Sign In With Link",
+        "description": "Pairs this browser as a new device with a link's token, and sets its token cookie.",
+        "operationId": "sign_in_with_link_auth_link_finish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkSignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Device"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/events": {
       "get": {
         "summary": "Events",
@@ -8283,6 +8379,11 @@
             "type": "string",
             "title": "Other Help",
             "default": ""
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "default": ""
           }
         },
         "type": "object",
@@ -8337,6 +8438,12 @@
             "type": "string",
             "maxLength": 500,
             "title": "Other Help",
+            "default": ""
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "title": "Email",
             "default": ""
           }
         },
@@ -11342,6 +11449,51 @@
         ],
         "title": "LanguageSetting"
       },
+      "LinkAsked": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "LinkAsked"
+      },
+      "LinkRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "LinkRequest"
+      },
+      "LinkSignIn": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Token"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "name"
+        ],
+        "title": "LinkSignIn"
+      },
       "ListedFolder": {
         "properties": {
           "path": {
@@ -14168,6 +14320,25 @@
           "url"
         ],
         "title": "SignInPage"
+      },
+      "SignInWays": {
+        "properties": {
+          "setup": {
+            "type": "boolean",
+            "title": "Setup"
+          },
+          "email_link": {
+            "type": "boolean",
+            "title": "Email Link"
+          }
+        },
+        "type": "object",
+        "required": [
+          "setup",
+          "email_link"
+        ],
+        "title": "SignInWays",
+        "description": "How a browser that isn't paired can sign in."
       },
       "SignedIn": {
         "properties": {

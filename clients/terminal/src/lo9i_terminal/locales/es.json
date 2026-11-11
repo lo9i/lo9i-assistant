@@ -1110,5 +1110,6 @@
   "The password to sign in to {host}: ": "La contraseña para iniciar sesión en {host}: ",
   "To do there:": "Para hacer allí:",
   "lo9i runs on {host} with this computer's data.": "lo9i funciona en {host} con los datos de esta computadora.",
-  "{host} as {plugin} keeps it ({address}).": "{host} como lo guarda {plugin} ({address})."
+  "{host} as {plugin} keeps it ({address}).": "{host} como lo guarda {plugin} ({address}).",
+  "Your email (links to sign in on a new browser go here)": "Tu correo (aquí llegan los enlaces para iniciar sesión en un navegador nuevo)"
 }

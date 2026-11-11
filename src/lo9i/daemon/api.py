@@ -176,6 +176,7 @@ from lo9i.daemon.migration import EXPORTS, add_migration_routes
 from lo9i.daemon.passkeys import add_passkey_routes
 from lo9i.daemon.runs import Run, RunHub
 from lo9i.daemon.shutdown import Ending
+from lo9i.daemon.sign_in import add_sign_in_routes
 from lo9i.daemon.voice_calls import VoiceCalls
 from lo9i.daemon.web_ui import BUILD_DIR, add_web_ui, frame_ancestors, is_web_ui
 from lo9i.protocol import (
@@ -572,9 +573,10 @@ class AboutYouAnswers(BaseModel):
     reply_length: ReplyLength | None = None
     help_with: list[HelpTopic] = Field(default_factory=list)
     other_help: str = Field(default="", max_length=500)
+    email: str = Field(default="", max_length=320)
 
     def answers(self) -> AboutYou:
-        return AboutYou(self.name, self.language, self.reply_length, self.help_with, self.other_help)
+        return AboutYou(self.name, self.language, self.reply_length, self.help_with, self.other_help, self.email)
 
 
 @dataclass(frozen=True)
@@ -769,6 +771,7 @@ def create_app(
     follows = StreamFollows()
     add_device_routes(app, service, streams)
     add_passkey_routes(app, service)
+    add_sign_in_routes(app, service)
     _add_client_routes(app, service, clients, streams, follows)
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)
@@ -862,10 +865,10 @@ _Answering = Annotated[Texts, Depends(_answering)]
 
 
 def _require_known_host(app: FastAPI) -> None:
-    """Rejects network requests that name a host other than localhost or HTTPS_HOST. A site that
+    """Rejects network requests that name a host other than localhost or the HTTPS listener's names. A site that
     points its domain at the daemon's address is same-origin with it, so the client header alone
     wouldn't stop its pages. The Unix socket has no browser behind it."""
-    known = _LOCAL_HOSTS | ({settings.https_host} if settings.https_host else set())
+    known = _LOCAL_HOSTS | set(settings.https_hosts)
 
     @app.middleware("http")
     async def check(request: Request, call_next):

@@ -51,6 +51,7 @@ def isolated_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "daemon_socket": tmp_path / "daemon.sock",
         "restart_pending_path": tmp_path / "restart-pending.json",
         "secrets_key_path": tmp_path / "keys" / "secrets.key",
+        "setup_code_path": tmp_path / "setup-code",
     }.items():
         monkeypatch.setattr(settings, name, str(value))
     # Defaults, whatever the developer's .env says.

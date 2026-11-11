@@ -1,6 +1,6 @@
 """The About you step (core/memory/about_you.py), shown when the app opens while the profile has no name, and with
-/about-you: the user's name, how to reply and what they mainly want help with, saved to the profile at once. Then
-the extras' plugins for what they picked, each installed only when they pick it, with the usual install."""
+/about-you: the user's name, their email, how to reply and what they mainly want help with, saved to the profile at
+once. Then the extras' plugins for what they picked, each installed only when they pick it, with the usual install."""
 
 from typing import ClassVar
 
@@ -56,6 +56,8 @@ class AboutYouScreen(ModalScreen[list[Suggested] | None]):
             yield Input(id="about-you-name", max_length=200)
             yield Static(t("Language for replies"), classes="about-you-label")
             yield Input(placeholder=t("For example English or Spanish"), id="about-you-language", max_length=100)
+            yield Static(t("Your email (links to sign in on a new browser go here)"), classes="about-you-label")
+            yield Input(id="about-you-email", max_length=320)
             yield Static(t("Replies"), classes="about-you-label")
             yield RadioSet(*[RadioButton(t(label)) for label in _LENGTHS.values()], id="about-you-length")
             yield Static(t("What do you mainly want help with? (space picks)"), classes="about-you-label")
@@ -75,6 +77,7 @@ class AboutYouScreen(ModalScreen[list[Suggested] | None]):
         self.query_one("#about-you-name", Input).value = answers.name
         self.query_one("#about-you-language", Input).value = answers.language
         self.query_one("#about-you-other", Input).value = answers.other_help
+        self.query_one("#about-you-email", Input).value = answers.email
         buttons = list(self.query_one("#about-you-length", RadioSet).query(RadioButton))
         buttons[list(_LENGTHS).index(answers.reply_length)].value = True
         topics = self.query_one("#about-you-help", SelectionList)
@@ -106,6 +109,7 @@ class AboutYouScreen(ModalScreen[list[Suggested] | None]):
             list(_LENGTHS)[pressed] if pressed >= 0 else None,
             [topic for topic in _TOPICS if topic in picked],
             self.query_one("#about-you-other", Input).value.strip(),
+            self.query_one("#about-you-email", Input).value.strip(),
         )
 
     async def _say(self, text: str) -> None:

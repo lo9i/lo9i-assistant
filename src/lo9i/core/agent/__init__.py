@@ -3,9 +3,9 @@
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
 alerts, doctor, the setup check, notifications, home, follow-ups, held runs, tasks, background subagents,
-repositories, model, devices, passkeys, identity, prompts, speech, log level, language, web search, skills, skill
-imports, pinned skills, a conversation's own model, jobs, proactive (briefing, reviews, open loops), usage, live voice
-calls, messaging, runs and locking.
+repositories, model, sign-in links, devices, passkeys, identity, prompts, speech, log level, language, web search,
+skills, skill imports, pinned skills, a conversation's own model, jobs, proactive (briefing, reviews, open loops),
+usage, live voice calls, messaging, runs and locking.
 """
 
 from lo9i.core.agent.about_you import AboutYou, AboutYouStatus, Suggested

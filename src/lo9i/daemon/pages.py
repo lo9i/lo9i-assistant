@@ -237,5 +237,5 @@ def _web_app_origins(offset: int = 0) -> list[str]:
     port = settings.daemon_port + offset
     origins = [f"http://127.0.0.1:{port}", f"http://localhost:{port}"]
     if https.enabled():
-        origins.append(f"https://{settings.https_host}:{settings.https_port + offset}")
+        origins += [f"https://{host}:{settings.https_port + offset}" for host in settings.https_hosts]
     return origins
