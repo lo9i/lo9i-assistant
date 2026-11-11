@@ -44,3 +44,19 @@ async def test_a_session_is_listed_read_written_to_stopped_and_removed(http, ser
     assert (await http.get(f"/conversations/{session.thread_id}/tasks/{session_id}")).status_code == 404
     with pytest.raises(SessionNotFoundError):
         await client.tasks.message(session.thread_id, session_id, "hello?")
+
+
+async def test_every_conversations_sessions_are_listed_with_their_conversation(http, service, script, tmp_path):
+    client = DaemonClient(http)
+    for name in ("a", "b"):
+        (tmp_path / name).mkdir()
+    first = await _started(service, script, tmp_path / "a", "sleep", title="First")
+    second = await _started(service, script, tmp_path / "b", "sleep", title="Second")
+    listed = await client.tasks.everywhere()
+    assert {(s.title, s.thread_id) for s in listed} == {("First", first.thread_id), ("Second", second.thread_id)}
+    assert [s.started_at for s in listed] == sorted((s.started_at for s in listed), reverse=True)
+    found = {s.thread_id: s for s in listed}
+    details = await client.tasks.session(first.thread_id, found[first.thread_id].id)
+    assert (details.session.thread_id, [t.asked for t in details.turns]) == (first.thread_id, ["sleep"])
+    for session in (first, second):
+        await client.tasks.stop(session.thread_id, found[session.thread_id].id)

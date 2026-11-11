@@ -1061,6 +1061,7 @@ class AssistantApp(App):
         """/subagents shows this conversation's; /subagents all every conversation's."""
         screen = SubagentsScreen(
             self._service.subagents,
+            self._service.tasks,
             self._service.conversations,
             self._live.session.thread_id,
             _screen_for,

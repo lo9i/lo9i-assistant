@@ -954,9 +954,9 @@
   "Answer": "Responder",
   "Answer:": "Respuesta:",
   "Asks: {what}": "Pide: {what}",
-  "Background subagents": "Subagentes en segundo plano",
+  "Subagents and coding agents": "Subagentes y agentes de código",
   "It doesn't wait for that any more.": "Ya no espera eso.",
-  "None in this conversation. The assistant sends them off for long work, to go on talking.": "Ninguno en esta conversación. El asistente los envía para trabajos largos, para seguir conversando.",
+  "None in this conversation. The assistant sends subagents and coding agents off for long work, to go on talking.": "Ninguno en esta conversación. El asistente envía subagentes y agentes de código a hacer trabajos largos, para seguir conversando.",
   "Now: {step}": "Ahora: {step}",
   "Steps:": "Pasos:",
   "What went wrong:": "Qué salió mal:",
@@ -969,8 +969,8 @@
   "No subagent with that number.": "No hay ningún subagente con ese número.",
   "/import-skills <numbers> imports them (like 1 3 5-7); add replace to replace yours.": "/import-skills <números> las importa (como 1 3 5-7); agrega replace para reemplazar las tuyas.",
   "All / this conversation": "Todas / esta conversación",
-  "Background subagents in every conversation": "Subagentes en segundo plano de todas las conversaciones",
-  "None yet. The assistant sends them off for long work, to go on talking.": "Ninguno todavía. El asistente los envía para trabajos largos, para seguir conversando.",
+  "Subagents and coding agents in every conversation": "Subagentes y agentes de código de todas las conversaciones",
+  "None yet. The assistant sends subagents and coding agents off for long work, to go on talking.": "Ninguno todavía. El asistente envía subagentes y agentes de código a hacer trabajos largos, para seguir conversando.",
   "This conversation": "Esta conversación",
   "All conversations": "Todas las conversaciones",
   "This conversation's background subagents, what each is doing; /subagents all: every conversation's": "Los subagentes en segundo plano de esta conversación, qué hace cada uno; /subagents all: los de todas",
@@ -1111,5 +1111,7 @@
   "To do there:": "Para hacer allí:",
   "lo9i runs on {host} with this computer's data.": "lo9i funciona en {host} con los datos de esta computadora.",
   "{host} as {plugin} keeps it ({address}).": "{host} como lo guarda {plugin} ({address}).",
-  "Your email (links to sign in on a new browser go here)": "Tu correo (aquí llegan los enlaces para iniciar sesión en un navegador nuevo)"
+  "Your email (links to sign in on a new browser go here)": "Tu correo (aquí llegan los enlaces para iniciar sesión en un navegador nuevo)",
+  "In {folder}": "En {folder}",
+  "You: {text}": "Tú: {text}"
 }

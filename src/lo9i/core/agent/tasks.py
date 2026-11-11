@@ -96,6 +96,10 @@ class TasksMixin(ServiceBase):
         """The coding agents' sessions started from the conversation, shown beside it, oldest first."""
         return await self.tasks_beside.listed(user_id, thread_id)
 
+    async def every_task_session(self, user_id: str) -> list[TaskSession]:
+        """Every conversation's coding agents' sessions, the newest first."""
+        return await self.tasks_beside.everywhere(user_id)
+
     async def task_session(self, user_id: str, thread_id: str, session_id: str) -> TaskSessionDetails:
         """Raises SessionNotFoundError for an unknown one."""
         return await self.tasks_beside.details(user_id, thread_id, session_id)

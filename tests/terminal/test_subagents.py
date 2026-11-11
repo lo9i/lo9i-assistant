@@ -7,7 +7,17 @@ from types import SimpleNamespace
 
 from textual.widgets import Button, OptionList, Static
 
-from lo9i.core.agent import BackgroundStep, BackgroundSubagent, Conversation, Session
+from lo9i.core.agent import (
+    BackgroundStep,
+    BackgroundSubagent,
+    Conversation,
+    Session,
+    TaskSession,
+    TaskSessionDetails,
+    TaskStep,
+    TaskTurn,
+)
+from lo9i.core.agent_tasks.records import Status as TaskStatus
 from lo9i.core.background_subagents.records import Status
 from lo9i.core.config import settings
 from lo9i.core.events import ApprovalRequired
@@ -19,9 +29,11 @@ from lo9i_terminal.subagents_text import (
     running_line,
     subagent_detail,
     subagent_line,
+    task_session_detail,
+    task_session_line,
 )
 from lo9i_terminal.tui.screens import ApprovalScreen, SubagentsScreen
-from tests.terminal.conftest import FakeConversations, FakeSubagents, wait_for
+from tests.terminal.conftest import FakeConversations, FakeSubagents, FakeTasks, wait_for
 
 _NOW = datetime(2026, 11, 1, 10, 5, tzinfo=UTC)
 
@@ -40,6 +52,29 @@ def _subagent(thread_id: str, status: Status = "running", **fields) -> Backgroun
         status,
         **values,
     )
+
+
+def _session(
+    thread_id: str, status: TaskStatus = "running", started_at: str = "2026-11-01T10:02:00+00:00"
+) -> TaskSession:
+    return TaskSession(
+        "c1",
+        "claude-code",
+        "Claude Code",
+        "Fix tests",
+        "/src/app",
+        status,
+        started_at,
+        "Bash: npm test",
+        thread_id=thread_id,
+    )
+
+
+def _details(session: TaskSession) -> TaskSessionDetails:
+    steps = [TaskStep("tool", tool="Bash", detail="npm test"), TaskStep("text", text="All green.\nDone.")]
+    turn = TaskTurn("t1", "Fix the failing tests\nin app", False, "done", session.started_at, result="Fixed 2 tests.")
+    turn.steps = steps
+    return TaskSessionDetails(session, [turn], [])
 
 
 def test_a_line_says_its_status_how_long_and_its_task():
@@ -119,12 +154,48 @@ async def test_every_conversations_subagents_show_with_their_conversation_and_op
 async def test_the_plain_repl_lists_every_conversations_subagents_after_their_conversation(capsys):
     subagents, conversations = FakeSubagents(), FakeConversations()
     subagents.items = [_subagent("owner:abc"), _subagent("cli:here")]
-    service = SimpleNamespace(subagents=subagents, conversations=conversations)
+    tasks = FakeTasks()
+    tasks.beside = [_session("owner:abc", "done", started_at="2026-11-01T09:00:00+00:00")]
+    tasks.details["c1"] = _details(tasks.beside[0])
+    service = SimpleNamespace(subagents=subagents, tasks=tasks, conversations=conversations)
     repl = Repl(service, Session("owner", "cli", "cli:here"))  # type: ignore[arg-type]
     await repl._subagents("all")
     shown = capsys.readouterr().out
     assert "1. " in shown and "plan my trip: Find the cheapest flight" in shown
+    assert "3. ✓ finished · plan my trip: Claude Code · Fix tests" in shown
+    await repl._subagents("all 3")
+    assert "In /src/app" in capsys.readouterr().out
     await repl._subagents("")
     assert "plan my trip" not in capsys.readouterr().out
     await repl._subagents("all 1")
     assert "Find the cheapest flight" in capsys.readouterr().out
+
+
+def test_a_coding_session_reads_by_its_agent_title_folder_and_tasks():
+    assert task_session_line(_session("t1"), _NOW, "trip") == "… working · 3m · trip: Claude Code · Fix tests"
+    assert task_session_line(_session("t1", "done")) == "✓ finished · Claude Code · Fix tests"
+    detail = task_session_detail(_details(_session("t1", "done")))
+    assert detail.startswith("Claude Code · Fix tests\nIn /src/app\nfinished")
+    assert "✓ Fix the failing tests\n  Bash: npm test\n  All green." in detail
+    assert detail.endswith("Answer:\nFixed 2 tests.")
+
+
+async def test_coding_sessions_show_with_the_subagents_newest_first_and_stop(app, client):
+    async with app.run_test(size=(140, 40)) as pilot:
+        client.conversations.items.append(Conversation("owner:taxes", "file my taxes", "", ""))
+        session = _session("owner:taxes")
+        client.tasks.beside = [session]
+        client.tasks.details[session.id] = _details(session)
+        client.subagents.items = [_subagent("owner:taxes")]
+        await pilot.click("#prompt")
+        await pilot.press(*"/subagents all", "enter")
+        await wait_for(pilot, lambda: isinstance(app.screen, SubagentsScreen))
+        screen = app.screen
+        options = screen.query_one("#subagents-list", OptionList)
+        await wait_for(pilot, lambda: options.option_count == 2)
+        assert "file my taxes: Claude Code · Fix tests" in str(options.get_option_at_index(0).prompt)
+        detail = screen.query_one("#subagents-detail", Static)
+        await wait_for(pilot, lambda: "In /src/app" in str(detail.render()))
+        assert screen.query_one("#stop").display and not screen.query_one("#answer").display
+        screen.query_one("#stop", Button).press()
+        await wait_for(pilot, lambda: client.tasks.stopped == [("owner:taxes", "c1")])

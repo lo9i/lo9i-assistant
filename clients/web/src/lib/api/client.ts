@@ -936,6 +936,11 @@ export class TasksGroup {
     return this.transport.request("GET", "/agent-tasks/running");
   }
 
+  /** Every conversation's sessions, the newest first, each with the conversation that started it. */
+  everywhere(): Promise<TaskSession[]> {
+    return this.transport.request("GET", "/agent-tasks/sessions");
+  }
+
   /** The conversation's sessions, oldest first. */
   sessions(threadId: string): Promise<TaskSession[]> {
     return this.transport.request("GET", `/conversations/${encodeURIComponent(threadId)}/tasks`);

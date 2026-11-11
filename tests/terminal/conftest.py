@@ -99,6 +99,8 @@ from lo9i.core.agent import (
     SpendingStatus,
     SubagentDetails,
     SubagentError,
+    TaskSession,
+    TaskSessionDetails,
     TokenReport,
     UploadedFile,
     UsageReport,
@@ -970,9 +972,28 @@ class FakeLanguage:
 class FakeTasks:
     def __init__(self):
         self.tasks = []
+        # Coding sessions beside conversations, and each one's details by its id.
+        self.beside: list[TaskSession] = []
+        self.details: dict[str, TaskSessionDetails] = {}
+        self.stopped: list[tuple[str, str]] = []
 
     async def running(self):
         return list(self.tasks)
+
+    async def everywhere(self):
+        return list(self.beside)
+
+    async def sessions(self, thread_id):
+        return [s for s in self.beside if s.thread_id == thread_id]
+
+    async def session(self, thread_id, session_id):
+        return self.details[session_id]
+
+    async def stop(self, thread_id, session_id):
+        self.stopped.append((thread_id, session_id))
+
+    async def remove(self, thread_id, session_id):
+        self.beside = [s for s in self.beside if s.id != session_id]
 
 
 class FakeSubagents:

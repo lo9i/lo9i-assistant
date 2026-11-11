@@ -2540,6 +2540,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/agent-tasks/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every Task Session
+         * @description Every conversation's coding agents' sessions, the newest first.
+         */
+        get: operations["every_task_session_agent_tasks_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/conversations/{thread_id}/tasks": {
         parameters: {
             query?: never;
@@ -7293,6 +7313,11 @@ export interface components {
              * @default
              */
             model: string;
+            /**
+             * Thread Id
+             * @default
+             */
+            thread_id: string;
         };
         /** TaskSessionDetails */
         TaskSessionDetails: {
@@ -12145,6 +12170,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunningTask"][];
+                };
+            };
+        };
+    };
+    every_task_session_agent_tasks_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskSession"][];
                 };
             };
         };

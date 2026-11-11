@@ -1746,11 +1746,11 @@
   },
   "subagentsPage": {
     "title": "Background subagents",
-    "hint": "Subagents the assistant sent off to work in the background, in every conversation, newest first. Click one to see it on the right.",
-    "search": "Search by task or conversation",
+    "hint": "What subagents and coding agents like Claude Code work on in the background, in every conversation. Click one to see it on the right.",
+    "search": "Search by task, agent or conversation",
     "none": "None yet",
-    "noneHint": "When the assistant sends a subagent off to work in the background on a long task, it shows up here.",
-    "noneActive": "No active subagents",
+    "noneHint": "When the assistant sends a subagent or a coding agent off on a long task, it shows up here.",
+    "noneActive": "Nothing active",
     "noneActiveHint": "Turn off Active to see the ones that ended too.",
     "status": "Status",
     "task": "Task",
@@ -1759,8 +1759,9 @@
     "ended": "Ended",
     "took": "Time",
     "inbox": "The inbox",
-    "noneSelected": "No subagent selected",
-    "noneSelectedHint": "Pick one to see its steps, what it waits for and its answer."
+    "noneSelected": "Nothing selected",
+    "noneSelectedHint": "Pick one to see its steps, what it waits for and how it ended.",
+    "folder": "Folder"
   },
   "spending": {
     "title": "Spending limits",

@@ -33,6 +33,7 @@ from lo9i.client.daemon_client.skills import SkillsApi
 from lo9i.client.daemon_client.speech import SpeechApi
 from lo9i.client.daemon_client.subagents import SubagentsApi
 from lo9i.client.daemon_client.system import SystemApi
+from lo9i.client.daemon_client.tasks import TasksApi
 from lo9i.client.daemon_client.usage import UsageApi
 from lo9i.client.daemon_client.voice_calls import VoiceCallsApi
 from lo9i.client.daemon_client.web_search import WebSearchApi
@@ -68,6 +69,7 @@ __all__ = [
     "SpeechApi",
     "SubagentsApi",
     "SystemApi",
+    "TasksApi",
     "UsageApi",
     "VoiceCallsApi",
     "WebSearchApi",

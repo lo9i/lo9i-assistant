@@ -109,6 +109,8 @@ class TaskSession:
     context_tokens: int = 0
     context_limit: int = 0
     model: str = ""
+    # The conversation that started it.
+    thread_id: str = ""
 
 
 @dataclass
@@ -148,13 +150,20 @@ class TasksBeside:
 
     async def listed(self, user_id: str, thread_id: str) -> list[TaskSession]:
         """The conversation's sessions, oldest first; not those whose agent's plugin isn't installed now."""
-        listed = [await self._listed(s) for s in await records.of(self._store, user_id, thread_id)]
+        listed = [await self._listed(thread_id, s) for s in await records.of(self._store, user_id, thread_id)]
         return [session for session in listed if session is not None]
+
+    async def everywhere(self, user_id: str) -> list[TaskSession]:
+        """Every conversation's sessions, the newest first; not those whose agent's plugin isn't installed now."""
+        every = (await records.every(self._store, user_id)).items()
+        listed = [await self._listed(thread_id, s) for thread_id, sessions in every for s in sessions]
+        found = [session for session in listed if session is not None]
+        return sorted(found, key=lambda s: s.started_at, reverse=True)
 
     async def details(self, user_id: str, thread_id: str, session_id: str) -> TaskSessionDetails:
         """Raises SessionNotFoundError for an unknown session, or one whose agent's plugin isn't installed now."""
         session = await self._session(user_id, thread_id, session_id)
-        listed = await self._listed(session)
+        listed = await self._listed(thread_id, session)
         if listed is None:
             raise SessionNotFoundError(said("{agent}'s plugin isn't installed now.", agent=session.name))
         turns = [await self._turn(session, task_id) for task_id in session.tasks]
@@ -193,7 +202,7 @@ class TasksBeside:
         async with self._reports.reading(last):
             await self._tasks.stop(last)
             await self._reports.seen(last, None)
-        listed = await self._listed(session)
+        listed = await self._listed(thread_id, session)
         if listed is None:
             raise SessionNotFoundError(said("{agent}'s plugin isn't installed now.", agent=session.name))
         return listed
@@ -355,7 +364,7 @@ class TasksBeside:
     async def _session(self, user_id: str, thread_id: str, session_id: str) -> BesideSession:
         return _found(await records.of(self._store, user_id, thread_id), session_id)
 
-    async def _listed(self, session: BesideSession) -> TaskSession | None:
+    async def _listed(self, thread_id: str, session: BesideSession) -> TaskSession | None:
         first_state, last_state = await self._state(session.tasks[0]), await self._state(session.tasks[-1])
         if first_state is None or last_state is None:
             return None
@@ -373,6 +382,7 @@ class TasksBeside:
             context.tokens,
             context.window,
             context.model,
+            thread_id,
         )
 
     async def _turn(self, session: BesideSession, task_id: str) -> TaskTurn:

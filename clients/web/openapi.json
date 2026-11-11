@@ -5788,6 +5788,29 @@
         }
       }
     },
+    "/agent-tasks/sessions": {
+      "get": {
+        "summary": "Every Task Session",
+        "description": "Every conversation's coding agents' sessions, the newest first.",
+        "operationId": "every_task_session_agent_tasks_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskSession"
+                  },
+                  "type": "array",
+                  "title": "Response Every Task Session Agent Tasks Sessions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{thread_id}/tasks": {
       "get": {
         "summary": "Task Sessions",
@@ -15079,6 +15102,11 @@
           "model": {
             "type": "string",
             "title": "Model",
+            "default": ""
+          },
+          "thread_id": {
+            "type": "string",
+            "title": "Thread Id",
             "default": ""
           }
         },

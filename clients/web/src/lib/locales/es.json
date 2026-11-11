@@ -1746,11 +1746,11 @@
   },
   "subagentsPage": {
     "title": "Subagentes en segundo plano",
-    "hint": "Los subagentes que el asistente puso a trabajar en segundo plano, en todas las conversaciones, los más nuevos primero. Haz clic en uno para verlo a la derecha.",
-    "search": "Buscar por tarea o conversación",
+    "hint": "En qué trabajan en segundo plano los subagentes y los agentes de código como Claude Code, en todas las conversaciones. Haz clic en uno para verlo a la derecha.",
+    "search": "Buscar por tarea, agente o conversación",
     "none": "Ninguno todavía",
-    "noneHint": "Cuando el asistente pone a un subagente a trabajar en segundo plano en una tarea larga, aparece aquí.",
-    "noneActive": "No hay subagentes activos",
+    "noneHint": "Cuando el asistente pone a un subagente o a un agente de código a trabajar en una tarea larga, aparece aquí.",
+    "noneActive": "Nada activo",
     "noneActiveHint": "Desmarca Activos para ver también los que terminaron.",
     "status": "Estado",
     "task": "Tarea",
@@ -1759,8 +1759,9 @@
     "ended": "Terminó",
     "took": "Tiempo",
     "inbox": "La bandeja de entrada",
-    "noneSelected": "Ningún subagente seleccionado",
-    "noneSelectedHint": "Elige uno para ver sus pasos, lo que espera y su respuesta."
+    "noneSelected": "Nada seleccionado",
+    "noneSelectedHint": "Elige uno para ver sus pasos, lo que espera y cómo terminó.",
+    "folder": "Carpeta"
   },
   "spending": {
     "title": "Límites de gasto",

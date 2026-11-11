@@ -9,7 +9,6 @@ from lo9i.client import DaemonClient, DaemonUnavailableError
 from lo9i.client.files import load_attachment
 from lo9i.core.agent import (
     Agent,
-    BackgroundSubagent,
     ConversationError,
     HandoffError,
     Importable,
@@ -18,6 +17,7 @@ from lo9i.core.agent import (
     ModelChangeError,
     Session,
     SkillError,
+    TaskSession,
 )
 from lo9i.core.attachments import Attachment
 from lo9i.core.events import (
@@ -51,7 +51,14 @@ from lo9i_terminal.render import render
 from lo9i_terminal.sessions_text import describe as describe_sessions
 from lo9i_terminal.skill_imports_text import detail, label, numbers, outcome, selectable, suggestions
 from lo9i_terminal.style import GREEN, RESET, YELLOW, code, paint
-from lo9i_terminal.subagents_text import conversation_titles, subagent_detail, subagent_line
+from lo9i_terminal.subagents_text import (
+    Listed,
+    conversation_titles,
+    listed_line,
+    newest_first,
+    subagent_detail,
+    task_session_detail,
+)
 from lo9i_terminal.usage_text import describe as describe_usage
 from lo9i_terminal.usage_text import start_of_today
 from lo9i_terminal.web_search_text import describe as describe_web_search
@@ -218,13 +225,13 @@ class Repl:
         await self._open(items[index].thread_id, items[index].title)
 
     async def _subagents(self, arg: str) -> None:
-        """/subagents lists this conversation's background subagents, numbered, newest first; /subagents all every
-        conversation's, each after its conversation; a number after either shows one's steps and answer. Answering
-        what one waits for needs the full app."""
+        """/subagents lists this conversation's background subagents and coding agents' sessions, numbered, newest
+        first; /subagents all every conversation's, each after its conversation; a number after either shows one's
+        steps and answer. Answering what one waits for needs the full app."""
         words = arg.split()
         everywhere = bool(words) and words[0].lower() == "all"
         number = words[everywhere] if len(words) > everywhere else ""
-        items = await self._service.subagents.list("" if everywhere else self._session.thread_id)
+        items = await self._background_work(everywhere)
         if not number.isdigit():
             print(await self._subagent_lines(items, everywhere) or t("No subagents here."))
             return
@@ -232,12 +239,24 @@ class Repl:
         if not 0 <= index < len(items):
             print(t("No subagent with that number."))
             return
-        details = await self._service.subagents.get(items[index].id)
-        print(subagent_detail(details.subagent, details.steps))
+        print(await self._detail(items[index]))
 
-    async def _subagent_lines(self, items: list[BackgroundSubagent], everywhere: bool) -> str:
+    async def _background_work(self, everywhere: bool) -> list[Listed]:
+        if everywhere:
+            return newest_first(await self._service.subagents.list(), await self._service.tasks.everywhere())
+        thread_id = self._session.thread_id
+        subagents = await self._service.subagents.list(thread_id)
+        return newest_first(subagents, await self._service.tasks.sessions(thread_id))
+
+    async def _detail(self, listed: Listed) -> str:
+        if isinstance(listed, TaskSession):
+            return task_session_detail(await self._service.tasks.session(listed.thread_id, listed.id))
+        details = await self._service.subagents.get(listed.id)
+        return subagent_detail(details.subagent, details.steps)
+
+    async def _subagent_lines(self, items: list[Listed], everywhere: bool) -> str:
         titles = conversation_titles(items, await self._service.conversations.recent()) if everywhere else {}
-        lines = (subagent_line(s, conversation=titles.get(s.thread_id, "")) for s in items)
+        lines = (listed_line(s, conversation=titles.get(s.thread_id, "")) for s in items)
         return "\n".join(f"{i}. {line}" for i, line in enumerate(lines, 1))
 
     async def _open(self, thread_id: str, title: str) -> None:

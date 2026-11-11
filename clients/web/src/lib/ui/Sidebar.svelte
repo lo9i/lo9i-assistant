@@ -37,6 +37,7 @@
   import PluginIcon from "./PluginIcon.svelte";
   import AppUpdate from "./plugins/AppUpdate.svelte";
   import { columnsOf } from "$lib/chat/cardLayout";
+  import { working as taskWorking } from "$lib/chat/codingTasks";
   import { counts } from "$lib/chat/subagents";
   import { conversationLayout } from "$lib/conversationLayout.svelte";
   import { CONVERSATION_DRAG, openBeside, startNewHere } from "./openConversation";
@@ -89,9 +90,11 @@
   // What needs the user (the reminders they asked for), counted until the Notifications page is seen.
   const notifications = resource((c) => c.notifications.list(), ["notifications"]);
   const unread = $derived((notifications.data ?? []).filter((n) => !n.read).length);
-  // Every conversation's background subagents, counted while they work.
+  // Every conversation's background subagents and coding sessions, counted while they work: the Subagents page lists
+  // both. A session's start and end change its conversation's record, a `tasks_beside` event.
   const subagents = resource((c) => c.subagents.list(), ["subagents"]);
-  const subagentsWorking = $derived(counts(subagents.data ?? []).working);
+  const taskSessions = resource((c) => c.tasks.everywhere(), ["tasks_beside"]);
+  const subagentsWorking = $derived(counts(subagents.data ?? []).working + (taskSessions.data ?? []).filter(taskWorking).length);
 
   // Chat is the list of conversations. Under it: the ones open in this tab, side by side, and any other with
   // a reply or a coding task running, whoever started it. Open one to show it; the others keep going. Open beside, or

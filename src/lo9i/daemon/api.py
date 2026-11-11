@@ -2211,6 +2211,11 @@ def _add_task_routes(app: FastAPI, service: AssistantService) -> None:
         """Coding agents' tasks still running, the newest first, with their latest steps."""
         return await service.running_tasks()
 
+    @app.get("/agent-tasks/sessions")
+    async def every_task_session() -> list[TaskSession]:
+        """Every conversation's coding agents' sessions, the newest first."""
+        return await service.every_task_session(settings.owner_id)
+
     @app.get("/conversations/{thread_id}/tasks")
     async def task_sessions(thread_id: str) -> list[TaskSession]:
         """The coding agents' sessions the conversation started, oldest first."""

@@ -16,6 +16,7 @@ const session: TaskSession = {
   context_tokens: 50000,
   context_limit: 200000,
   model: "claude-opus-5-5",
+  thread_id: "t1",
 };
 
 describe("TaskStatus", () => {
