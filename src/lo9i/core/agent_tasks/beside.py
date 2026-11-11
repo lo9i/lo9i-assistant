@@ -111,6 +111,8 @@ class TaskSession:
     model: str = ""
     # The conversation that started it.
     thread_id: str = ""
+    # When its last task ended; "" while it runs.
+    ended_at: str = ""
 
 
 @dataclass
@@ -383,6 +385,7 @@ class TasksBeside:
             context.window,
             context.model,
             thread_id,
+            last_state.ended_at,
         )
 
     async def _turn(self, session: BesideSession, task_id: str) -> TaskTurn:
@@ -393,8 +396,9 @@ class TasksBeside:
         if state.state.status == "running":
             unread = await self._tasks.not_passed_on(task_id)
             turn.unread = [TaskStep("user", str(m.get("text", "")), id=i, waiting=True) for i, m in unread]
+        turn.finished_at = state.state.ended_at
         if outcome is not None:
-            turn.finished_at, turn.result, turn.cost_usd = outcome.finished_at, outcome.text, outcome.cost_usd
+            turn.result, turn.cost_usd = outcome.text, outcome.cost_usd
         return turn
 
     async def _state(self, task_id: str) -> TaskState | None:

@@ -2,6 +2,8 @@
 // them: which work, which wait for the user and what for, the conversation each works for, and one's steps kept
 // current from the `subagent_step` events that bring each as it starts and finishes.
 import type { ApprovalRequest, ApprovalRequired, BackgroundStep, BackgroundSubagent, Conversation } from "$lib/api/types";
+import { duration } from "$lib/duration";
+import { localTime } from "$lib/health";
 import { t } from "$lib/i18n.svelte";
 
 /** Still at it: working, or waiting for the user's answer. */
@@ -50,4 +52,22 @@ export function doing(subagent: BackgroundSubagent): string {
 /** The title of the conversation one works for, among those listed; untitled while it has none. */
 export function conversationTitle(threadId: string, conversations: Pick<Conversation, "thread_id" | "title">[]): string {
   return conversations.find((c) => c.thread_id === threadId)?.title || t("common.untitled");
+}
+
+/** When one worked, in a line: its start and, once it ended, its end (the time alone when it ended the same day) and
+ * how long it took: "Sat 03 Oct 19:41 → 20:05 · 24 min". */
+export function worked(startedAt: string, endedAt: string, timezone = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
+  const start = localTime(startedAt, timezone);
+  if (!endedAt) return start;
+  const end = day(startedAt, timezone) === day(endedAt, timezone) ? clockTime(endedAt, timezone) : localTime(endedAt, timezone);
+  return `${start} → ${end} · ${duration(startedAt, endedAt)}`;
+}
+
+function day(timestamp: string, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { dateStyle: "short", timeZone: timezone }).format(new Date(timestamp));
+}
+
+function clockTime(timestamp: string, timezone: string): string {
+  const options = { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: timezone } as const;
+  return new Intl.DateTimeFormat("en-GB", options).format(new Date(timestamp));
 }

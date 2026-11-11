@@ -17,6 +17,7 @@ function session(id: string, status: TaskSession["status"], started_at = "2026-1
     context_limit: 0,
     model: "",
     thread_id: "t1",
+    ended_at: "",
   };
 }
 

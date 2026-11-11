@@ -99,6 +99,9 @@ class TaskState:
     outcome: Outcome | None
     # The last steps in progress.log, as written, without the words streamed before their whole block.
     progress: list[str]
+    # When it ended (ISO 8601): as its worker said, else when it was stopped or its result written; "" while it runs
+    # and for one whose worker ended without a trace.
+    ended_at: str = ""
 
 
 @dataclass(frozen=True)
@@ -152,7 +155,9 @@ class TaskStore:
         outcome, alive = self._ended(task)
         steps = [line for line in _tail(folder / _PROGRESS, None) if not streamed(line)]
         progress = steps[-progress_lines:] if progress_lines else []
-        return TaskState(task, self._status(task, outcome, alive), outcome, progress)
+        status = self._status(task, outcome, alive)
+        ended_at = "" if status == "running" else self._ended_at(task_id, outcome)
+        return TaskState(task, status, outcome, progress, ended_at)
 
     def context(self, task_id: str) -> Context | None:
         """How full the agent's context is as the task last said, while it runs too; before it says, as the
@@ -260,6 +265,16 @@ class TaskStore:
         if self._alive(task):
             return None, True
         return _read_outcome(path), False
+
+    def _ended_at(self, task_id: str, outcome: Outcome | None) -> str:
+        if outcome is not None and outcome.finished_at:
+            return outcome.finished_at
+        folder = self.folder(task_id)
+        with contextlib.suppress(FileNotFoundError):
+            return (folder / _STOPPED).read_text().strip()
+        with contextlib.suppress(FileNotFoundError):
+            return datetime.fromtimestamp((folder / _RESULT).stat().st_mtime, UTC).isoformat(timespec="seconds")
+        return ""
 
     def _status(self, task: Task, outcome: Outcome | None, alive: bool) -> Status:
         if (self.folder(task.id) / _STOPPED).exists():

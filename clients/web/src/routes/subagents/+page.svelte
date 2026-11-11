@@ -3,7 +3,7 @@
   import Bot from "@lucide/svelte/icons/bot";
   import type { BackgroundSubagent, TaskSession } from "$lib/api/types";
   import { working as taskWorking } from "$lib/chat/codingTasks";
-  import { conversationTitle, doing, taskTitle, working } from "$lib/chat/subagents";
+  import { conversationTitle, doing, taskTitle, working, worked } from "$lib/chat/subagents";
   import { clock } from "$lib/clock.svelte";
   import { resource, useDaemon } from "$lib/daemon.svelte";
   import { duration } from "$lib/duration";
@@ -121,8 +121,8 @@
           <thead
             ><tr
               ><th>{t("subagentsPage.status")}</th><th>{t("subagentsPage.task")}</th><th>{t("subagentsPage.conversation")}</th><th
-                class="hide-narrow">{t("subagentsPage.started")}</th
-              ><th class="hide-narrow">{t("subagentsPage.ended")}</th></tr
+                class="hide-narrow">{t("subagentsPage.when")}</th
+              ></tr
             ></thead
           >
           <tbody>
@@ -138,8 +138,7 @@
                     {#if doing(s)}<span class="doing text-caption" title={doing(s)}>{doing(s)}</span>{/if}
                   </td>
                   <td class="conversation">{@render conversation(s.thread_id)}</td>
-                  <td class="text-label hide-narrow">{localTime(s.started_at)}</td>
-                  <td class="text-label hide-narrow">{s.ended_at ? localTime(s.ended_at) : ""}</td>
+                  <td class="when text-label hide-narrow">{worked(s.started_at, s.ended_at)}</td>
                 {:else}
                   {@const s = r.session}
                   <td>
@@ -152,12 +151,11 @@
                     <span class="doing text-caption" title={s.repository}>{folder(s)}{s.step ? ` · ${s.step}` : ""}</span>
                   </td>
                   <td class="conversation">{@render conversation(s.thread_id)}</td>
-                  <td class="text-label hide-narrow">{localTime(s.started_at)}</td>
-                  <td class="hide-narrow"></td>
+                  <td class="when text-label hide-narrow">{worked(s.started_at, s.ended_at)}</td>
                 {/if}
               </tr>
             {:else}
-              <tr><td colspan="5" class="text-meta">{t("common.noMatches")}</td></tr>
+              <tr><td colspan="4" class="text-meta">{t("common.noMatches")}</td></tr>
             {/each}
           </tbody>
         </table>
@@ -195,6 +193,12 @@
           <dd class="where" title={session.repository}>{folder(session)}</dd>
           <dt class="micro-label">{t("subagentsPage.started")}</dt>
           <dd>{localTime(session.started_at)}</dd>
+          {#if session.ended_at}
+            <dt class="micro-label">{t("subagentsPage.ended")}</dt>
+            <dd>{localTime(session.ended_at)}</dd>
+          {/if}
+          <dt class="micro-label">{t("subagentsPage.took")}</dt>
+          <dd>{duration(session.started_at, session.ended_at || time.now)}</dd>
         </dl>
         <div class="actions">
           {#if taskWorking(session)}
@@ -340,6 +344,9 @@
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .when {
     white-space: nowrap;
   }
   .doing,

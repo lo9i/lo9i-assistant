@@ -2,6 +2,7 @@
 one's steps and answer, answering what one waits for, opening the conversation one works for, and a notice when one
 waits for the user."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -31,6 +32,7 @@ from lo9i_terminal.subagents_text import (
     subagent_line,
     task_session_detail,
     task_session_line,
+    worked,
 )
 from lo9i_terminal.tui.screens import ApprovalScreen, SubagentsScreen
 from tests.terminal.conftest import FakeConversations, FakeSubagents, FakeTasks, wait_for
@@ -94,6 +96,8 @@ def test_its_detail_says_its_context_and_model_calls_and_when_each_step_was_aske
     assert context_line(_subagent("t1")) == "Context: \u2013 · Model calls: 0"
     step = BackgroundStep(0, "c1", "bash", {"command": "ls"}, "a\n", True, at="2026-11-01T10:01:00+00:00")
     assert "✓ 10:01 bash ls" in subagent_detail(subagent, [step], _NOW)
+    ended = _subagent("t1", "done", ended_at="2026-11-01T10:05:00+00:00")
+    assert "Sun 01 Nov 10:00 → 10:05" in subagent_detail(ended, [], _NOW)
     assert "✓ 01 Nov 10:01 bash ls" in subagent_detail(subagent, [step], datetime(2026, 11, 2, tzinfo=UTC))
 
 
@@ -171,11 +175,15 @@ async def test_the_plain_repl_lists_every_conversations_subagents_after_their_co
     assert "Find the cheapest flight" in capsys.readouterr().out
 
 
-def test_a_coding_session_reads_by_its_agent_title_folder_and_tasks():
+def test_a_coding_session_reads_by_its_agent_title_folder_and_tasks(monkeypatch):
+    monkeypatch.setattr(settings, "timezone", "UTC")
     assert task_session_line(_session("t1"), _NOW, "trip") == "… working · 3m · trip: Claude Code · Fix tests"
-    assert task_session_line(_session("t1", "done")) == "✓ finished · Claude Code · Fix tests"
-    detail = task_session_detail(_details(_session("t1", "done")))
-    assert detail.startswith("Claude Code · Fix tests\nIn /src/app\nfinished")
+    ended = replace(_session("t1", "done"), ended_at="2026-11-01T10:26:00+00:00")
+    assert task_session_line(ended) == "✓ finished · 24m · Claude Code · Fix tests"
+    assert task_session_line(_session("t1", "failed")) == "✗ failed · Claude Code · Fix tests"
+    assert worked(replace(ended, ended_at="2026-11-02T00:10:00+00:00")) == "Sun 01 Nov 10:02 → Mon 02 Nov 00:10"
+    detail = task_session_detail(_details(ended))
+    assert detail.startswith("Claude Code · Fix tests\nIn /src/app\nfinished · 24m\nSun 01 Nov 10:02 → 10:26")
     assert "✓ Fix the failing tests\n  Bash: npm test\n  All green." in detail
     assert detail.endswith("Answer:\nFixed 2 tests.")
 

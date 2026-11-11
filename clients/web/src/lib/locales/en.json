@@ -1757,6 +1757,7 @@
     "conversation": "Conversation",
     "started": "Started",
     "ended": "Ended",
+    "when": "When",
     "took": "Time",
     "inbox": "The inbox",
     "noneSelected": "Nothing selected",

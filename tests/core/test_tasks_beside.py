@@ -84,6 +84,8 @@ async def test_a_task_started_in_a_conversation_runs_beside_it_and_the_conversat
     assert 'Claude Code, "Fix tests" in' in note and "task_status reads one's steps" in note
     (tmp_path / "release").touch()
     await _until(lambda: _status(service, session, "done"))
+    [ended] = await service.task_sessions("owner", session.thread_id)
+    assert ended.ended_at >= ended.started_at
 
 
 async def test_its_steps_show_beside_the_conversation_as_they_come(service, script, tmp_path):

@@ -7318,6 +7318,11 @@ export interface components {
              * @default
              */
             thread_id: string;
+            /**
+             * Ended At
+             * @default
+             */
+            ended_at: string;
         };
         /** TaskSessionDetails */
         TaskSessionDetails: {

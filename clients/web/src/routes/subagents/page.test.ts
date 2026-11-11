@@ -45,6 +45,7 @@ function codingSession(id: string, threadId: string, status: TaskSession["status
     context_limit: 0,
     model: "",
     thread_id: threadId,
+    ended_at: "",
     ...fields,
   };
 }
@@ -65,7 +66,9 @@ const client = {
 
 vi.mock("$app/navigation", () => ({ goto: vi.fn() }));
 vi.mock("$app/paths", () => ({ resolve: (path: string) => `/app${path}` }));
-vi.mock("$app/state", () => ({ page: { url: new URL("http://localhost/app/subagents") } }));
+// A link to one (?id=) lists those that ended too.
+const shownAt = vi.hoisted(() => ({ url: new URL("http://localhost/app/subagents") }));
+vi.mock("$app/state", () => ({ page: shownAt }));
 vi.mock("$lib/daemon.svelte", () => ({
   resource: (load: (c: typeof client) => unknown) => ({ data: load(client) }),
   useDaemon: () => ({
@@ -81,6 +84,7 @@ const { default: Page } = await import("./+page.svelte");
 describe("Subagents page", () => {
   beforeEach(() => {
     listed.sessions = [];
+    shownAt.url = new URL("http://localhost/app/subagents");
   });
 
   it("lists every conversation's active subagents with their status, task and conversation", () => {
@@ -119,7 +123,7 @@ describe("Subagents page", () => {
     listed.subagents = [subagent("a", "t1", "running")];
     listed.sessions = [
       codingSession("s1", "t2", "running", { step: "Bash: npm test" }),
-      codingSession("s2", "t1", "done", { started_at: "2026-11-01T12:00:00Z" }),
+      codingSession("s2", "t1", "done", { started_at: "2026-11-01T12:00:00Z", ended_at: "2026-11-01T12:24:00Z" }),
     ];
     const { body } = render(Page);
     expect(body).toMatch(/Claude Code<\/span>Session s1<\/button>[\s\S]*Task a<\/button>/);
@@ -137,5 +141,14 @@ describe("Subagents page", () => {
     const { body } = render(Page);
     expect(body).not.toContain("None yet");
     expect(body).toContain("Nothing active");
+  });
+
+  it("says when one that ended ended and how long it took, in the same column as its start", () => {
+    listed.subagents = [subagent("b", "t2", "done", { ended_at: "2026-11-01T10:05:00Z" })];
+    listed.sessions = [codingSession("s1", "t1", "running")];
+    shownAt.url = new URL("http://localhost/app/subagents?id=b");
+    const { body } = render(Page);
+    expect(body).toMatch(/Session s1<\/button>[^→]*Task b<\/button>/);
+    expect(body).toMatch(/Task b<\/button>[\s\S]*?→ [^<]* · 5 min<\/td>/);
   });
 });

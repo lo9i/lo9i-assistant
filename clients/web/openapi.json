@@ -15108,6 +15108,11 @@
             "type": "string",
             "title": "Thread Id",
             "default": ""
+          },
+          "ended_at": {
+            "type": "string",
+            "title": "Ended At",
+            "default": ""
           }
         },
         "type": "object",

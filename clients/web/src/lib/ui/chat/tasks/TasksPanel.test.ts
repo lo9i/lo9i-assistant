@@ -22,6 +22,7 @@ function session(id: string, status: TaskSession["status"], title: string): Task
     context_limit: 0,
     model: "",
     thread_id: "t1",
+    ended_at: "",
   };
 }
 

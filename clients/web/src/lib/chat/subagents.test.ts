@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackgroundStep, BackgroundSubagent } from "$lib/api/types";
-import { asked, conversationTitle, counts, doing, taskTitle, withStep, working } from "./subagents";
+import { asked, conversationTitle, counts, doing, taskTitle, withStep, worked, working } from "./subagents";
 
 function subagent(status: BackgroundSubagent["status"], waiting: BackgroundSubagent["waiting"] = []): BackgroundSubagent {
   return {
@@ -71,5 +71,16 @@ describe("background subagents", () => {
     expect(conversationTitle("t1", listed)).toBe("Flights to Rome");
     expect(conversationTitle("t2", listed)).toBe("Untitled");
     expect(conversationTitle("gone", listed)).toBe("Untitled");
+  });
+});
+
+describe("worked", () => {
+  it("says only the start while it works, its end's time and how long once it ended the same day", () => {
+    expect(worked("2026-11-01T19:41:00Z", "", "UTC")).toBe("Sun 01 Nov 19:41");
+    expect(worked("2026-11-01T19:41:00Z", "2026-11-01T20:05:30Z", "UTC")).toBe("Sun 01 Nov 19:41 → 20:05 · 24 min");
+  });
+
+  it("dates its end when it ended another day", () => {
+    expect(worked("2026-11-01T23:50:00Z", "2026-11-02T00:20:00Z", "UTC")).toBe("Sun 01 Nov 23:50 → Mon 02 Nov 00:20 · 30 min");
   });
 });

@@ -36,7 +36,8 @@ async def test_a_session_is_listed_read_written_to_stopped_and_removed(http, ser
     assert await client.tasks.message(session.thread_id, session_id, "and the docs") == "later"
     with pytest.raises(TasksBesideError):
         await client.tasks.remove(session.thread_id, session_id)
-    assert (await client.tasks.stop(session.thread_id, session_id)).status == "stopped"
+    stopped = await client.tasks.stop(session.thread_id, session_id)
+    assert stopped.status == "stopped" and stopped.ended_at >= stopped.started_at
     # What it couldn't take goes on as its next task.
     await _until(lambda: _turns(service, session, session_id, 2, "done"))
     await client.tasks.remove(session.thread_id, session_id)
@@ -55,6 +56,7 @@ async def test_every_conversations_sessions_are_listed_with_their_conversation(h
     listed = await client.tasks.everywhere()
     assert {(s.title, s.thread_id) for s in listed} == {("First", first.thread_id), ("Second", second.thread_id)}
     assert [s.started_at for s in listed] == sorted((s.started_at for s in listed), reverse=True)
+    assert [s.ended_at for s in listed] == ["", ""]
     found = {s.thread_id: s for s in listed}
     details = await client.tasks.session(first.thread_id, found[first.thread_id].id)
     assert (details.session.thread_id, [t.asked for t in details.turns]) == (first.thread_id, ["sleep"])

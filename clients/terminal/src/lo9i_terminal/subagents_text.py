@@ -74,18 +74,17 @@ def listed_line(listed: Listed, now: datetime | None = None, conversation: str =
 def task_session_line(session: TaskSession, now: datetime | None = None, conversation: str = "") -> str:
     """Its status, how long while it works, and its agent and title, after the conversation that started it when
     given."""
-    took = f" · {_since(session.started_at, '', now)}" if session.status == "running" else ""
     working_for = f"{_cut(conversation, _CONVERSATION)}: " if conversation else ""
     title = _cut(f"{session.name} · {session.title}", _TASK)
-    return f"{_MARK.get(session.status, '·')} {status(session)}{took} · {working_for}{title}"
+    return f"{_MARK.get(session.status, '·')} {status(session)}{_took(session, now)} · {working_for}{title}"
 
 
 def task_session_detail(details: TaskSessionDetails, now: datetime | None = None) -> str:
     """Its agent, title and folder, status, what it's doing, and each of its tasks: what it was asked, its steps and
     how it ended."""
     session = details.session
-    took = f" · {_since(session.started_at, '', now)}" if session.status == "running" else ""
-    lines = [f"{session.name} · {session.title}", t("In {folder}", folder=session.repository), status(session) + took]
+    lines = [f"{session.name} · {session.title}", t("In {folder}", folder=session.repository)]
+    lines += [status(session) + _took(session, now), worked(session, now)]
     if session.step:
         lines.append(t("Now: {step}", step=session.step))
     for turn in details.turns:
@@ -94,6 +93,24 @@ def task_session_detail(details: TaskSessionDetails, now: datetime | None = None
         if turn.result:
             lines += ["", t("Answer:") if turn.status == "done" else t("What went wrong:"), turn.result]
     return "\n".join(lines)
+
+
+def _took(session: TaskSession, now: datetime | None) -> str:
+    """How long it worked, or has been at it; nothing for one that ended without saying when."""
+    if session.status != "running" and not session.ended_at:
+        return ""
+    return f" · {_since(session.started_at, session.ended_at, now)}"
+
+
+def worked(listed: Listed, now: datetime | None = None) -> str:
+    """When it started and, once it ended, when it ended, the time alone on the same day: Sun 01 Nov 19:41 → 20:05."""
+    zone = ZoneInfo(settings.timezone)
+    started = datetime.fromisoformat(listed.started_at).astimezone(zone)
+    shown = started.strftime("%a %d %b %H:%M")
+    if not listed.ended_at:
+        return shown
+    ended = datetime.fromisoformat(listed.ended_at).astimezone(zone)
+    return f"{shown} → {ended.strftime('%H:%M' if ended.date() == started.date() else '%a %d %b %H:%M')}"
 
 
 def _task_step_line(step: TaskStep) -> str:
@@ -114,7 +131,8 @@ def conversation_titles(subagents: Sequence[Listed], conversations: list[Convers
 
 def subagent_detail(subagent: BackgroundSubagent, steps: list[BackgroundStep], now: datetime | None = None) -> str:
     """Its task, status, what it's doing, its steps and how it ended, as plain text."""
-    lines = [subagent.task, "", f"{status(subagent)} · {elapsed(subagent, now)}", context_line(subagent)]
+    lines = [subagent.task, "", f"{status(subagent)} · {elapsed(subagent, now)}", worked(subagent, now)]
+    lines.append(context_line(subagent))
     if subagent.step:
         lines.append(t("Now: {step}", step=subagent.step))
     for asked in subagent.waiting:
