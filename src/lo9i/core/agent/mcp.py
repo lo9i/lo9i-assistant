@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, fields, replace
 from lo9i.core.agent.base import ServiceBase
 from lo9i.core.i18n import message, said
 from lo9i.core.integrations.email import accounts as email_accounts
-from lo9i.core.mcp import data_key, install, keys, plugin_oauth, plugin_settings, servers
+from lo9i.core.mcp import data_key, install, keys, page_shown, plugin_oauth, plugin_settings, servers
 from lo9i.core.mcp.badges import PluginBadges
 from lo9i.core.mcp.checks import CheckFailedError
 from lo9i.core.mcp.hub import McpHub, McpProbe, McpToolInfo
@@ -268,7 +268,7 @@ async def mcp_status(hub: McpHub, server: McpServer, signed_in_as: str = "") -> 
         tools=tools,
         source=server.source,
         plugin=server.name if server.source else "",
-        page=bool(server.page_command),
+        page=page_shown.of_use(server),
         channel=bool(server.channel_command),
         failures=health.failures,
         failure=health.error,

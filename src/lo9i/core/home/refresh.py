@@ -22,7 +22,7 @@ from lo9i.core.home.clock import day_of, within
 from lo9i.core.home.coded import CodedSection
 from lo9i.core.home.model import HomeCard, HomeItem, HomePage, HomeSection, SectionResult
 from lo9i.core.i18n import message, said
-from lo9i.core.mcp import servers
+from lo9i.core.mcp import page_shown, servers
 from lo9i.core.mcp.sanitize import tool_name
 from lo9i.core.mcp.servers import McpServer
 from lo9i.core.mcp.today import TodayListError, TodayLists
@@ -217,7 +217,7 @@ def _tools_of(section: HomeSection, definitions: list[dict[str, Any]]) -> list[d
 
 def _page(section: HomeSection, installed: list[McpServer]) -> str:
     """The first of its plugins that comes with a web page."""
-    with_page = {s.name for s in installed if s.page_command}
+    with_page = {s.name for s in installed if page_shown.of_use(s)}
     return next((p for p in section.plugins if p in with_page), "")
 
 

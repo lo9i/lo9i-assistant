@@ -301,6 +301,38 @@ async def test_a_server_gets_its_folders_uv_and_page_filled_in(service, repo, is
     assert not code.exists() and (data / "ledger.db").read_text() == "kept"
 
 
+@pytest.mark.parametrize(
+    ("platform", "env", "shown"),
+    [
+        ("darwin", {}, False),
+        ("linux", {"DISPLAY": ":0"}, False),
+        ("linux", {"WAYLAND_DISPLAY": "w"}, False),
+        ("linux", {}, True),
+    ],
+)
+async def test_a_page_only_of_use_without_a_screen_shows_only_there(service, repo, monkeypatch, platform, env, shown):
+    from lo9i.core.mcp import install as server_install
+    from lo9i.core.mcp import page_shown
+
+    monkeypatch.setattr(server_install, "find_uv", lambda: "/opt/uv")
+    monkeypatch.setattr(page_shown.sys, "platform", platform)
+    for name in ("DISPLAY", "WAYLAND_DISPLAY"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    manifest = _WITH_PAGE + "  shown: without_screen\n"
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": manifest})
+    found = next(s for s in (await service.browse_repository(URL)).servers if s.name == "ledger")
+    [status] = (await service.install_from_repository(URL, [], [ServerValues("ledger")])).servers
+    assert found.page is shown and status.page is shown
+    assert [s.page for s in await service.mcp_servers() if s.name == "ledger"] == [shown]
+
+
+async def test_a_page_shown_another_way_isnt_read(service, repo):
+    _write(repo / "other" / "general" / "ledger", {"server.yaml": _WITH_PAGE + "  shown: sometimes\n"})
+    assert re.search("shown must be always or without_screen", await _problems(service))
+
+
 async def test_a_server_that_runs_with_uv_needs_uv(service, repo, monkeypatch):
     from lo9i.core.mcp import install as server_install
 

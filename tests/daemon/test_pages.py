@@ -89,6 +89,14 @@ def _http(service, token: str = "") -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=transport, base_url="http://board:8766", cookies=cookies)
 
 
+async def test_a_page_of_use_only_without_a_screen_isnt_run_where_there_is_one(pages, monkeypatch, tmp_path):
+    monkeypatch.setattr("lo9i.core.mcp.page_shown.sys.platform", "darwin")
+    args = [str(tmp_path / "page.py"), str(folders.page_socket("browser"))]
+    server = McpServer("browser", command="unused", page_command=sys.executable, page_args=args)
+    await pages.add_mcp_server(replace(server, page_shown="without_screen"))
+    assert pages.pages.socket("browser") is None and pages.pages.socket("notes") is not None
+
+
 async def test_a_paired_device_sees_the_page_under_its_prefix_without_the_daemons_cookie(pages):
     async with _http(pages, await _paired(pages)) as http:
         answer = await http.get("/notes/bills/2?status=paid", headers={"X-Forwarded-Prefix": "/evil"})
