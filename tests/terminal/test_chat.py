@@ -1035,3 +1035,16 @@ async def test_a_servers_form_is_filled_in_and_sent(app, client):
         app.screen.query_one("#accept", Button).press()
         await wait_for(pilot, lambda: not app._busy)
         assert client.decisions == {"i1": {"action": "accept", "content": {"size": "m", "count": "1", "gift": True}}}
+
+
+async def test_ctrl_c_quits_when_nothing_is_selected_and_copies_when_something_is(app, client):
+    async with app.run_test(size=(120, 36)) as pilot:
+        prompt = app.query_one("#prompt", Input)
+        prompt.value = "keep me"
+        prompt.select_all()
+        await pilot.press("ctrl+c")
+        assert app.is_running and app.clipboard == "keep me"
+        prompt.value = ""
+        await pilot.press("ctrl+c")
+        await pilot.pause()
+        assert not app.is_running

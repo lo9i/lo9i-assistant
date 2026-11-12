@@ -1,6 +1,7 @@
 """The About you step in the terminal app: shown at start while the profile has no name, and with /about-you;
 then the plugins it suggests, each installed only when picked."""
 
+import pytest
 from textual.widgets import Input, OptionList, RadioSet, SelectionList
 
 from lo9i.core.agent import AboutYou, FoundServer, Suggested
@@ -57,3 +58,13 @@ async def test_a_suggested_plugin_goes_to_the_usual_install(app, client):
         app.screen.query_one("#done").press()
         await wait_for(pilot, lambda: not isinstance(app.screen, SuggestedPluginsScreen))
         assert client.repositories.installed == []
+
+
+@pytest.mark.parametrize("key", ["escape", "ctrl+q", "ctrl+c"])
+async def test_at_start_esc_closes_it_and_ctrl_q_or_ctrl_c_quit(app, client, key):
+    client.memory.about = AboutYou()
+    async with app.run_test(size=(120, 40)) as pilot:
+        await wait_for(pilot, lambda: isinstance(app.screen, AboutYouScreen))
+        await pilot.press(key)
+        await pilot.pause()
+        assert not isinstance(app.screen, AboutYouScreen) if key == "escape" else not app.is_running

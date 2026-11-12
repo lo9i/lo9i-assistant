@@ -11,6 +11,8 @@ from lo9i.core.config import settings
 from lo9i.core.conversation import pending, summaries
 from lo9i.core.conversation.digest import MemoryDigest
 from lo9i.core.conversation.epochs import cut_index, estimate_tokens, usage_anchor
+from lo9i.core.memory import profile
+from lo9i.core.memory.profile import Profile
 from tests.conftest import collect
 
 
@@ -90,6 +92,36 @@ async def test_a_failed_digest_is_tried_again(service, script, digests, small_ep
     )
     await service.memory_writer.write_all()
     assert (await service.memory_snapshot("u")).episodes == ["later"]
+
+
+async def test_a_digest_that_empties_the_profile_is_not_saved_and_tried_again(service, script, digests, small_epochs):
+    full = Profile(about=["Name: Ana", "Lives in Rome"], work=["Engineer"], interests=["Chess", "Opera"])
+    await profile.save(service.store, "u", full)
+    session = await service.session("u", "cli")
+    await collect(service.send(session, "one"))
+    await collect(service.send(session, "two"))
+    digests.result = lambda data: MemoryDigest(
+        episode_summary="lost", profile=Profile(goals=["A collar"]), new_facts=["kept?"], outdated_fact_ids=[]
+    )
+    await service.memory_writer.write_all()
+    memory = await service.memory_snapshot("u")
+    assert await profile.load(service.store, "u") == full and memory.episodes == [] and memory.facts == []
+    assert len(await pending.load_all(service.store, "u")) == 1
+    digests.result = lambda data: MemoryDigest(
+        episode_summary="later",
+        profile=data.profile.model_copy(update={"work": []}),
+        new_facts=[],
+        outdated_fact_ids=[],
+    )
+    await service.memory_writer.write_all()
+    assert (await profile.load(service.store, "u")).work == [] and await pending.load_all(service.store, "u") == []
+
+
+def test_a_profile_may_lose_a_few_items_or_less_than_half():
+    big = Profile(about=["a", "b", "c", "d"], work=["e", "f"])
+    assert not profile.drops_most_of(big, Profile(about=["a", "b", "c"]))
+    assert profile.drops_most_of(big, Profile(about=["a", "b"]))
+    assert not profile.drops_most_of(Profile(about=["a", "b"]), Profile())
 
 
 async def test_a_deleted_conversation_leaves_nothing_to_digest(service, script, digests, small_epochs):

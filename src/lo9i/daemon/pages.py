@@ -36,7 +36,7 @@ from lo9i.core.agent import AssistantService, Device
 from lo9i.core.config import settings
 from lo9i.core.mcp import badges
 from lo9i.daemon import https, page_sockets
-from lo9i.daemon.auth import DeviceStreams, token_of
+from lo9i.daemon.auth import DeviceCookie, DeviceStreams, token_of
 from lo9i.daemon.http_server import Listener
 
 logger = logging.getLogger(__name__)
@@ -56,13 +56,17 @@ _NOT_PAIRED = "Open this page from the assistant's web app on a paired device."
 _CLIENT_GONE = 499
 
 
-def create_pages_app(service: AssistantService, streams: DeviceStreams | None = None) -> Starlette:
-    """`streams` is the API's (daemon/auth.py), so revoking a device ends its pages' answers and WebSockets."""
+def create_pages_app(
+    service: AssistantService, streams: DeviceStreams | None = None, cookie: DeviceCookie | None = None
+) -> Starlette:
+    """`streams` is the API's (daemon/auth.py), so revoking a device ends its pages' answers and WebSockets; `cookie`
+    the API's too, as browsers send a host's cookies to every port."""
     streams = streams or DeviceStreams()
+    cookie = cookie or DeviceCookie()
 
     async def page(request: Request) -> Response:
         name, path = request.path_params["name"], request.path_params.get("path", "")
-        device = await _device(service, request)
+        device = await _device(service, cookie, request)
         if device is None:
             return PlainTextResponse(_NOT_PAIRED, 401)
         socket = service.pages.socket(name)
@@ -77,7 +81,7 @@ def create_pages_app(service: AssistantService, streams: DeviceStreams | None = 
 
     async def live(websocket: WebSocket) -> None:
         name, path = websocket.path_params["name"], websocket.path_params.get("path", "")
-        device = await _device(service, websocket)
+        device = await _device(service, cookie, websocket)
         if device is None:
             return await page_sockets.refuse(websocket, 401, _NOT_PAIRED)
         if not page_sockets.from_a_page(websocket, _web_app_origins(PORT_OFFSET)):
@@ -105,8 +109,8 @@ def listeners() -> list[Listener]:
     return found
 
 
-async def _device(service: AssistantService, request: HTTPConnection) -> Device | None:
-    token = token_of(request)
+async def _device(service: AssistantService, cookie: DeviceCookie, request: HTTPConnection) -> Device | None:
+    token = token_of(request, cookie)
     ip = request.client.host if request.client else ""
     return await service.device_for_token(token, ip) if token else None
 

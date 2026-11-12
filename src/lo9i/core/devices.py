@@ -17,6 +17,8 @@ from langgraph.store.base import BaseStore
 _DEVICES = ("devices",)
 _PAIRING = ("device_pairing",)
 _PAIRING_KEY = "code"
+_INSTALLATION = ("installation",)
+_INSTALLATION_KEY = "id"
 # No 0/O, 1/I/L: the code is read on one screen and typed on another.
 _ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 _CODE_LENGTH = 8
@@ -125,6 +127,18 @@ async def revoke(store: BaseStore, device_id: str) -> bool:
     for item in tokens:
         await store.adelete(_DEVICES, item.key)
     return bool(tokens)
+
+
+async def installation_id(store: BaseStore) -> str:
+    """A random id of this installation, made the first time it's asked for, which names the browsers' cookie:
+    browsers share a host's cookies between its ports, so two lo9i daemons on one host (one in a virtual machine
+    forwarded to localhost) would otherwise replace each other's."""
+    item = await store.aget(_INSTALLATION, _INSTALLATION_KEY)
+    if item is not None:
+        return item.value["id"]
+    made = secrets.token_hex(4)
+    await store.aput(_INSTALLATION, _INSTALLATION_KEY, {"id": made})
+    return made
 
 
 def hashed(secret: str) -> str:

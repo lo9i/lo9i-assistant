@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from lo9i.core.agent import AssistantService, Device, DeviceError
 from lo9i.core.i18n import message, said
-from lo9i.daemon.auth import PairingLimiter, ip_of, set_device_cookie
+from lo9i.daemon.auth import DeviceCookie, PairingLimiter, ip_of
 from lo9i.daemon.web_ui import PREFIX
 from lo9i.protocol import LANGUAGE_HEADER
 
@@ -41,7 +41,7 @@ class LinkSignIn(BaseModel):
     name: str = Field(max_length=200)
 
 
-def add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
+def add_sign_in_routes(app: FastAPI, service: AssistantService, cookie: DeviceCookie) -> None:
     asked, wrong = PairingLimiter(), PairingLimiter()
 
     @app.get("/auth/sign-in")
@@ -74,7 +74,7 @@ def add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
             wrong.failed(ip)
             raise HTTPException(400, message(e)) from e
         logger.info("Signed in device %s (%s) with an emailed link from %s", device.name, device.id, ip)
-        set_device_cookie(response, token)
+        cookie.set(response, token)
         return device
 
 

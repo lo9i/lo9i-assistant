@@ -171,7 +171,9 @@ class AssistantApp(App):
         # Priority, so it runs before the message box's own Ctrl+V, which pastes only text copied
         # inside the app.
         Binding("ctrl+v", "paste", translatable("Paste"), show=False, priority=True),
-        Binding("ctrl+q", "quit", translatable("Quit")),
+        # Priority, as Textual's own: a dialog's bindings end the chain before the app's.
+        Binding("ctrl+q", "quit", translatable("Quit"), priority=True),
+        Binding("ctrl+c", "copy_or_quit", show=False, priority=True),
         Binding("escape", "stop", translatable("Stop"), show=False),
         # Priority, so it runs before the message box's own Backspace; only when the box is empty.
         Binding("backspace", "remove_attachment", show=False, priority=True),
@@ -525,6 +527,15 @@ class AssistantApp(App):
         """Stop the reply in progress, wherever it was started. The daemon ends it with Cancelled,
         which every channel showing it displays."""
         await self._service.cancel(self._live.session)
+
+    def action_copy_or_quit(self) -> None:
+        """Ctrl+C copies what's selected, in the focused field or on the screen, and with nothing selected quits,
+        on any screen (Textual's own only says to press Ctrl+Q, and not over a dialog)."""
+        selected = getattr(self.focused, "selected_text", "") or self.screen.get_selected_text()
+        if selected:
+            self.copy_to_clipboard(selected)
+        else:
+            self.exit()
 
     def _menu_active(self) -> bool:
         return self.query_one(CommandMenu).open and self._prompt_focused()

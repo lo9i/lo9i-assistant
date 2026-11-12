@@ -36,6 +36,7 @@ from lo9i.daemon.web_ui import is_web_ui
 
 logger = logging.getLogger(__name__)
 
+# The cookie's name before it was named after the installation; still read, and moved to the new name once used.
 COOKIE = "lo9i_device"
 _TRUSTED = "lo9i.trusted"
 # A sign-in's last step comes from the browser that signed in, maybe unpaired; its one-time state
@@ -161,12 +162,48 @@ class DeviceStreams:
             ended.set()
 
 
-def require_device(app: FastAPI, service: AssistantService) -> None:
+class DeviceCookie:
+    """The browser cookie that keeps a device's token, named after this installation (core/devices.py
+    `installation_id`), so another lo9i on the same host never replaces it; without one, the old shared name."""
+
+    def __init__(self, installation: str = "") -> None:
+        self.name = f"{COOKIE}_{installation}" if installation else COOKIE
+
+    def token(self, request: HTTPConnection) -> str:
+        """The token the browser keeps for this installation, or under the old name."""
+        return request.cookies.get(self.name) or request.cookies.get(COOKIE, "")
+
+    def set(self, response: Response, token: str) -> None:
+        """Sent back only over HTTPS, to this site, and never to scripts."""
+        lifetime = int(UNUSED_LIFETIME / timedelta(seconds=1))
+        response.set_cookie(self.name, token, max_age=lifetime, path="/", secure=True, httponly=True, samesite="strict")
+
+    def kept(self, request: Request, response: Response, token: str) -> None:
+        """Kept for as long as the device is in use. A token under the old name moves to this one, and only then is
+        the old one deleted: another lo9i on this host may be using it."""
+        if request.cookies.get(self.name) == token:
+            self.set(response, token)
+        elif request.cookies.get(COOKIE) == token:
+            self.set(response, token)
+            self._forget_old(response)
+
+    def clear(self, request: Request, response: Response) -> None:
+        """Signed out: its cookie goes, and the old name's when it held this device's token."""
+        response.delete_cookie(self.name, path="/")
+        if request.cookies.get(COOKIE) == self.token(request):
+            self._forget_old(response)
+
+    def _forget_old(self, response: Response) -> None:
+        if self.name != COOKIE:
+            response.delete_cookie(COOKIE, path="/")
+
+
+def require_device(app: FastAPI, service: AssistantService, cookie: DeviceCookie) -> None:
     @app.middleware("http")
     async def check(request: Request, call_next):
         if is_trusted(request) or request.url.path in _OPEN_PATHS or is_web_ui(request.url.path):
             return await call_next(request)
-        token = token_of(request)
+        token = token_of(request, cookie)
         if token and (channel := service.channels_hub.channel_for(token)) is not None:
             return await _as_channel(request, call_next, channel)
         device = await service.device_for_token(token, ip_of(request)) if token else None
@@ -174,8 +211,7 @@ def require_device(app: FastAPI, service: AssistantService) -> None:
             return JSONResponse({"detail": "This device isn't paired."}, status_code=401)
         request.state.device = device
         response = await call_next(request)
-        if request.cookies.get(COOKIE):
-            set_device_cookie(response, token)  # Kept for as long as the device is in use.
+        cookie.kept(request, response, token)
         return response
 
 
@@ -186,7 +222,7 @@ async def _as_channel(request: Request, call_next, channel: str):
     return await call_next(request)
 
 
-def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceStreams) -> None:
+def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceStreams, cookie: DeviceCookie) -> None:
     limiter = PairingLimiter()
 
     async def paired(body: PairRequest, request: Request) -> tuple[Device, str]:
@@ -206,7 +242,7 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
     async def pair(body: PairRequest, request: Request, response: Response) -> Device:
         """Pairs this browser with a code from a trusted client, and sets its token cookie."""
         device, token = await paired(body, request)
-        set_device_cookie(response, token)
+        cookie.set(response, token)
         return device
 
     @app.post("/auth/pair/token")
@@ -226,7 +262,7 @@ def add_device_routes(app: FastAPI, service: AssistantService, streams: DeviceSt
         device = device_of(request)
         if device is not None:
             await _revoke(service, streams, device.id)
-        response.delete_cookie(COOKIE, path="/")
+        cookie.clear(request, response)
         return Me(trusted=is_trusted(request), device=None)
 
     _add_device_list_routes(app, service, streams)
@@ -288,18 +324,12 @@ async def _stop(following: asyncio.Future[Any] | None) -> None:
         await following
 
 
-def token_of(request: HTTPConnection) -> str:
+def token_of(request: HTTPConnection, cookie: DeviceCookie) -> str:
     """The device token a request or WebSocket carries: the browser's cookie, or a bearer token."""
     bearer = request.headers.get("authorization", "")
-    return request.cookies.get(COOKIE) or bearer.removeprefix("Bearer ").strip()
+    return cookie.token(request) or bearer.removeprefix("Bearer ").strip()
 
 
 def ip_of(request: Request) -> str:
     """The address the request came from, as the device's last use records it."""
     return request.client.host if request.client else ""
-
-
-def set_device_cookie(response: Response, token: str) -> None:
-    """Keeps the device's token in the browser: sent back only over HTTPS, to this site, and never to scripts."""
-    lifetime = int(UNUSED_LIFETIME / timedelta(seconds=1))
-    response.set_cookie(COOKIE, token, max_age=lifetime, path="/", secure=True, httponly=True, samesite="strict")

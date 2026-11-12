@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from lo9i.core.agent import AssistantService, Device, Passkey, PasskeyError, Site
 from lo9i.core.i18n import message, said
 from lo9i.core.passkeys import site_for
-from lo9i.daemon.auth import PairingLimiter, device_of, ip_of, set_device_cookie
+from lo9i.daemon.auth import DeviceCookie, PairingLimiter, device_of, ip_of
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ class PasskeyRemoved(BaseModel):
     ok: bool = True
 
 
-def add_passkey_routes(app: FastAPI, service: AssistantService) -> None:
-    _add_sign_in_routes(app, service)
+def add_passkey_routes(app: FastAPI, service: AssistantService, cookie: DeviceCookie) -> None:
+    _add_sign_in_routes(app, service, cookie)
 
     @app.get("/passkeys")
     async def passkey_list() -> list[Passkey]:
@@ -67,7 +67,7 @@ def add_passkey_routes(app: FastAPI, service: AssistantService) -> None:
         return PasskeyRemoved()
 
 
-def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
+def _add_sign_in_routes(app: FastAPI, service: AssistantService, cookie: DeviceCookie) -> None:
     """Open to browsers that aren't paired: the passkey is what proves the device."""
     limiter = PairingLimiter()
 
@@ -88,7 +88,7 @@ def _add_sign_in_routes(app: FastAPI, service: AssistantService) -> None:
             limiter.failed(ip)
             raise HTTPException(400, message(e)) from e
         logger.info("Signed in device %s (%s) with a passkey from %s", device.name, device.id, ip)
-        set_device_cookie(response, token)
+        cookie.set(response, token)
         return device
 
 

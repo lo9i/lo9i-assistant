@@ -39,6 +39,16 @@ _RELATED_PER_MESSAGE = 3
 _MESSAGES_LOOKED_UP = 20
 
 
+class ProfileDroppedError(Exception):
+    """The digest gave back a profile missing most of the saved one. Nothing of the part is saved, so it stays and
+    is digested again later."""
+
+    def __init__(self, thread_id: str) -> None:
+        super().__init__(
+            f"The digest of conversation {thread_id} dropped most of the profile; it is tried again later."
+        )
+
+
 class RelatedFacts(Protocol):
     async def facts_near(self, user_id: str, texts: Sequence[str], limit_each: int) -> list[Fact]: ...
 
@@ -117,6 +127,8 @@ class MemoryWriter:
             return []
 
     async def _save(self, user_id: str, part: PendingPart, digest: MemoryDigest) -> None:
+        if profile.drops_most_of(await profile.load(self._store, user_id), digest.profile):
+            raise ProfileDroppedError(part.thread_id)
         await profile.save(self._store, user_id, digest.profile)
         for text in digest.new_facts:
             await facts.add(self._store, user_id, text)

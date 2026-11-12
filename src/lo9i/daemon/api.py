@@ -161,6 +161,7 @@ from lo9i.core.usage.limits import SpendingLimits, SpendingLimitsError
 from lo9i.core.voice.realtime import RealtimeError
 from lo9i.daemon import host
 from lo9i.daemon.auth import (
+    DeviceCookie,
     DeviceStreams,
     add_device_routes,
     channel_of,
@@ -753,13 +754,16 @@ def create_app(
     updates: Any = None,
     chats: ChannelChats | None = None,
     voice_calls: VoiceCalls | None = None,
+    cookie: DeviceCookie | None = None,
 ) -> FastAPI:
     """`streams` is shared with the pages app, so revoking a device also closes its pages' WebSockets; `chats`,
     with the daemon's runs kept while an update installed, which it runs again in the chats they came from;
-    `voice_calls`, with the daemon, which hangs them up when it stops."""
+    `voice_calls`, with the daemon, which hangs them up when it stops; `cookie`, the browsers' device cookie, named
+    after the installation."""
     app = FastAPI(title="lo9i daemon")
+    cookie = cookie or DeviceCookie()
     # Checked outside in: the host name, the client header, then the device.
-    require_device(app, service)
+    require_device(app, service, cookie)
     _require_client_header(app)
     _require_known_host(app)
     _add_security_headers(app)
@@ -769,9 +773,9 @@ def create_app(
     )
     streams = streams or DeviceStreams()
     follows = StreamFollows()
-    add_device_routes(app, service, streams)
-    add_passkey_routes(app, service)
-    add_sign_in_routes(app, service)
+    add_device_routes(app, service, streams, cookie)
+    add_passkey_routes(app, service, cookie)
+    add_sign_in_routes(app, service, cookie)
     _add_client_routes(app, service, clients, streams, follows)
     _add_session_routes(app, service, clients)
     _add_run_routes(app, service, hub, clients, streams)

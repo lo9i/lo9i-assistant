@@ -9,7 +9,7 @@ import pytest
 
 from lo9i.core import devices
 from lo9i.daemon.api import create_app
-from lo9i.daemon.auth import COOKIE, DeviceStreams, PairingLimiter, trusted
+from lo9i.daemon.auth import COOKIE, DeviceCookie, DeviceStreams, PairingLimiter, trusted
 from lo9i.daemon.runs import RunHub
 from lo9i.protocol import CLIENT_HEADER
 
@@ -49,6 +49,35 @@ async def test_a_browser_pairs_with_a_code_from_a_trusted_client(app):
         assert (await browser.get("/auth/me")).json()["device"]["name"] == "Laptop"
     async with _http(app) as other:
         assert (await other.post("/auth/pair", json={"code": code, "name": "Thief"})).status_code == 400
+
+
+async def test_each_installation_keeps_its_own_cookie_so_another_on_the_host_leaves_it(service):
+    app = create_app(service, RunHub(), cookie=DeviceCookie(await service.installation_id()))
+    name = f"{COOKIE}_{await service.installation_id()}"
+    async with _http(app) as browser:
+        response = await browser.post("/auth/pair", json={"code": await _code(app), "name": "Laptop"})
+        assert response.headers["set-cookie"].startswith(f"{name}=")
+        browser.cookies.set(COOKIE, "another lo9i's token")
+        assert (await browser.get("/conversations")).status_code == 200
+        assert browser.cookies.get(COOKIE) == "another lo9i's token"
+
+
+async def test_a_token_under_the_old_name_moves_to_the_installations(service, app):
+    async with _http(app) as browser:
+        await browser.post("/auth/pair", json={"code": await _code(app), "name": "Laptop"})
+        token = browser.cookies.get(COOKIE)
+    named = create_app(service, RunHub(), cookie=DeviceCookie(await service.installation_id()))
+    name = f"{COOKIE}_{await service.installation_id()}"
+    async with _http(named) as browser:
+        browser.cookies.set(COOKIE, token)
+        response = await browser.get("/conversations")
+        set_cookies = response.headers.get_list("set-cookie")
+        assert response.status_code == 200 and any(c.startswith(f"{name}={token};") for c in set_cookies)
+        assert any(c.startswith(f'{COOKIE}="";') and "Max-Age=0" in c for c in set_cookies)
+
+
+async def test_the_installation_id_stays(service):
+    assert await service.installation_id() == await service.installation_id()
 
 
 async def test_wrong_codes_are_limited_per_address(app):

@@ -26,7 +26,7 @@ from lo9i.core.migration.home import home as migration_home
 from lo9i.daemon import https, launchd, managers, output, pages, systemd, updates
 from lo9i.daemon.adapters import Adapter, supervise
 from lo9i.daemon.api import create_app
-from lo9i.daemon.auth import DeviceStreams, trusted
+from lo9i.daemon.auth import DeviceCookie, DeviceStreams, trusted
 from lo9i.daemon.channel_runs import ChannelMirrors, ChannelRuns
 from lo9i.daemon.held import HeldRuns
 from lo9i.daemon.http_server import HttpServer, Listener
@@ -77,11 +77,21 @@ async def serve(logs: Mapping[str, LogSource]) -> Ending | None:
         startup = Startup(stop, shutdown.relaunch)
         chats = ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
         calls = VoiceCalls(service, hub)
+        cookie = DeviceCookie(await service.installation_id())
         app = create_app(
-            service, hub, startup, shutdown, logs=logs, streams=streams, updates=updater, chats=chats, voice_calls=calls
+            service,
+            hub,
+            startup,
+            shutdown,
+            logs=logs,
+            streams=streams,
+            updates=updater,
+            chats=chats,
+            voice_calls=calls,
+            cookie=cookie,
         )
         servers = _listeners(app, socket_path)
-        page_servers = [HttpServer(create_pages_app(service, streams), at) for at in pages.listeners()]
+        page_servers = [HttpServer(create_pages_app(service, streams, cookie), at) for at in pages.listeners()]
         if not _bound([*servers, *page_servers]):
             socket_path.unlink(missing_ok=True)
             return None

@@ -22,6 +22,10 @@ class DevicesMixin(ServiceBase):
         """At start: the setup code is written where no device was ever paired, and closed where one was."""
         await setup_code.prepare(self._storage.store, _setup_code_path(), datetime.now(UTC))
 
+    async def installation_id(self) -> str:
+        """This installation's id, which names the browsers' device cookie."""
+        return await devices.installation_id(self._storage.store)
+
     async def setup_code_open(self) -> bool:
         """Whether no device was ever paired, so the first browser pairs with the setup code."""
         return await setup_code.available(self._storage.store, _setup_code_path())

@@ -13,6 +13,8 @@ Section = Literal["about", "people", "how_to_reply", "routine", "goals", "intere
 # Every item is in every system prompt, so each section stays short. A full section gets items
 # replaced or merged, not appended.
 MAX_ITEMS = 8
+# Items a digest may drop at once whatever the profile's size, so a small profile can still lose an outdated item.
+_DROPPED_FREELY = 2
 
 _KEY = "profile"
 _NAMESPACE_ROOT = "profile"
@@ -66,6 +68,17 @@ async def load(store: BaseStore, user_id: str) -> Profile:
 
 async def save(store: BaseStore, user_id: str, profile: Profile) -> None:
     await store.aput(namespace(user_id), _KEY, profile.model_dump())
+
+
+def drops_most_of(before: Profile, after: Profile) -> bool:
+    """Whether `after` has fewer than half of `before`'s items, and more than a couple fewer: a digest returns the
+    whole profile, and one that came back nearly empty would wipe what years of conversations taught."""
+    had, has = _count(before), _count(after)
+    return has * 2 < had and had - has > _DROPPED_FREELY
+
+
+def _count(profile: Profile) -> int:
+    return sum(len(items) for _, items in sections(profile))
 
 
 def render(profile: Profile) -> str:
