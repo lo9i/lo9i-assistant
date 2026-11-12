@@ -133,41 +133,47 @@
         void save();
       }}
     >
-      <label class="field">
-        <span class="field-label">{t("aboutYou.name")}<span class="required"> *</span></span>
-        <!-- svelte-ignore a11y_autofocus -->
-        <input class="input" bind:value={form.name} autocomplete="given-name" maxlength="200" autofocus />
-      </label>
-      <label class="field">
-        <span class="field-label">{t("aboutYou.language")}</span>
-        <input class="input" bind:value={form.language} placeholder={t("aboutYou.languageHint")} maxlength="100" />
-      </label>
-      <label class="field">
-        <span class="field-label">{t("aboutYou.email")}</span>
-        <input class="input" type="email" bind:value={form.email} autocomplete="email" maxlength="320" />
-        <span class="text-caption">{t("aboutYou.emailUse")}</span>
-      </label>
-      <fieldset class="field">
-        <legend class="field-label">{t("aboutYou.replyLength")}</legend>
-        <div class="choices">
-          {#each LENGTHS as length (length.label)}
-            <label class="check"
-              ><input
-                type="radio"
-                name="reply-length"
-                checked={form.reply_length === length.value}
-                onchange={() => (form.reply_length = length.value)}
-              />
-              {t(length.label)}</label
-            >
-          {/each}
-        </div>
-      </fieldset>
+      <div class="row">
+        <label class="field">
+          <span class="field-label">{t("aboutYou.name")}<span class="required"> *</span></span>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input class="input" bind:value={form.name} autocomplete="given-name" maxlength="200" autofocus />
+        </label>
+        <label class="field">
+          <span class="field-label">{t("aboutYou.language")}</span>
+          <input class="input" bind:value={form.language} placeholder={t("aboutYou.languageHint")} maxlength="100" />
+        </label>
+      </div>
+      <div class="row">
+        <label class="field">
+          <span class="field-label">{t("aboutYou.email")}</span>
+          <input
+            class="input"
+            type="email"
+            bind:value={form.email}
+            autocomplete="email"
+            maxlength="320"
+            title={t("aboutYou.emailUse")}
+          />
+        </label>
+        <label class="field">
+          <span class="field-label">{t("aboutYou.replyLength")}</span>
+          <select
+            class="input"
+            value={LENGTHS.findIndex((l) => l.value === form.reply_length)}
+            onchange={(e) => (form.reply_length = LENGTHS[Number(e.currentTarget.value)].value)}
+          >
+            {#each LENGTHS as length, i (length.label)}
+              <option value={i}>{t(length.label)}</option>
+            {/each}
+          </select>
+        </label>
+      </div>
       <fieldset class="field">
         <legend class="field-label">{t("aboutYou.helpWith")}</legend>
-        <div class="choices">
+        <div class="chips">
           {#each HELP_TOPICS as topic (topic)}
-            <label class="check"
+            <label class="chip"
               ><input type="checkbox" checked={form.help_with?.includes(topic)} onchange={(e) => toggle(topic, e.currentTarget.checked)} />
               {t(TOPICS[topic])}</label
             >
@@ -201,22 +207,49 @@
   .field-label {
     font-weight: 600;
     padding: 0;
-    margin-bottom: 6px;
+    margin-bottom: 0;
   }
   .required {
     color: var(--color-danger);
   }
-  .choices {
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 520px) {
+    .row {
+      grid-template-columns: 1fr;
+    }
+  }
+  .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 6px;
+    margin-bottom: 4px;
   }
-  .check {
-    display: flex;
+  .chip {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    padding: 4px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
     font-size: var(--font-size-sm);
     cursor: pointer;
+    user-select: none;
+  }
+  .chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .chip:has(input:checked) {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+  .chip:has(input:focus-visible) {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   .group + .group {
     margin-top: 12px;

@@ -1,7 +1,7 @@
 {
   "aboutYou": {
     "title": "About you",
-    "description": "So the assistant knows you from the first chat. Only your name is needed; the rest you can skip, and change any of it later in Settings → About you.",
+    "description": "Only your name is needed; change any of it later in Settings.",
     "name": "What should it call you?",
     "language": "Language for replies",
     "languageHint": "For example English or Spanish",

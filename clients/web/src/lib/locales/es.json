@@ -1,7 +1,7 @@
 {
   "aboutYou": {
     "title": "Sobre ti",
-    "description": "Para que el asistente te conozca desde la primera conversación. Solo hace falta tu nombre; lo demás puedes saltarlo, y cambiar cualquier cosa luego en Ajustes → Sobre ti.",
+    "description": "Solo hace falta tu nombre; puedes cambiar todo después en Ajustes.",
     "name": "¿Cómo debería llamarte?",
     "language": "Idioma de las respuestas",
     "languageHint": "Por ejemplo español o inglés",
