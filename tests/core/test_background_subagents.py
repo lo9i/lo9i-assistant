@@ -80,6 +80,18 @@ async def test_its_answer_goes_back_to_the_conversation_that_sent_it_off(service
     assert feed.text == "✅ A subagent finished (dig): The answer is 42." and feed.thread_id == session.thread_id
 
 
+async def test_it_can_search_the_web_and_is_told_so(service, script):
+    await _sent_off(service, script, "look up the price")
+    script.reply("It costs 10, per the maker's page.")
+    after = service.bus.last_id
+    async with _working(service):
+        await _status(service, after, "done")
+    sent = zip(script.requests, script.bound, strict=True)
+    [(request, bound)] = [(r, b) for r, b in sent if r[1].text == "look up the price"]
+    assert {"web_search", "web_extract"} <= {t.name for t in bound}
+    assert "web_search searches the web and web_extract reads a page" in request[0].text
+
+
 async def test_it_has_no_step_limit(service, script, monkeypatch):
     monkeypatch.setattr(settings, "subagent_max_steps", 1)
     _, subagent_id = await _sent_off(service, script)

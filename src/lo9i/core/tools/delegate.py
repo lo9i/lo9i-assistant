@@ -37,7 +37,8 @@ async def delegate(
     `background`: false (the default) waits for the answer, for a quick job you need before replying; it stops
     after a set number of steps. True sends it off to work in the background with no step limit and returns at
     once: for long work, so the user can go on talking meanwhile. Its answer comes back to this conversation when
-    it ends, and you're asked to follow it up then; the user sees its progress in the app.
+    it ends, and you're asked to follow it up then. The user follows its progress in the Subagents panel beside this
+    conversation in the web app, or /subagents in the terminal app; a chat channel hears only its end.
 
     `plugins`: plugins listed under Plugin tools whose read-only tools the task needs; it gets those of the
     plugins this conversation loaded anyway. They load for the subagent alone, so don't load_tools them first

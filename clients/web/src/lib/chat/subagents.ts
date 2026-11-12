@@ -17,6 +17,16 @@ export function counts(subagents: BackgroundSubagent[]): { working: number; wait
   return { working: busy.length, waiting: busy.filter((s) => s.status === "waiting").length };
 }
 
+/** How they're doing, in a word and a few, for the panel minimized: those waiting for the user first, then those working,
+ * else how they ended (failed when any did). */
+export function summary(subagents: BackgroundSubagent[]): { status: BackgroundSubagent["status"]; label: string } {
+  const { working: busy, waiting } = counts(subagents);
+  if (waiting) return { status: "waiting", label: t("subagents.waitingCount", { count: waiting }) };
+  if (busy) return { status: "running", label: t("subagents.workingCount", { count: busy }) };
+  const status = subagents.some((s) => s.status === "failed") ? "failed" : "done";
+  return { status, label: t("subagents.endedCount", { count: subagents.length }) };
+}
+
 /** The first line of its task, what its card is named by. */
 export function taskTitle(task: string): string {
   return task.trim().split("\n", 1)[0];

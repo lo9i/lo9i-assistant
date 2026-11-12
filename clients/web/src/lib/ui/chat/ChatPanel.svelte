@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Bot from "@lucide/svelte/icons/bot";
   import FolderTreeIcon from "@lucide/svelte/icons/folder-tree";
   import { untrack } from "svelte";
   import { goto } from "$app/navigation";
@@ -19,7 +18,6 @@
   import { external, resource, useDaemon } from "$lib/daemon.svelte";
   import { folderPanel, homePanel, subagentsPanel, tasksPanel } from "$lib/folderPanel.svelte";
   import { taskTabs } from "$lib/chat/taskTabs.svelte";
-  import { counts } from "$lib/chat/subagents";
   import { t } from "$lib/i18n.svelte";
   import { Player, speaksReply } from "$lib/speech";
   import type { Agent, ApprovalRequired, Decision } from "$lib/api/types";
@@ -95,10 +93,9 @@
   const running = resource((c) => c.tasks.running(), ["agent_task_progress", "agent_task_reports", "background_ended", "tasks_beside"]);
   const working = $derived(workingIn(running.data ?? [], threadId, handoff.data?.name ?? null));
   const extra = $derived(agentCommands(agents.data ?? []));
-  // The subagents it sent off to work in the background: a side panel of their cards, once there's one.
+  // The subagents it sent off to work in the background: a side panel of their cards beside it once there's one,
+  // minimized to a thin bar until the user opens it.
   const subagents = resource((c) => c.subagents.list(threadId), ["subagents"]);
-  const subagentCounts = $derived(counts(subagents.data ?? []));
-  const subagentsOpen = $derived(!!subagents.data?.length && subagentsPanel.isOpen(threadId));
   // The coding tasks it started, beside it: a tab per session, the conversation staying the assistant's. Loaded with the
   // conversation they're of, so another's never reads as new here.
   const tasks = resource(async (c) => ({ threadId, sessions: await c.tasks.sessions(threadId) }), ["tasks_beside", "agent_task_context"]);
@@ -439,24 +436,6 @@
           ><FolderTreeIcon size={13} /><span class="folder-label">{t("handedFolder.title")}</span></button
         >
       {/if}
-      {#if subagents.data?.length}
-        <button
-          type="button"
-          class="btn btn--ghost btn--sm folder-button subagents-button"
-          class:waiting={subagentCounts.waiting > 0}
-          aria-pressed={subagentsOpen}
-          aria-label={t("subagents.title")}
-          title={subagentCounts.waiting
-            ? t("subagents.waitingHint", { count: subagentCounts.waiting })
-            : subagentsOpen
-              ? t("subagents.hide")
-              : t("subagents.show")}
-          onclick={() => subagentsPanel.toggle(threadId)}
-          ><Bot size={13} /><span class="folder-label">{t("subagents.title")}</span>{#if subagentCounts.working}<span class="count"
-              >{subagentCounts.working}</span
-            >{/if}</button
-        >
-      {/if}
       <span class="fuel-end"><ContextFuel {threadId} /></span>
     </StatusBar>
     {#if dragging > 0}<div class="drop-hint" aria-hidden="true">{t("chat.dropHint")}</div>{/if}
@@ -467,8 +446,8 @@
   {#if panelOpen}
     <HandedFolder {threadId} handoff={handoff.data ?? null} onclose={() => panel.toggle(threadId)} />
   {/if}
-  {#if subagentsOpen}
-    <SubagentsPanel subagents={subagents.data ?? []} onclose={() => subagentsPanel.toggle(threadId)} />
+  {#if subagents.data?.length}
+    <SubagentsPanel subagents={subagents.data} open={subagentsPanel.isOpen(threadId)} ontoggle={() => subagentsPanel.toggle(threadId)} />
   {/if}
 </div>
 
@@ -538,23 +517,7 @@
     margin-left: auto;
   }
   /* A control keeps its size; the status bar's other items give way. */
-  .home-folder,
-  .subagents-button {
+  .home-folder {
     flex: none;
-  }
-  /* How many work; in the colour of waiting while one waits for the user's answer. */
-  .count {
-    min-width: 16px;
-    padding: 0 4px;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-    font-variant-numeric: tabular-nums;
-    text-align: center;
-  }
-  .subagents-button.waiting {
-    color: var(--color-warn);
-  }
-  .subagents-button.waiting .count {
-    background: color-mix(in srgb, var(--color-warn) 25%, transparent);
   }
 </style>

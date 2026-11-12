@@ -1677,6 +1677,18 @@
       "other": "{count} subagents are waiting for your answer"
     },
     "waitingForYou": "Waiting for your answer",
+    "waitingCount": {
+      "one": "{count} waiting for you",
+      "other": "{count} waiting for you"
+    },
+    "workingCount": {
+      "one": "{count} working",
+      "other": "{count} working"
+    },
+    "endedCount": {
+      "one": "{count} finished",
+      "other": "{count} finished"
+    },
     "thinking": "Thinking…",
     "answered": "Answered: its answer went back to the conversation.",
     "none": "None yet.",
