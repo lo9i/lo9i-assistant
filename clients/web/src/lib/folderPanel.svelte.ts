@@ -96,8 +96,8 @@ function keptChoices(key: string): Record<string, boolean> {
   }
 }
 
-// The side panel of the conversation's background subagents (ui/chat/subagents/): minimized, it's the Subagents button
-// in the status bar, counting those working.
+// The side panel of the conversation's background subagents (ui/chat/subagents/): minimized, it's a thin bar with a mark
+// for each and how they're doing.
 export const subagentsPanel = new SentOffPanel("lo9i.subagentsPanels");
 // The side panel of the coding agents' work beside the conversation that started it (ui/chat/tasks/): minimized, it's a
 // thin bar saying how they're doing. A new task picks its tab without opening it.

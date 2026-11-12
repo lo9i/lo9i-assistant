@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BackgroundStep, BackgroundSubagent } from "$lib/api/types";
-import { asked, conversationTitle, counts, doing, taskTitle, withStep, worked, working } from "./subagents";
+import { asked, conversationTitle, counts, doing, summary, taskTitle, withStep, worked, working } from "./subagents";
 
 function subagent(status: BackgroundSubagent["status"], waiting: BackgroundSubagent["waiting"] = []): BackgroundSubagent {
   return {
@@ -33,6 +33,13 @@ describe("background subagents", () => {
     const list = [subagent("running"), subagent("waiting"), subagent("done"), subagent("failed"), subagent("stopped")];
     expect(list.map(working)).toEqual([true, true, false, false, false]);
     expect(counts(list)).toEqual({ working: 2, waiting: 1 });
+  });
+
+  it("say how they're doing in a few words: waiting first, then working, else how many finished", () => {
+    expect(summary([subagent("running"), subagent("waiting")])).toEqual({ status: "waiting", label: "1 waiting for you" });
+    expect(summary([subagent("running"), subagent("running"), subagent("done")])).toEqual({ status: "running", label: "2 working" });
+    expect(summary([subagent("done"), subagent("done"), subagent("done")])).toEqual({ status: "done", label: "3 finished" });
+    expect(summary([subagent("done"), subagent("failed")])).toEqual({ status: "failed", label: "2 finished" });
   });
 
   it("are named by their task's first line", () => {

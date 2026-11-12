@@ -70,6 +70,7 @@ TOO_LARGE = (
 # Node names differ from the main graph's, so the subagent's text never streams as the reply
 # (core/stream_events.py reads the "agent" node's).
 _AGENT, _TOOLS = "subagent", "subagent_tools"
+_WEB_TOOLS = ("web_search", "web_extract")
 
 
 class SubagentState(MessagesState):
@@ -168,10 +169,9 @@ class SubagentRunner(Subagents):
             return kept[1]
         choice = self._choice
         tools = [t for t in subagent_tools(settings.toolsets) if not subagent.tools or t.name in subagent.tools]
-        prompt = f"{prompts.load('subagent')}\n\n{subagent.prompt}"
         saved = self._storage if background else None
         llm = _llm(self._storage, choice, self._model_of(subagent))
-        graph = _compiled(llm, tools, choice, self._mcp, prompt, saved)
+        graph = _compiled(llm, tools, choice, self._mcp, subagent.prompt, saved)
         self._named[(subagent.name, background)] = (subagent, graph)
         return graph
 
@@ -233,15 +233,15 @@ def _compiled(
     tools: Sequence[BaseTool],
     choice: ModelChoice,
     mcp: McpTools,
-    prompt: str = "",
+    own: str = "",
     saved: Storage | None = None,
 ) -> SubagentGraph:
-    """A subagent's graph; `prompt` is its system prompt, the subagent prompt when empty. Run inside a delegate call
-    it shares the run's checkpointer and store, and stops at the step limit; `saved`, for one sent off in the
+    """A subagent's graph; `own` is a named subagent's instructions, after the subagent prompt. Run inside a delegate
+    call it shares the run's checkpointer and store, and stops at the step limit; `saved`, for one sent off in the
     background, has its own and no limit."""
     builder = StateGraph(SubagentState, context_schema=Context)
     images = choice.provider in IMAGES_IN_TOOL_RESULTS
-    builder.add_node(_AGENT, _agent_node(llm, tools, images, prompt))
+    builder.add_node(_AGENT, _agent_node(llm, tools, images, system_prompt(tools, own)))
     calls = _offered_mcp(mcp_calls(mcp))
     route = each_tool_call(_TOOLS)
     if saved is None:
@@ -255,14 +255,21 @@ def _compiled(
     return builder.compile(checkpointer=saved.checkpointer, store=saved.store)
 
 
+def system_prompt(tools: Sequence[BaseTool], own: str = "") -> str:
+    """The subagent prompt, saying it can reach the internet when it has the web tools (a model left to guess answered
+    research from memory), then a named subagent's own instructions."""
+    reach = prompts.load("subagent_reach_web" if any(t.name in _WEB_TOOLS for t in tools) else "subagent_reach")
+    prompt = prompts.load("subagent").format(reach=reach)
+    return f"{prompt}\n\n{own}" if own else prompt
+
+
 def _agent_node(llm: BaseChatModel, tools: Sequence[BaseTool], images_in_tool_results: bool, prompt: str) -> Node:
     async def _agent(state: SubagentState) -> dict:
         bound = llm.bind_tools([*tools, *state["mcp_tools"]])
 
         async def _call(messages: list[BaseMessage]) -> BaseMessage:
             hydrated = await asyncio.to_thread(hydrate, messages, images_in_tool_results)
-            system = prompt or prompts.load("subagent")
-            return await bound.ainvoke([SystemMessage(system), *hydrated])
+            return await bound.ainvoke([SystemMessage(prompt), *hydrated])
 
         response, before = await _within_size(_call, state)
         anchor = usage_anchor(response, 0)

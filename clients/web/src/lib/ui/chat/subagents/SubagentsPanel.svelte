@@ -3,8 +3,9 @@
   import Bot from "@lucide/svelte/icons/bot";
   import List from "@lucide/svelte/icons/list";
   import PanelRightClose from "@lucide/svelte/icons/panel-right-close";
+  import PanelRightOpen from "@lucide/svelte/icons/panel-right-open";
   import type { BackgroundSubagent } from "$lib/api/types";
-  import { doing, taskTitle, working } from "$lib/chat/subagents";
+  import { counts, doing, summary, taskTitle, working } from "$lib/chat/subagents";
   import { clock } from "$lib/clock.svelte";
   import { duration } from "$lib/duration";
   import { t } from "$lib/i18n.svelte";
@@ -16,14 +17,22 @@
 
   // Beside a conversation that sent subagents off to work in the background: a card for each, newest first, with its
   // task, its status, what it's doing now and for how long. A card opens it in place of the list, as a file opens in
-  // the folder panel: its steps as they come, what it waits for, and its answer once it ended. At first only those still
-  // at it show; the Active filter off shows those that ended too. Every conversation's are on the Subagents page.
-  type Props = { subagents: BackgroundSubagent[]; onclose: () => void };
-  let { subagents, onclose }: Props = $props();
+  // the folder panel: its steps as they come, what it waits for, and its answer once it ended. While any is still at it
+  // only those show, until the Active filter is turned off; with none at it, those that ended show. Every
+  // conversation's are on the Subagents page. Minimized, as the coding tasks' panel: a thin bar with a mark for each and
+  // how they're doing, which opens it again.
+  type Props = { subagents: BackgroundSubagent[]; open: boolean; ontoggle: () => void };
+  let { subagents, open, ontoggle }: Props = $props();
   const time = clock();
   let picked = $state<string | null>(null);
-  let activeOnly = $state(true);
-  const shown = $derived(activeOnly ? subagents.filter(working) : subagents);
+  // The filter as the user set it; until then, on while any is at it.
+  let activeOnly = $state<boolean | null>(null);
+  const filtered = $derived(activeOnly ?? subagents.some(working));
+  const shown = $derived(filtered ? subagents.filter(working) : subagents);
+  const now = $derived(summary(subagents));
+  // The bar's marks: those at it, then the latest that ended, so a long list keeps it short.
+  const MARKS = 8;
+  const marked = $derived([...subagents.filter(working), ...subagents.filter((s) => !working(s))].slice(0, MARKS));
   // The divider before it drags it wider or narrower: the list and a subagent open each keep their own width.
   const widthName = $derived(picked === null ? "subagents" : "subagents.view");
   const width = $derived(panelWidth(widthName));
@@ -33,52 +42,69 @@
   });
 </script>
 
-<PanelDivider name={widthName} />
-<aside
-  class="panel surface--glass"
-  class:viewing={picked !== null}
-  class:sized={width !== undefined}
-  class:resizing={panelWidths.dragging === widthName}
-  style:--chosen-width={width}
-  aria-label={t("subagents.title")}
->
-  <header>
-    <Bot size={14} />
-    <span class="title">{t("subagents.title")}</span>
-    <a class="btn btn--ghost btn--icon" href={resolve("/subagents")} title={t("subagents.all")} aria-label={t("subagents.all")}
-      ><List size={14} /></a
-    >
-    <button class="btn btn--ghost btn--icon" title={t("subagents.hide")} aria-label={t("subagents.hide")} onclick={onclose}
-      ><PanelRightClose size={14} /></button
-    >
-  </header>
-  {#if picked !== null}
-    <SubagentView id={picked} onback={() => (picked = null)} />
-  {:else}
-    <div class="filter"><ActiveOnly bind:checked={activeOnly} /></div>
-    <ul class="cards">
-      {#each shown as subagent (subagent.id)}
-        <li>
-          <button class="card status--{subagent.status}" onclick={() => (picked = subagent.id)}>
-            <span class="top">
-              <StatusMark status={subagent.status} />
-              <span class="status">{t(`subagents.status.${subagent.status}`)}</span>
-              <span class="time">{duration(subagent.started_at, subagent.ended_at || time.now)}</span>
-            </span>
-            <span class="task" title={subagent.task}>{taskTitle(subagent.task)}</span>
-            {#if doing(subagent)}<span class="doing" title={doing(subagent)}>{doing(subagent)}</span>{/if}
-          </button>
-        </li>
-      {:else}
-        {#if activeOnly && subagents.length > 0}
-          <li class="text-caption empty">{t("subagents.noneActive")} {t("subagents.noneActiveHint")}</li>
+{#if open}
+  <PanelDivider name={widthName} />
+  <aside
+    class="panel surface--glass"
+    class:viewing={picked !== null}
+    class:sized={width !== undefined}
+    class:resizing={panelWidths.dragging === widthName}
+    style:--chosen-width={width}
+    aria-label={t("subagents.title")}
+  >
+    <header>
+      <Bot size={14} />
+      <span class="title">{t("subagents.title")}</span>
+      <a class="btn btn--ghost btn--icon" href={resolve("/subagents")} title={t("subagents.all")} aria-label={t("subagents.all")}
+        ><List size={14} /></a
+      >
+      <button class="btn btn--ghost btn--icon" title={t("subagents.hide")} aria-label={t("subagents.hide")} onclick={ontoggle}
+        ><PanelRightClose size={14} /></button
+      >
+    </header>
+    {#if picked !== null}
+      <SubagentView id={picked} onback={() => (picked = null)} />
+    {:else}
+      <div class="filter"><ActiveOnly bind:checked={() => filtered, (v) => (activeOnly = v)} /></div>
+      <ul class="cards">
+        {#each shown as subagent (subagent.id)}
+          <li>
+            <button class="card status--{subagent.status}" onclick={() => (picked = subagent.id)}>
+              <span class="top">
+                <StatusMark status={subagent.status} />
+                <span class="status">{t(`subagents.status.${subagent.status}`)}</span>
+                <span class="time">{duration(subagent.started_at, subagent.ended_at || time.now)}</span>
+              </span>
+              <span class="task" title={subagent.task}>{taskTitle(subagent.task)}</span>
+              {#if doing(subagent)}<span class="doing" title={doing(subagent)}>{doing(subagent)}</span>{/if}
+            </button>
+          </li>
         {:else}
-          <li class="text-caption empty">{t("subagents.none")}</li>
-        {/if}
-      {/each}
-    </ul>
-  {/if}
-</aside>
+          {#if filtered && subagents.length > 0}
+            <li class="text-caption empty">{t("subagents.noneActive")} {t("subagents.noneActiveHint")}</li>
+          {:else}
+            <li class="text-caption empty">{t("subagents.none")}</li>
+          {/if}
+        {/each}
+      </ul>
+    {/if}
+  </aside>
+{:else}
+  <button
+    type="button"
+    class="rail surface--glass status--{now.status}"
+    title={now.status === "waiting" ? t("subagents.waitingHint", { count: counts(subagents).waiting }) : t("subagents.show")}
+    aria-label="{t('subagents.show')}: {now.label}"
+    onclick={ontoggle}
+  >
+    <PanelRightOpen size={14} />
+    <Bot size={14} />
+    <span class="marks">
+      {#each marked as subagent (subagent.id)}<StatusMark status={subagent.status} />{/each}
+    </span>
+    <span class="rail-label">{t("subagents.title")} · {now.label}</span>
+  </button>
+{/if}
 
 <style>
   .panel {
@@ -204,7 +230,50 @@
   .empty {
     padding: 4px 8px;
   }
-  /* Narrow, it covers the chat from the right instead of taking room beside it. */
+  /* Minimized: a thin bar down the chat's side, as the coding tasks' (TasksPanel), its words read upwards in the colour of
+   how they're doing (the cards' --mark). */
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex: none;
+    width: 34px;
+    height: 100%;
+    padding: 10px 0;
+    color: var(--color-text-muted);
+    font: inherit;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: border-color 0.12s ease;
+  }
+  .rail:hover {
+    border-color: color-mix(in srgb, var(--mark) 60%, transparent);
+    color: var(--color-text-primary);
+  }
+  .rail.status--running,
+  .rail.status--waiting {
+    border-color: color-mix(in srgb, var(--mark) 45%, transparent);
+  }
+  .marks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rail-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-height: 0;
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.02em;
+  }
+  .rail:not(.status--done) .rail-label {
+    color: var(--mark);
+  }
+  /* Narrow, it covers the chat from the right instead of taking room beside it; minimized, it stays a thin bar. */
   @media (max-width: 900px) {
     .panel,
     .panel.viewing,

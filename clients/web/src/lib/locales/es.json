@@ -1677,6 +1677,18 @@
       "other": "{count} subagentes esperan tu respuesta"
     },
     "waitingForYou": "Espera tu respuesta",
+    "waitingCount": {
+      "one": "{count} espera tu respuesta",
+      "other": "{count} esperan tu respuesta"
+    },
+    "workingCount": {
+      "one": "{count} trabajando",
+      "other": "{count} trabajando"
+    },
+    "endedCount": {
+      "one": "{count} terminado",
+      "other": "{count} terminados"
+    },
     "thinking": "Pensando…",
     "answered": "Respondió: su respuesta volvió a la conversación.",
     "none": "Todavía ninguno.",

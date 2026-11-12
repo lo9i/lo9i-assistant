@@ -8,7 +8,8 @@ from lo9i.core.agent import Session, ShownStep
 from lo9i.core.config import settings
 from lo9i.core.context import UNATTENDED_CHANNEL
 from lo9i.core.events import ApprovalRequired, Done, SubagentProgress, ToolFinished, ToolStarted
-from lo9i.core.subagent import LIMIT_REACHED
+from lo9i.core.subagent import LIMIT_REACHED, system_prompt
+from lo9i.core.tools.registry import subagent_tools
 from tests.conftest import collect
 
 
@@ -46,6 +47,16 @@ async def test_subagents_get_only_the_tools_that_dont_talk_send_or_save(service,
     subagent_tools = {t.name for t in script.bound[1]}
     assert {"bash", "web_search", "search_memory", "read_email", "use_skill"} <= subagent_tools
     assert not subagent_tools & {"delegate", "send_message", "ask_user", "remember", "send_email", "schedule_job"}
+
+
+async def test_its_prompt_says_it_can_reach_the_internet_only_when_it_has_the_web_tools(service, script):
+    script.call("delegate", task="look it up").reply("found").reply("ok")
+    await collect(service.send(await service.session("u", "cli"), "go"))
+    assert "web_search searches the web" in script.requests[1][0].text
+    without_web = [t for t in subagent_tools(settings.toolsets) if not t.name.startswith("web_")]
+    prompt = system_prompt(without_web, "Research gadgets.")
+    assert "web_search" not in prompt and "{" not in prompt
+    assert prompt.endswith("Don't change things the task didn't ask you to change.\n\nResearch gadgets.")
 
 
 async def test_an_approval_inside_resumes_the_subagent_where_it_stopped(service, script):
