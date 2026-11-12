@@ -278,6 +278,7 @@
     color: var(--color-text-muted);
     font: inherit;
     cursor: pointer;
+    border-radius: var(--radius-md);
     transition: border-color 0.12s ease;
   }
   .rail:hover {
