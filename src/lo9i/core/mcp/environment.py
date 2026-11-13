@@ -26,7 +26,8 @@ def scripts(folder: Path) -> Path:
 
 
 async def build(name: str, folder: Path) -> None:
-    """Installs the locked dependencies into `folder/.venv`. Raises McpServerError if uv is missing or fails."""
+    """Installs the locked dependencies but the dev groups into `folder/.venv`, removing any other. Raises
+    McpServerError if uv is missing or fails."""
     uv = find_uv()
     if uv is None:
         raise McpServerError(
@@ -37,6 +38,9 @@ async def build(name: str, folder: Path) -> None:
         "sync",
         "--quiet",
         "--frozen",
+        # A plugin's dev group (pytest, ruff, pyright) is for working on it; exact sync also takes out what an
+        # environment built with it holds.
+        "--no-dev",
         "--project",
         str(folder),
         stdout=asyncio.subprocess.DEVNULL,
