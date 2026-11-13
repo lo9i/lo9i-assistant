@@ -11,6 +11,7 @@ from lo9i.client.daemon_client.client import DaemonClient
 from lo9i.client.daemon_client.clients import ClientsApi
 from lo9i.client.daemon_client.conversations import ConversationsApi
 from lo9i.client.daemon_client.devices import DevicesApi
+from lo9i.client.daemon_client.disk import DiskApi
 from lo9i.client.daemon_client.doctor import DoctorApi
 from lo9i.client.daemon_client.email import EmailApi
 from lo9i.client.daemon_client.files import FilesApi
@@ -45,6 +46,7 @@ __all__ = [
     "ConversationsApi",
     "DaemonClient",
     "DevicesApi",
+    "DiskApi",
     "DoctorApi",
     "EmailApi",
     "FilesApi",

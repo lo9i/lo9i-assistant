@@ -2,8 +2,8 @@
 what the checkout's scripts/prepare.sh does (Ollama, the web app built); `lo9i daemon` runs the daemon in the
 foreground; `lo9i daemon restart` restarts the running one once no run is in progress; `lo9i doctor` checks the
 setup (setup_check_command.py); `lo9i export` and `lo9i import` move lo9i to another computer
-(migration_command.py), `lo9i migrate` straight there over SSH (move_command.py); `lo9i completion <shell>` prints a
-completion script."""
+(migration_command.py), `lo9i migrate` straight there over SSH (move_command.py); `lo9i clean` shows the disk lo9i
+takes and cleans it (clean_command.py); `lo9i completion <shell>` prints a completion script."""
 
 import asyncio
 import subprocess
@@ -13,7 +13,7 @@ from pathlib import Path
 from lo9i.client import DaemonClient, DaemonUnavailableError, connect
 from lo9i.core.agent import Session
 from lo9i.core.config import settings
-from lo9i_terminal import i18n, migration_command, move_command
+from lo9i_terminal import clean_command, i18n, migration_command, move_command
 from lo9i_terminal.cli import CHECKOUT, Command, parse
 from lo9i_terminal.completion import script
 from lo9i_terminal.history import History
@@ -84,6 +84,8 @@ async def _command(command: Command) -> int:
             )
         case "migrate":
             return await move_command.migrate(command)
+        case "clean":
+            return await clean_command.clean(list(command.categories), command.yes, command.json)
         case "daemon":
             await _restart()
         case _:

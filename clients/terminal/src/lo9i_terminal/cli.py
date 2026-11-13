@@ -18,9 +18,12 @@ COMMANDS = {
     "export": "Export lo9i's data, sealed with a password, to move it to another computer.",
     "import": "Import an export here; the daemon restarts to use it.",
     "migrate": "Move lo9i to another computer over SSH, installing it there if it's missing.",
+    "clean": "Show the disk lo9i takes and what cleaning would free; --yes cleans it.",
     "completion": "Print the shell completion script for bash, zsh or fish.",
 }
 DAEMON_ACTIONS = ("restart",)
+# What `lo9i clean` can be told to clean (core/disk/); the downloads only when named.
+CLEANED = ("database", "logs", "backups", "uploads", "plugins", "plugin_data", "downloads")
 # The checkout lo9i runs from (src/lo9i/__init__.py's), with its scripts and .git.
 CHECKOUT = Path(lo9i.__file__).resolve().parents[2]
 
@@ -28,11 +31,11 @@ CHECKOUT = Path(lo9i.__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class Command:
     # chat: open the terminal app (no command given).
-    name: Literal["chat", "daemon", "doctor", "export", "import", "migrate", "completion"]
+    name: Literal["chat", "daemon", "doctor", "export", "import", "migrate", "clean", "completion"]
     # daemon: "restart", or "" to run it. completion: the shell. export: where to write it, "" for the folder it runs
     # in. import: the export. migrate: the host.
     argument: str = ""
-    # doctor and import: print the report as JSON.
+    # doctor, import and clean: print the report as JSON.
     json: bool = False
     # import and migrate: set aside the data lo9i has there.
     force: bool = False
@@ -44,6 +47,9 @@ class Command:
     port: int = 0
     key: str = ""
     password: bool = False
+    # clean: the categories to clean (all but the downloads when empty), and whether to clean them or only say so.
+    categories: tuple[str, ...] = ()
+    yes: bool = False
 
 
 def parse(args: list[str]) -> Command:
@@ -69,6 +75,8 @@ def parse(args: list[str]) -> Command:
             )
         case "migrate":
             return _migrate(found)
+        case "clean":
+            return Command("clean", json=found.json, categories=tuple(found.categories), yes=found.yes)
         case _:
             return Command("completion", found.shell)
 
@@ -107,6 +115,7 @@ def _parser() -> argparse.ArgumentParser:
     importing.add_argument("--json", action="store_true", help="print what to set up again as JSON")
     importing.add_argument("--wait", action="store_true", help="wait until the daemon restarted with it")
     _add_migrate(commands)
+    _add_clean(commands)
     completion = commands.add_parser("completion", help=COMMANDS["completion"], description=COMMANDS["completion"])
     completion.add_argument("shell", choices=SHELLS)
     return parser
@@ -122,6 +131,19 @@ def _add_migrate(commands: argparse._SubParsersAction) -> None:
     migrate.add_argument(
         "--replace", action="store_true", help="replace the data lo9i has there, which is kept in a folder beside it"
     )
+
+
+def _add_clean(commands: argparse._SubParsersAction) -> None:
+    clean = commands.add_parser("clean", help=COMMANDS["clean"], description=COMMANDS["clean"])
+    clean.add_argument(
+        "categories",
+        nargs="*",
+        choices=CLEANED,
+        metavar="category",
+        help=f"what to clean, of {', '.join(CLEANED)} (all but downloads if none is given)",
+    )
+    clean.add_argument("--yes", action="store_true", help="clean it, instead of only saying what it would free")
+    clean.add_argument("--json", action="store_true", help="print the report as JSON")
 
 
 class _Version(argparse.Action):

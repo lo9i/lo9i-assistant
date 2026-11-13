@@ -66,6 +66,7 @@ async def test_a_token_under_the_old_name_moves_to_the_installations(service, ap
     async with _http(app) as browser:
         await browser.post("/auth/pair", json={"code": await _code(app), "name": "Laptop"})
         token = browser.cookies.get(COOKIE)
+    assert token is not None
     named = create_app(service, RunHub(), cookie=DeviceCookie(await service.installation_id()))
     name = f"{COOKIE}_{await service.installation_id()}"
     async with _http(named) as browser:

@@ -11,6 +11,7 @@ from lo9i.core.agent.archive import ArchiveMixin
 from lo9i.core.agent.channel_threads import ChannelThreadsMixin
 from lo9i.core.agent.channels import ChannelsMixin
 from lo9i.core.agent.devices import DevicesMixin
+from lo9i.core.agent.disk import DiskMixin
 from lo9i.core.agent.dispatch import DispatchMixin
 from lo9i.core.agent.doctor import DoctorMixin
 from lo9i.core.agent.email import EmailMixin
@@ -138,6 +139,7 @@ class AssistantService(
     DoctorMixin,
     SetupCheckMixin,
     MigrationMixin,
+    DiskMixin,
     NotificationsMixin,
     HomeMixin,
     ProactiveMixin,

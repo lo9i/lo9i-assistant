@@ -37,7 +37,9 @@ def size(count: int) -> str:
         return f"{count} B"
     if count < 1024 * 1024:
         return f"{decimal(count / 1024)} KB"
-    return f"{decimal(count / (1024 * 1024))} MB"
+    if count < 1024**3:
+        return f"{decimal(count / (1024 * 1024))} MB"
+    return f"{decimal(count / 1024**3)} GB"
 
 
 def _local(timestamp: str) -> str:

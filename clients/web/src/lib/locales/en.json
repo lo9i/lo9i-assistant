@@ -399,6 +399,49 @@
     "removePasskeyTitle": "Remove this passkey?",
     "removePasskeyText": "It won't sign in any more. Your password manager may still list it: delete it there too."
   },
+  "disk": {
+    "title": "Disk use",
+    "sub": "What lo9i keeps on this computer, in {home}.",
+    "measuring": "Measuring…",
+    "bar": "Disk use by category",
+    "share": "{size}, {share} of it",
+    "toFree": "{size} to free",
+    "clean": "Clean",
+    "cleanUp": "Clean up {size}",
+    "nothingToClean": "Nothing to clean.",
+    "cleanUpTitle": "Clean up {size}?",
+    "cleanUpText": "Removes old logs, old copies of lo9i's data, uploads no conversation refers to and caches in plugins' folders, and compacts the database. Models, browser sign-ins and conversations stay.",
+    "cleanTitle": "Clean {name}?",
+    "cleanText": "{what}: frees {size}.",
+    "downloadsText": "Deletes the files plugins downloaded for you ({size}). Only theirs go, nothing else in the folder.",
+    "freed": "Freed {size}.",
+    "failed": {
+      "one": "{count} couldn't be cleaned: {reason}",
+      "other": "{count} couldn't be cleaned. The first: {reason}"
+    },
+    "names": {
+      "database": "Database",
+      "models": "Models",
+      "plugins": "Plugins",
+      "browsers": "Browsers",
+      "plugin_data": "Plugins' data",
+      "uploads": "Uploads",
+      "logs": "Logs",
+      "workspace": "Workspaces",
+      "backups": "Backups",
+      "downloads": "Downloads",
+      "other": "Other"
+    },
+    "cleans": {
+      "database": "Its free space, compacted",
+      "logs": "Old logs",
+      "backups": "Old copies of lo9i's data",
+      "uploads": "Uploads no conversation refers to",
+      "plugins": "Caches in plugins' folders",
+      "plugin_data": "Caches in plugins' data",
+      "downloads": "Plugins' finished downloads, only when you clean them here"
+    }
+  },
   "dispatch": {
     "title": "Routing messages",
     "sub": "A message you write outside a conversation goes on in the one it's about, or starts a new one. Quick questions are answered in the inbox.",

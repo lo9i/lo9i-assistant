@@ -15,6 +15,8 @@ import type {
   ApprovalRequired,
   BackgroundSubagent,
   DoctorPage,
+  DiskReport,
+  CleanReport,
   SetupReport,
   LoopStatus,
   ProactivePage,
@@ -1257,6 +1259,22 @@ export class SystemGroup {
   }
 }
 
+/** The disk lo9i takes by category, and cleaning what can go without losing anything (src/lo9i/core/disk/). */
+export class DiskGroup {
+  constructor(private readonly transport: Transport) {}
+
+  /** Walks lo9i's folders and reads its database: takes a few seconds. */
+  usage(): Promise<DiskReport> {
+    return this.transport.request("GET", "/system/disk");
+  }
+
+  /** Cleans `categories`, or every one but the plugins' downloads when empty, and measures again. Throws ApiError
+   * (400) for a category that isn't one. */
+  clean(categories: string[] = []): Promise<CleanReport> {
+    return this.transport.request("POST", "/system/disk/clean", { categories });
+  }
+}
+
 export class LanguageGroup {
   constructor(private readonly transport: Transport) {}
 
@@ -1451,6 +1469,7 @@ export class DaemonClient {
   readonly memory: MemoryGroup;
   readonly usage: UsageGroup;
   readonly system: SystemGroup;
+  readonly disk: DiskGroup;
   readonly clients: ClientsGroup;
   readonly auth: AuthGroup;
   readonly devices: DevicesGroup;
@@ -1493,6 +1512,7 @@ export class DaemonClient {
     this.memory = new MemoryGroup(transport);
     this.usage = new UsageGroup(transport);
     this.system = new SystemGroup(transport);
+    this.disk = new DiskGroup(transport);
     this.clients = new ClientsGroup(transport);
     this.auth = new AuthGroup(transport);
     this.devices = new DevicesGroup(transport);

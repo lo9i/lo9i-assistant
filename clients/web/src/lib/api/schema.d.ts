@@ -2284,6 +2284,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/disk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Disk Usage
+         * @description How much disk lo9i takes by category, what cleaning each frees, and what it removes.
+         */
+        get: operations["disk_usage_system_disk_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/disk/clean": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clean Disk
+         * @description Removes what cleaning the categories frees, then measures again. 400: a category that isn't one.
+         */
+        post: operations["clean_disk_system_disk_clean_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications": {
         parameters: {
             query?: never;
@@ -4204,6 +4244,43 @@ export interface components {
             /** Items */
             items: components["schemas"]["SetupItem"][];
         };
+        /** CleanFailure */
+        CleanFailure: {
+            /** Path */
+            path: string;
+            /** Reason */
+            reason: string;
+        };
+        /** CleanItem */
+        CleanItem: {
+            /** Category */
+            category: string;
+            /** Path */
+            path: string;
+            /** Bytes */
+            bytes: number;
+        };
+        /** CleanReport */
+        CleanReport: {
+            /** Freed */
+            freed: number;
+            /** Removed */
+            removed: components["schemas"]["CleanItem"][];
+            /** Failed */
+            failed: components["schemas"]["CleanFailure"][];
+            usage: components["schemas"]["DiskReport"];
+        };
+        /**
+         * CleanRequest
+         * @description The categories to clean; none for every one but those cleaned only when named (the plugins' downloads).
+         */
+        CleanRequest: {
+            /**
+             * Categories
+             * @default []
+             */
+            categories: string[];
+        };
         /** CommandReply */
         CommandReply: {
             /** Text */
@@ -4426,6 +4503,32 @@ export interface components {
             last_used_at: string;
             /** Last Ip */
             last_ip: string;
+        };
+        /** DiskCategory */
+        DiskCategory: {
+            /** Name */
+            name: string;
+            /** Bytes */
+            bytes: number;
+            /** Freeable */
+            freeable: number;
+            /** On Request */
+            on_request: boolean;
+            /** Paths */
+            paths: string[];
+        };
+        /** DiskReport */
+        DiskReport: {
+            /** Home */
+            home: string;
+            /** Total */
+            total: number;
+            /** Freeable */
+            freeable: number;
+            /** Categories */
+            categories: components["schemas"]["DiskCategory"][];
+            /** Items */
+            items: components["schemas"]["CleanItem"][];
         };
         /** DispatchSetting */
         DispatchSetting: {
@@ -11754,6 +11857,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SetupReport"];
+                };
+            };
+        };
+    };
+    disk_usage_system_disk_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiskReport"];
+                };
+            };
+        };
+    };
+    clean_disk_system_disk_clean_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CleanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

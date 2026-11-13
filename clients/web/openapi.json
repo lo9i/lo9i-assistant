@@ -5289,6 +5289,64 @@
         }
       }
     },
+    "/system/disk": {
+      "get": {
+        "summary": "Disk Usage",
+        "description": "How much disk lo9i takes by category, what cleaning each frees, and what it removes.",
+        "operationId": "disk_usage_system_disk_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiskReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/system/disk/clean": {
+      "post": {
+        "summary": "Clean Disk",
+        "description": "Removes what cleaning the categories frees, then measures again. 400: a category that isn't one.",
+        "operationId": "clean_disk_system_disk_clean_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/notifications": {
       "get": {
         "summary": "Notification List",
@@ -9266,6 +9324,95 @@
         ],
         "title": "ChannelStatus"
       },
+      "CleanFailure": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "reason"
+        ],
+        "title": "CleanFailure"
+      },
+      "CleanItem": {
+        "properties": {
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category",
+          "path",
+          "bytes"
+        ],
+        "title": "CleanItem"
+      },
+      "CleanReport": {
+        "properties": {
+          "freed": {
+            "type": "integer",
+            "title": "Freed"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/CleanItem"
+            },
+            "type": "array",
+            "title": "Removed"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/CleanFailure"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/DiskReport"
+          }
+        },
+        "type": "object",
+        "required": [
+          "freed",
+          "removed",
+          "failed",
+          "usage"
+        ],
+        "title": "CleanReport"
+      },
+      "CleanRequest": {
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "CleanRequest",
+        "description": "The categories to clean; none for every one but those cleaned only when named (the plugins' downloads)."
+      },
       "CommandReply": {
         "properties": {
           "text": {
@@ -9699,6 +9846,81 @@
           "last_ip"
         ],
         "title": "Device"
+      },
+      "DiskCategory": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "bytes": {
+            "type": "integer",
+            "title": "Bytes"
+          },
+          "freeable": {
+            "type": "integer",
+            "title": "Freeable"
+          },
+          "on_request": {
+            "type": "boolean",
+            "title": "On Request"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "bytes",
+          "freeable",
+          "on_request",
+          "paths"
+        ],
+        "title": "DiskCategory"
+      },
+      "DiskReport": {
+        "properties": {
+          "home": {
+            "type": "string",
+            "title": "Home"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "freeable": {
+            "type": "integer",
+            "title": "Freeable"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/DiskCategory"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CleanItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "home",
+          "total",
+          "freeable",
+          "categories",
+          "items"
+        ],
+        "title": "DiskReport"
       },
       "DispatchSetting": {
         "properties": {

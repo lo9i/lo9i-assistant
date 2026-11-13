@@ -2,7 +2,7 @@
 
 The service is a facade (`service.py`) composed of mixins, one per concern:
 threads, channel threads, files, the handed folder, memory, the About you step, channels, email, mcp, sign-ins,
-alerts, doctor, the setup check, notifications, home, follow-ups, held runs, tasks, background subagents,
+alerts, doctor, the setup check, disk use, notifications, home, follow-ups, held runs, tasks, background subagents,
 repositories, model, sign-in links, devices, passkeys, identity, prompts, speech, log level, language, web search,
 skills, skill imports, pinned skills, a conversation's own model, jobs, proactive (briefing, reviews, open loops),
 usage, live voice calls, messaging, runs and locking.
@@ -13,6 +13,7 @@ from lo9i.core.agent.alerts import Alert, AlertArea
 from lo9i.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
 from lo9i.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
 from lo9i.core.agent.devices import Device, DeviceError, PairingCode
+from lo9i.core.agent.disk import CleanFailure, CleanItem, CleanReport, DiskCategory, DiskReport, UnknownCategoryError
 from lo9i.core.agent.doctor import (
     Cause,
     ContextItem,
@@ -143,6 +144,9 @@ __all__ = [
     "Cause",
     "ChannelNotConnectedError",
     "ChannelStatus",
+    "CleanFailure",
+    "CleanItem",
+    "CleanReport",
     "ContextItem",
     "ContextPart",
     "Conversation",
@@ -154,6 +158,8 @@ __all__ = [
     "DeletingOffError",
     "Device",
     "DeviceError",
+    "DiskCategory",
+    "DiskReport",
     "DoctorPage",
     "DoctorReport",
     "EmailAccount",
@@ -276,6 +282,7 @@ __all__ = [
     "TaskTurn",
     "TasksBesideError",
     "TokenReport",
+    "UnknownCategoryError",
     "UnknownPromptError",
     "UpdateNeedsValuesError",
     "UploadedFile",

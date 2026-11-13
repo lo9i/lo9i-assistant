@@ -171,6 +171,7 @@ from lo9i.daemon.auth import (
 )
 from lo9i.daemon.channel_runs import ChannelRuns
 from lo9i.daemon.clients import ClientRegistry
+from lo9i.daemon.disk import add_disk_routes
 from lo9i.daemon.follows import StreamFollows, StreamKey, log_source, run_source
 from lo9i.daemon.launchd import StartupError
 from lo9i.daemon.migration import EXPORTS, add_migration_routes
@@ -802,6 +803,7 @@ def create_app(
     _add_alert_routes(app, service)
     _add_doctor_routes(app, service)
     _add_setup_check_route(app, service, web_ui)
+    add_disk_routes(app, service)
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
     _add_proactive_routes(app, service)

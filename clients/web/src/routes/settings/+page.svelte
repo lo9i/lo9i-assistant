@@ -10,6 +10,7 @@
   import KeptKeysCard from "$lib/ui/settings/KeptKeysCard.svelte";
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import MoveCard from "$lib/ui/settings/MoveCard.svelte";
+  import DiskCard from "$lib/ui/settings/DiskCard.svelte";
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
@@ -95,6 +96,7 @@
       </div>
       <div class="stack">
         <HostCard />
+        <DiskCard />
       </div>
     </div>
   {:else if tab === "clients"}

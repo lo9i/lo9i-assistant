@@ -399,6 +399,49 @@
     "removePasskeyTitle": "¿Quitar esta llave de acceso?",
     "removePasskeyText": "Ya no servirá para iniciar sesión. Puede que tu gestor de contraseñas todavía la muestre: bórrala ahí también."
   },
+  "disk": {
+    "title": "Uso del disco",
+    "sub": "Lo que lo9i guarda en esta computadora, en {home}.",
+    "measuring": "Midiendo…",
+    "bar": "Uso del disco por categoría",
+    "share": "{size}, {share} del total",
+    "toFree": "{size} para liberar",
+    "clean": "Limpiar",
+    "cleanUp": "Limpiar {size}",
+    "nothingToClean": "No hay nada para limpiar.",
+    "cleanUpTitle": "¿Limpiar {size}?",
+    "cleanUpText": "Borra los logs viejos, las copias viejas de los datos de lo9i, los archivos subidos que ninguna conversación usa y las cachés en las carpetas de los plugins, y compacta la base de datos. Los modelos, las sesiones del navegador y las conversaciones se quedan.",
+    "cleanTitle": "¿Limpiar {name}?",
+    "cleanText": "{what}: libera {size}.",
+    "downloadsText": "Borra los archivos que los plugins descargaron para ti ({size}). Solo se borran esos, nada más de la carpeta.",
+    "freed": "Se liberaron {size}.",
+    "failed": {
+      "one": "{count} no se pudo limpiar: {reason}",
+      "other": "{count} no se pudieron limpiar. El primero: {reason}"
+    },
+    "names": {
+      "database": "Base de datos",
+      "models": "Modelos",
+      "plugins": "Plugins",
+      "browsers": "Navegadores",
+      "plugin_data": "Datos de los plugins",
+      "uploads": "Archivos subidos",
+      "logs": "Logs",
+      "workspace": "Espacios de trabajo",
+      "backups": "Copias de seguridad",
+      "downloads": "Descargas",
+      "other": "Otros"
+    },
+    "cleans": {
+      "database": "Su espacio libre, compactado",
+      "logs": "Logs viejos",
+      "backups": "Copias viejas de los datos de lo9i",
+      "uploads": "Archivos subidos que ninguna conversación usa",
+      "plugins": "Cachés en las carpetas de los plugins",
+      "plugin_data": "Cachés en los datos de los plugins",
+      "downloads": "Descargas terminadas de los plugins, solo si las limpias aquí"
+    }
+  },
   "dispatch": {
     "title": "Encaminar mensajes",
     "sub": "Un mensaje que escribes fuera de una conversación sigue en la conversación de la que trata, o empieza una nueva. Las preguntas rápidas se responden en la bandeja de entrada.",

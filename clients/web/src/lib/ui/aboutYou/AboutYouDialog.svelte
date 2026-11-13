@@ -147,14 +147,7 @@
       <div class="row">
         <label class="field">
           <span class="field-label">{t("aboutYou.email")}</span>
-          <input
-            class="input"
-            type="email"
-            bind:value={form.email}
-            autocomplete="email"
-            maxlength="320"
-            title={t("aboutYou.emailUse")}
-          />
+          <input class="input" type="email" bind:value={form.email} autocomplete="email" maxlength="320" title={t("aboutYou.emailUse")} />
         </label>
         <label class="field">
           <span class="field-label">{t("aboutYou.replyLength")}</span>

@@ -5,6 +5,7 @@ from lo9i.client.daemon_client.channels import ChannelsApi
 from lo9i.client.daemon_client.clients import ClientsApi
 from lo9i.client.daemon_client.conversations import ConversationsApi
 from lo9i.client.daemon_client.devices import DevicesApi
+from lo9i.client.daemon_client.disk import DiskApi
 from lo9i.client.daemon_client.doctor import DoctorApi
 from lo9i.client.daemon_client.email import EmailApi
 from lo9i.client.daemon_client.events import EventsMixin
@@ -65,6 +66,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.doctor = DoctorApi(transport)
         self.setup_check = SetupCheckApi(transport)
         self.migration = MigrationApi(transport)
+        self.disk = DiskApi(transport)
         self.notifications = NotificationsApi(transport)
         self.prompts = PromptsApi(transport)
         self.home = HomeApi(transport)
