@@ -3,7 +3,7 @@ databases, so async code calls it in a thread."""
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from lo9i.core.disk import backups, database, orphans
@@ -68,15 +68,24 @@ class Where:
     set_aside: list[Path]
     downloads: list[Path]
     download_folders: list[Path]
+    old_tasks: list[Path] = field(default_factory=list)
 
 
-def build(places: Places, downloads: Sequence[Path], download_folders: Sequence[Path], now: float) -> DiskReport:
-    """`downloads`: the plugins' finished downloads, in `download_folders`."""
+def build(
+    places: Places,
+    downloads: Sequence[Path],
+    download_folders: Sequence[Path],
+    now: float,
+    old_tasks: Sequence[Path] = (),
+) -> DiskReport:
+    """`downloads`: the plugins' finished downloads, in `download_folders`. `old_tasks`: the coding agents' tasks that
+    ended long ago (core/agent_tasks/pruning.py)."""
     where = Where(
         backups.old_copies(places.home, places.database),
         backups.set_aside(places.home),
         list(downloads),
         list(download_folders),
+        list(old_tasks),
     )
     sizes = measure(places, where)
     items = plan(places, where, now)
@@ -111,6 +120,7 @@ def plan(places: Places, where: Where, now: float) -> list[CleanItem]:
     found = items(LOGS, old_logs(places.logs, places.home)) + items(BACKUPS, where.copies)
     found += items(UPLOADS, _orphaned(places, now))
     found += items(PLUGINS, caches([places.plugins], now)) + items(PLUGIN_DATA, caches([places.plugin_data], now))
+    found += items(PLUGIN_DATA, where.old_tasks)
     found += items(DOWNLOADS, where.downloads)
     if space := database.free_space(places.database):
         found.append(CleanItem(DATABASE, str(places.database), space))

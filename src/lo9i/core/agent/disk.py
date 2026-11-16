@@ -4,9 +4,11 @@ import asyncio
 import time
 from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 
 from lo9i.core import disk
 from lo9i.core.agent.base import ServiceBase
+from lo9i.core.agent_tasks import pruning
 from lo9i.core.disk import CATEGORIES, ON_REQUEST, CleanFailure, CleanItem, DiskCategory, DiskReport
 from lo9i.core.disk.places import DATABASE
 from lo9i.core.i18n import said
@@ -39,7 +41,7 @@ class CleanReport:
 class DiskMixin(ServiceBase):
     async def disk_usage(self) -> DiskReport:
         folders = await downloads.every(self._storage.store, self.secrets)
-        return await asyncio.to_thread(_report, folders)
+        return await asyncio.to_thread(_report, folders, self.agent_tasks.task_roots())
 
     async def clean_disk(self, categories: Collection[str] = ()) -> CleanReport:
         """Cleans `categories`, or every one but those cleaned only on request when it's empty. The database is
@@ -61,6 +63,8 @@ def _chosen(categories: Collection[str]) -> set[str]:
     return set(categories) or {c for c in CATEGORIES if c not in ON_REQUEST}
 
 
-def _report(folders: list[downloads.DownloadsFolder]) -> DiskReport:
+def _report(folders: list[downloads.DownloadsFolder], task_roots: list[Path]) -> DiskReport:
     files = [path for folder in folders for path in folder.finished()]
-    return disk.build(disk.from_settings(), files, [f.folder for f in folders], time.time())
+    now = time.time()
+    old_tasks = pruning.old_ended(task_roots, now)
+    return disk.build(disk.from_settings(), files, [f.folder for f in folders], now, old_tasks)

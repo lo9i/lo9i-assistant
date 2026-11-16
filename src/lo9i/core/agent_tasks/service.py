@@ -77,6 +77,10 @@ class AgentTasks:
         """The installed agents, by plugin name: what the task tools offer."""
         return [_coding_agent(s) for _, s in sorted(self._agents.items())]
 
+    def task_roots(self) -> list[Path]:
+        """The folder each installed agent keeps its tasks in."""
+        return [_tasks(s).root for _, s in sorted(self._agents.items())]
+
     def trusted(self, agent: str) -> bool:
         """The user trusts the plugin: its tasks start and stop without asking."""
         server = self._agents.get(agent)
