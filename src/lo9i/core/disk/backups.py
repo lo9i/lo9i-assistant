@@ -1,6 +1,7 @@
 """Copies of lo9i's data that older versions left in the data home before changing it (`lo9i-before-accounts.db`,
-`facts-backup-2026-10-25.json`), and the folders an import set aside beside it (`.lo9i-before-import-<when>`,
-core/migration/applying.py). Only the first are cleaned: an import's folder holds the whole of the data it replaced."""
+`facts-backup-2026-10-25.json`), empty databases left in the plugins' data folder, and the folders an import set aside
+beside it (`.lo9i-before-import-<when>`, core/migration/applying.py). All but the last are cleaned: an import's folder
+holds the whole of the data it replaced."""
 
 from pathlib import Path
 
@@ -20,6 +21,13 @@ def old_copies(home: Path, live: Path) -> list[Path]:
     ]
     kept = {live, *(live.with_name(live.name + s) for s in SIDECARS)}
     return [p for p in found if p.is_file() and not p.is_symlink() and p not in kept]
+
+
+def empty_databases(plugin_data: Path) -> list[Path]:
+    """Empty .db files in the plugins' data folder and each plugin's own, which nothing ever wrote a table in (one named
+    `*.db` a glob made). Not deeper: a browser profile keeps empty caches of its own."""
+    found = [*plugin_data.glob("*.db"), *plugin_data.glob("*/*.db")]
+    return sorted(p for p in found if p.is_file() and not p.is_symlink() and p.stat().st_size == 0)
 
 
 def set_aside(home: Path) -> list[Path]:

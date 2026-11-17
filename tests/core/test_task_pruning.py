@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from lo9i.core.agent_tasks import pruning
-from lo9i.core.disk import Places
+from lo9i.core.disk import Places, clean
 
 NOW = 1_800_000_000.0
 OLD = NOW - (pruning.KEEP_DAYS + 1) * 24 * 3600
@@ -48,9 +48,9 @@ def test_a_recent_file_keeps_an_old_task(tasks: dict[str, Path]) -> None:
     assert pruning.old_ended([tasks["ended"].parent], NOW) == []
 
 
-def test_prune_removes_them(tasks: dict[str, Path], tmp_path: Path) -> None:
+def test_cleaning_them_removes_only_those(tasks: dict[str, Path], tmp_path: Path) -> None:
     places = Places(tmp_path / "lo9i.db", (), tmp_path / "mcp", tmp_path, tmp_path, tmp_path / "up", tmp_path, ())
-    cleaned = pruning.prune([tasks["ended"].parent], places, NOW)
+    cleaned = clean(places, pruning.items([tasks["ended"].parent], NOW))
     assert [Path(i.path) for i in cleaned.removed] == [tasks["ended"]] and cleaned.freed > 0
     assert not tasks["ended"].exists()
     assert all(tasks[name].exists() for name in ("unfinished", "recent", "running"))

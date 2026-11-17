@@ -6,7 +6,7 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
-from lo9i.core import disk
+from lo9i.core import disk, housekeeping
 from lo9i.core.agent.base import ServiceBase
 from lo9i.core.agent_tasks import pruning
 from lo9i.core.disk import CATEGORIES, ON_REQUEST, CleanFailure, CleanItem, DiskCategory, DiskReport
@@ -41,12 +41,17 @@ class CleanReport:
 class DiskMixin(ServiceBase):
     async def disk_usage(self) -> DiskReport:
         folders = await downloads.every(self._storage.store, self.secrets)
-        return await asyncio.to_thread(_report, folders, self.agent_tasks.task_roots())
+        now = time.time()
+        old_outputs = await self._storage.search.old_tool_outputs(housekeeping.outputs_before(now))
+        return await asyncio.to_thread(_report, folders, self.agent_tasks.task_roots(), now, old_outputs)
 
     async def clean_disk(self, categories: Collection[str] = ()) -> CleanReport:
         """Cleans `categories`, or every one but those cleaned only on request when it's empty. The database is
         compacted only while no run is in progress, whose writes would wait for it. Raises UnknownCategoryError."""
         chosen = _chosen(categories)
+        if DATABASE in chosen:
+            # Before the plan, so compacting gives back what they took.
+            await self._storage.search.forget_tool_outputs(housekeeping.outputs_before(time.time()))
         items = [i for i in (await self.disk_usage()).items if i.category in chosen]
         waiting = [i for i in items if i.category == DATABASE and self._open_runs]
         cleaned = await asyncio.to_thread(disk.clean, disk.from_settings(), [i for i in items if i not in waiting])
@@ -63,8 +68,9 @@ def _chosen(categories: Collection[str]) -> set[str]:
     return set(categories) or {c for c in CATEGORIES if c not in ON_REQUEST}
 
 
-def _report(folders: list[downloads.DownloadsFolder], task_roots: list[Path]) -> DiskReport:
+def _report(
+    folders: list[downloads.DownloadsFolder], task_roots: list[Path], now: float, old_outputs: int
+) -> DiskReport:
     files = [path for folder in folders for path in folder.finished()]
-    now = time.time()
     old_tasks = pruning.old_ended(task_roots, now)
-    return disk.build(disk.from_settings(), files, [f.folder for f in folders], now, old_tasks)
+    return disk.build(disk.from_settings(), files, [f.folder for f in folders], now, old_tasks, old_outputs)

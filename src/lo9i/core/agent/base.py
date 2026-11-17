@@ -2,7 +2,6 @@ import asyncio
 
 from lo9i.core.agent_tasks.beside import TasksBeside
 from lo9i.core.agent_tasks.ends import TaskEnds
-from lo9i.core.agent_tasks.pruning import TaskPruning
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.agent_tasks.service import AgentTasks
 from lo9i.core.approvals import RemoteApprovals
@@ -26,6 +25,7 @@ from lo9i.core.health import HealthLog
 from lo9i.core.home.builder import SectionBuilder
 from lo9i.core.home.refresh import HomeRefresh
 from lo9i.core.home.schedule import HomeSchedule
+from lo9i.core.housekeeping import Housekeeping
 from lo9i.core.llm.choice import ModelChoice
 from lo9i.core.llm.windows import ContextWindows
 from lo9i.core.mcp.badges import Badges
@@ -79,8 +79,9 @@ class ServiceBase:
     _task_reports: TaskReports
     # Tells a conversation that a task it started ended. The daemon runs it as a supervised task.
     task_ends: TaskEnds
-    # Removes the coding agents' tasks that ended long ago. The daemon runs it as a supervised task.
-    task_pruning: TaskPruning
+    # Keeps old tasks, uploads, the search index and the database's free space bounded (core/housekeeping.py). The
+    # daemon runs it as a supervised task.
+    housekeeping: Housekeeping
     # The coding tasks started from each conversation, shown beside it, and what the user writes their agents there.
     # The daemon runs it as a supervised task.
     tasks_beside: TasksBeside

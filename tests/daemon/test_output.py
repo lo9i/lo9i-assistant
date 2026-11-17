@@ -39,3 +39,14 @@ def test_output_going_elsewhere_isnt_touched(tmp_path):
     _start(log, elsewhere, limit=50)
     assert log.read_text() == "x" * 100 and not (tmp_path / "output.log.1").exists()
     assert elsewhere.read_text() == "before\nafter False\n"
+
+
+def test_older_parts_move_up_and_the_oldest_goes(tmp_path):
+    log = tmp_path / "output.log"
+    for n in range(5):
+        log.write_text(f"run {n}\n" + "x" * 100 + "\n")
+        _start(log, log, limit=50)
+    parts = sorted(p.name for p in tmp_path.iterdir())
+    assert parts == ["output.log", "output.log.1", "output.log.2", "output.log.3"]
+    assert (tmp_path / "output.log.1").read_text().startswith("run 4")
+    assert (tmp_path / "output.log.3").read_text().startswith("run 2")

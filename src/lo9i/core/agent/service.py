@@ -53,7 +53,6 @@ from lo9i.core.agent.voice_calls import VoiceCallsMixin
 from lo9i.core.agent.web_search import WebSearchMixin
 from lo9i.core.agent_tasks.beside import TasksBeside
 from lo9i.core.agent_tasks.ends import TaskEnds
-from lo9i.core.agent_tasks.pruning import TaskPruning
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.agent_tasks.service import AgentTasks
 from lo9i.core.agent_tasks.tools import AgentTools
@@ -80,6 +79,7 @@ from lo9i.core.home.conversations import ConversationsSection
 from lo9i.core.home.loops import LoopsSection
 from lo9i.core.home.refresh import HomeRefresh
 from lo9i.core.home.schedule import HomeSchedule
+from lo9i.core.housekeeping import Housekeeping
 from lo9i.core.llm import choice
 from lo9i.core.llm.choice import ModelChoice
 from lo9i.core.llm.windows import ContextWindows
@@ -199,7 +199,7 @@ class AssistantService(
         self._plugin_checks = PluginChecks(storage.store, secrets, lambda: logins.of_model(self._model), environments)
         self._task_reports = TaskReports(storage.store)
         self.task_ends = TaskEnds(self.agent_tasks, self._task_reports, bus, background)
-        self.task_pruning = TaskPruning(self.agent_tasks.task_roots)
+        self.housekeeping = Housekeeping(self.agent_tasks.task_roots, storage.search, self.runs_in_progress)
         self.tasks_beside = TasksBeside(self.agent_tasks, self._task_reports, storage.store, bus)
         self.ending = EndingState(Path(settings.restart_pending_path).expanduser(), lambda: sorted(self._active_runs))
         self._plugin_tools = PluginTools(

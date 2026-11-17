@@ -69,6 +69,7 @@ class Where:
     downloads: list[Path]
     download_folders: list[Path]
     old_tasks: list[Path] = field(default_factory=list)
+    old_outputs: int = 0
 
 
 def build(
@@ -77,15 +78,18 @@ def build(
     download_folders: Sequence[Path],
     now: float,
     old_tasks: Sequence[Path] = (),
+    old_outputs: int = 0,
 ) -> DiskReport:
     """`downloads`: the plugins' finished downloads, in `download_folders`. `old_tasks`: the coding agents' tasks that
-    ended long ago (core/agent_tasks/pruning.py)."""
+    ended long ago (core/agent_tasks/pruning.py). `old_outputs`: the bytes of the old tool outputs the search index
+    forgets before the database is compacted (core/housekeeping.py)."""
     where = Where(
         backups.old_copies(places.home, places.database),
         backups.set_aside(places.home),
         list(downloads),
         list(download_folders),
         list(old_tasks),
+        old_outputs,
     )
     sizes = measure(places, where)
     items = plan(places, where, now)
@@ -118,22 +122,23 @@ def plan(places: Places, where: Where, now: float) -> list[CleanItem]:
         return [CleanItem(category, str(p), sizes.of(p)) for p in paths]
 
     found = items(LOGS, old_logs(places.logs, places.home)) + items(BACKUPS, where.copies)
-    found += items(UPLOADS, _orphaned(places, now))
+    found += items(UPLOADS, orphaned_uploads(places, now))
     found += items(PLUGINS, caches([places.plugins], now)) + items(PLUGIN_DATA, caches([places.plugin_data], now))
-    found += items(PLUGIN_DATA, where.old_tasks)
+    found += items(PLUGIN_DATA, where.old_tasks) + items(PLUGIN_DATA, backups.empty_databases(places.plugin_data))
     found += items(DOWNLOADS, where.downloads)
-    if space := database.free_space(places.database):
+    if space := database.free_space(places.database) + where.old_outputs:
         found.append(CleanItem(DATABASE, str(places.database), space))
     return found
 
 
-def _orphaned(places: Places, now: float) -> list[Path]:
+def orphaned_uploads(places: Places, now: float, older_than: float = orphans.RECENT_SECONDS) -> list[Path]:
+    """The uploads nothing refers to, older than `older_than` seconds; none when lo9i's database can't be read."""
     try:
         mentioned = orphans.mentioned_ids(places.database, places.plugin_data)
     except orphans.UnreadableDatabaseError as e:
         logger.warning("Couldn't read which uploads conversations refer to, so none is cleaned: %s", e)
         return []
-    return orphans.orphaned(places.uploads, mentioned, now)
+    return orphans.orphaned(places.uploads, mentioned, now, older_than)
 
 
 def _report(places: Places, where: Where, sizes: dict[str, int], items: list[CleanItem]) -> DiskReport:

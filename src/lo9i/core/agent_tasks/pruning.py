@@ -1,29 +1,21 @@
 """Old tasks' folders (records.py), which nothing reads once their task ended long ago: those whose task ended (its
 result written, its worker gone) and that haven't changed in KEEP_DAYS. Never one still running. The disk plan
-(core/disk/report.py) cleans them with the rest, and `TaskPruning`, a supervised daemon task, cleans them on its own at
-start and once a day after, both through `disk.clean`, so they remove the same folders.
+(core/disk/report.py) cleans them with the rest, and the daemon's housekeeping (core/housekeeping.py) on its own, both
+through `disk.clean`, so they remove the same folders.
 
 The conversations and panels that name a pruned task already take a task that isn't there (`AgentTaskError`)."""
 
-import asyncio
 import contextlib
-import logging
 import os
 import subprocess
-import time
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from pathlib import Path
 
 from lo9i.core import disk
 from lo9i.core.disk.places import PLUGIN_DATA
 from lo9i.core.disk.sizes import Sizes
 
-logger = logging.getLogger(__name__)
-
 KEEP_DAYS = 30
-EVERY_SECONDS = 24 * 3600
-# Ticks read the wall clock, so a computer waking from sleep catches up within one.
-_TICK_SECONDS = 3600
 _RESULT = "result.json"
 
 
@@ -58,38 +50,7 @@ def _running_commands() -> str:
     return found.stdout
 
 
-def prune(roots: Iterable[Path], places: disk.Places, now: float) -> disk.Cleaned:
-    """Removes the old ended tasks' folders as cleaning the disk does. Blocking."""
+def items(roots: Iterable[Path], now: float) -> list[disk.CleanItem]:
+    """The old ended tasks' folders as items for `disk.clean`. Blocking."""
     sizes = Sizes()
-    items = [disk.CleanItem(PLUGIN_DATA, str(p), sizes.of(p)) for p in old_ended(roots, now)]
-    return disk.clean(places, items)
-
-
-class TaskPruning:
-    """Prunes the coding agents' old tasks at start and every EVERY_SECONDS after. `roots` gives the installed agents'
-    task folders."""
-
-    name = "task pruning"
-
-    def __init__(self, roots: Callable[[], list[Path]]) -> None:
-        self._roots = roots
-        self._pruned_at: float | None = None
-
-    async def run(self, stop: asyncio.Event) -> None:
-        while not stop.is_set():
-            await self.tick(time.time())
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(stop.wait(), timeout=_TICK_SECONDS)
-
-    async def tick(self, now: float) -> None:
-        if self._pruned_at is not None and now - self._pruned_at < EVERY_SECONDS:
-            return
-        self._pruned_at = now
-        cleaned = await asyncio.to_thread(prune, self._roots(), disk.from_settings(), now)
-        if cleaned.removed or cleaned.failed:
-            logger.info(
-                "Pruned %d old coding tasks, freeing %d bytes; %d couldn't be removed",
-                len(cleaned.removed),
-                cleaned.freed,
-                len(cleaned.failed),
-            )
+    return [disk.CleanItem(PLUGIN_DATA, str(p), sizes.of(p)) for p in old_ended(roots, now)]

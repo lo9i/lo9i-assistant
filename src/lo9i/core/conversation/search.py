@@ -230,6 +230,21 @@ class MessageIndex:
             await self._conn.execute("DELETE FROM tool_output_search WHERE thread_id = ?", (thread_id,))
             await self._conn.execute("DELETE FROM message_search_progress WHERE thread_id = ?", (thread_id,))
 
+    async def old_tool_outputs(self, before: str) -> int:
+        """Bytes of text of the tool outputs indexed from turns before `before` (a local day, "2026-08-18"). Those
+        without a time are kept, as their age is unknown."""
+        sql = "SELECT COALESCE(SUM(LENGTH(text)), 0) FROM tool_output_search WHERE at != '' AND at < ?"
+        async with self._conn.execute(sql, (before,)) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    async def forget_tool_outputs(self, before: str) -> int:
+        """Takes the tool outputs from turns before `before` out of the index, so it doesn't grow with every page read;
+        what was said stays, and so do the checkpoints the outputs are read whole from. Returns how many went."""
+        async with self._lock:
+            cursor = await self._conn.execute("DELETE FROM tool_output_search WHERE at != '' AND at < ?", (before,))
+            return cursor.rowcount
+
     async def _indexed_upto(self, thread_id: str) -> _Progress:
         sql = f"SELECT indexed_upto, {_TOOLS_PROGRESS} FROM message_search_progress WHERE thread_id = ?"
         async with self._conn.execute(sql, (thread_id,)) as cursor:

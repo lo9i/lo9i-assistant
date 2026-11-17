@@ -30,22 +30,22 @@ class UnreadableDatabaseError(Exception):
     """lo9i's database couldn't be read, so which uploads it refers to is unknown."""
 
 
-def orphaned(uploads: Path, mentioned: set[str], now: float) -> list[Path]:
-    """The files under `uploads` older than RECENT_SECONDS whose id isn't in `mentioned`. A file whose path holds no id
-    (not one lo9i saved) is never orphaned."""
+def orphaned(uploads: Path, mentioned: set[str], now: float, older_than: float = RECENT_SECONDS) -> list[Path]:
+    """The files under `uploads` older than `older_than` seconds whose id isn't in `mentioned`. A file whose path holds
+    no id (not one lo9i saved) is never orphaned."""
     found: list[Path] = []
     for folder, _, files in os.walk(uploads):
         for name in files:
             path = Path(folder) / name
-            if _orphan(path, path.relative_to(uploads), mentioned, now):
+            if _orphan(path, path.relative_to(uploads), mentioned, now - older_than):
                 found.append(path)
     return sorted(found)
 
 
-def _orphan(path: Path, relative: Path, mentioned: set[str], now: float) -> bool:
+def _orphan(path: Path, relative: Path, mentioned: set[str], cutoff: float) -> bool:
     ids = [part for part in relative.parts[:-1] if _ID.fullmatch(part)]
     try:
-        old = now - path.lstat().st_mtime > RECENT_SECONDS
+        old = path.lstat().st_mtime < cutoff
     except OSError:
         return False
     return bool(ids) and old and not any(i in mentioned for i in ids)
