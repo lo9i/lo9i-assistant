@@ -1,6 +1,5 @@
 import asyncio
 from pathlib import Path
-from uuid import uuid4
 
 from langchain_core.messages import AIMessage
 
@@ -90,7 +89,7 @@ class ThreadsMixin(ArchiveMixin, ThreadFilesMixin):
 
     async def new_thread(self, user_id: str) -> str:
         """A new conversation's id. It's saved, and listed, once it has a message."""
-        return f"{user_id}:{uuid4().hex[:12]}"
+        return conversations.new_id(user_id)
 
     async def require_conversation(self, user_id: str, thread_id: str) -> None:
         """Raises ConversationError unless the conversation exists, before a client resumes it."""

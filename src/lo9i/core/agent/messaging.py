@@ -23,11 +23,13 @@ from lo9i.core.conversation import (
     moved,
     pinned,
     sent,
+    skill_homes,
 )
 from lo9i.core.conversation import resent as resent_mark
 from lo9i.core.conversation.handoffs import Handoff
 from lo9i.core.conversation.turn_header import header_block
-from lo9i.core.events import Error, Event, Transcribed
+from lo9i.core.events import Done, Error, Event, Transcribed
+from lo9i.core.plugin_loading import skill_plugins
 from lo9i.core.speech import preferences
 from lo9i.core.speech.transcriber import TranscriptionError
 from lo9i.core.speech.voice import is_voice, transcribe_voice
@@ -99,9 +101,21 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
             notes = await self._header_notes(session, kept.said, kept.content)
             message = _message(session, [*notes, *kept.content], kept.carried, brief)
             events = self._run(session, {"messages": [message]}, text=kept.said, brief=brief)
+        last: Event | None = None
         async for event in events:
+            last = event
             yield event
+        if isinstance(last, Done):
+            await self._record_outcome(session, kept.id)
         self._title_in_background(session)
+
+    async def _record_outcome(self, session: Session, dispatch_id: str) -> None:
+        """The skill that handled the message sent on, from the tool calls of its run (skill_homes.py)."""
+        state = await self._graph.aget_state({"configurable": {"thread_id": session.thread_id}})
+        messages = state.values.get("messages", [])
+        asked = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=0)
+        skill = await skill_homes.handled_by(messages[asked:], _skill_plugin, lambda n: self.mcp.server_of(n) or "")
+        await skill_homes.ended(self._storage.store, session.user_id, dispatch_id, skill)
 
     async def _dispatched_handoff(self, session: Session, kept: dispatched.Kept) -> Handoff | Error | None:
         """The agent a coding task moved out of the inbox goes to, or why it can't (its folder went away), in
@@ -237,3 +251,8 @@ def _files_note(files: list[Block]) -> str:
     saved = [f["value"]["upload"] for f in files]
     lines = [f"- {uploads.absolute(f['path'])} ({f['name']})" for f in saved]
     return "Files sent with this message, saved on this computer:\n" + "\n".join(lines)
+
+
+async def _skill_plugin(skill: str) -> str:
+    """The plugin `skill` comes with; "" for none."""
+    return next(iter(await skill_plugins([skill])), "")

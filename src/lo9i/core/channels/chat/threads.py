@@ -67,6 +67,15 @@ async def forget_new(store: BaseStore, user_id: str, channel: str) -> None:
     await store.adelete(_new(user_id), channel)
 
 
+async def moved(store: BaseStore, user_id: str, channels: list[str], thread_id: str, to: str) -> None:
+    """For a conversation merged into another: replying to its messages goes on in `to`."""
+    for channel in channels:
+        for item in await store.asearch(_messages(user_id, channel), limit=1000):
+            kept = {m: to if t == thread_id else t for m, t in item.value["messages"].items()}
+            if kept != item.value["messages"]:
+                await store.aput(_messages(user_id, channel), item.key, {"messages": kept})
+
+
 async def forget(store: BaseStore, user_id: str, channels: list[str], thread_id: str) -> None:
     """For a deleted conversation: replying to its messages goes to the inbox."""
     for channel in channels:

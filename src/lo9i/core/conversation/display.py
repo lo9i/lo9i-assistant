@@ -28,7 +28,7 @@ from lo9i.core.agent_tasks.steps import (
     waiting,
 )
 from lo9i.core.conversation import briefs, called_at, carried, ended, failed, own_model, resent
-from lo9i.core.conversation.dispatched import DISPATCH_ID
+from lo9i.core.conversation.dispatched import DISPATCH_ID, REPLACES_LINE
 from lo9i.core.conversation.turn_header import channel_of, is_header
 from lo9i.core.subagent_steps import SubagentStatus
 from lo9i.core.voice import spoken
@@ -108,7 +108,16 @@ class ShownCall:
 
 def shown(messages: Sequence[BaseMessage]) -> list[ShownMessage]:
     results = {m.tool_call_id: m for m in messages if isinstance(m, ToolMessage)}
-    return [m for message in messages for m in _shown(message, results)]
+    replaced = {
+        _dispatch_id(m) for m in messages if isinstance(m, AIMessage) and m.response_metadata.get(REPLACES_LINE)
+    }
+    kept = [m for m in messages if not (_dispatch_id(m) in replaced and not m.response_metadata.get(REPLACES_LINE))]
+    return [m for message in kept for m in _shown(message, results)]
+
+
+def _dispatch_id(message: BaseMessage) -> str | None:
+    """The id of the message an inbox line is about; None for any other message."""
+    return message.response_metadata.get(DISPATCH_ID) if isinstance(message, AIMessage) else None
 
 
 def _shown(message: BaseMessage, results: dict[str, ToolMessage]) -> list[ShownMessage]:

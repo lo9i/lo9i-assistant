@@ -24,6 +24,7 @@ from lo9i.core.conversation import pending
 from lo9i.core.conversation.digest import Digester, DigestInput, MemoryDigest
 from lo9i.core.conversation.display import shown
 from lo9i.core.conversation.pending import PendingPart
+from lo9i.core.conversation.routed import without_routed
 from lo9i.core.conversation.transcript import render
 from lo9i.core.memory import episodes, facts, profile
 from lo9i.core.memory.embedder import EmbeddingError
@@ -90,8 +91,10 @@ class MemoryWriter:
             logger.exception("Couldn't save memory from conversation %s", part.thread_id)
 
     async def _write(self, user_id: str, part: PendingPart) -> None:
-        """A part whose conversation was deleted has no messages left, and nothing to learn."""
-        messages = (await self._messages(part.thread_id))[part.start : part.end]
+        """A part whose conversation was deleted has no messages left, and nothing to learn. The messages the inbox
+        sent on are left out with its lines for them: what came of them is learned where they went, and the inbox's
+        part alone would read as asked and left undone, an open loop that isn't."""
+        messages = without_routed((await self._messages(part.thread_id))[part.start : part.end])
         if messages:
             digest = await self._digester()(await self._input(user_id, part, messages))
             await self._save(user_id, part, digest)

@@ -201,6 +201,8 @@ class Error:
     message: str
     # A spending limit was reached (core/usage/budget.py): the run stopped there, as the message says.
     over_budget: bool = False
+    # The run failed: why, in a few words ("connection error"), for a chat channel to say it in one line.
+    failed: str = ""
 
 
 @dataclass

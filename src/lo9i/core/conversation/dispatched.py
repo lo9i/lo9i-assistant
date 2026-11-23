@@ -15,6 +15,9 @@ from langgraph.store.base import BaseStore
 # The key of the message's id in the response_metadata of the line the inbox records for it, which history
 # shows with a way to move it.
 DISPATCH_ID = "lo9i_dispatch_id"
+# Marks a line the inbox recorded later for a message, which history shows instead of the one recorded when it was
+# sent on: it went on in a skill's home after all (core/agent/skill_homes.py).
+REPLACES_LINE = "lo9i_replaces_line"
 
 
 @dataclass(frozen=True)

@@ -81,6 +81,7 @@ class Conversations(Protocol):
     async def pinned_skills(self, user_id: str, thread_id: str) -> list[str]: ...
     async def pin_skill(self, user_id: str, thread_id: str, name: str) -> list[str]: ...
     async def unpin_skill(self, user_id: str, thread_id: str, name: str) -> list[str]: ...
+    async def merge_into_home(self, user_id: str, thread_id: str, dispatch_id: str) -> str | None: ...
 
 
 class Runs(Protocol):
@@ -384,9 +385,21 @@ class ChannelChats:
         thread_id = dispatched.thread_id or await self._conversations.new_thread(settings.owner_id)
         send = lambda s: self._conversations.send_dispatched(s, dispatched.id)  # noqa: E731
         named = dispatched.title if dispatched.title != NEW_TITLE else dispatched.text
-        return await self._show(
+        turn = await self._show(
             chat, thread_id, send, dispatched.text, named, dispatched.brief, carried=dispatched.carried
         )
+        if not dispatched.thread_id:
+            await self._merged(chat, turn, dispatched.id)
+        return turn
+
+    async def _merged(self, chat: "_Chat", turn: ChatTurn, dispatch_id: str) -> None:
+        """A new conversation whose one exchange used only a skill with a home goes on there instead
+        (core/agent/skill_homes.py), and so does the chat."""
+        owner = settings.owner_id
+        home = await self._conversations.merge_into_home(owner, turn.thread_id, dispatch_id)
+        if home is not None:
+            turn.thread_id = home
+            await self._conversations.channel_wrote(owner, chat.channel, home)
 
     async def _run(
         self,

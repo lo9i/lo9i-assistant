@@ -42,6 +42,7 @@ from lo9i.core.agent.runs import RunsMixin
 from lo9i.core.agent.setup_check import SetupCheckMixin
 from lo9i.core.agent.sign_in_links import SignInLinksMixin
 from lo9i.core.agent.sign_ins import SignInsMixin
+from lo9i.core.agent.skill_homes import SkillHomesMixin
 from lo9i.core.agent.skill_imports import SkillImportsMixin
 from lo9i.core.agent.skills import SkillsMixin
 from lo9i.core.agent.speech import SpeechMixin
@@ -124,6 +125,7 @@ from lo9i.core.voice.tool_calls import ToolCalls
 
 
 class AssistantService(
+    SkillHomesMixin,
     ChannelThreadsMixin,
     ThreadsMixin,
     ArchiveMixin,

@@ -16,6 +16,7 @@ sends it on again by the same id. Skipping that question leaves it where it is."
 
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import asdict
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -28,10 +29,19 @@ from langgraph.types import Command, interrupt
 
 from lo9i.core import inbox
 from lo9i.core.context import Context, require_search, require_store, thread_of
-from lo9i.core.conversation import carried, dispatch_setting, dispatched, ended, follow_up, routing_picks
+from lo9i.core.conversation import (
+    carried,
+    dispatch_setting,
+    dispatched,
+    ended,
+    follow_up,
+    routing_picks,
+    skill_homes,
+)
 from lo9i.core.conversation.dispatch import FOLLOW_UP, QUICK, Candidate, Classifier, Pick, candidates
-from lo9i.core.conversation.dispatched import DISPATCH_ID
+from lo9i.core.conversation.dispatched import DISPATCH_ID, REPLACES_LINE
 from lo9i.core.conversation.turn_header import is_date_header, said
+from lo9i.core.conversations import Conversation
 from lo9i.core.events import QUESTION, Dispatched
 
 DISPATCH, ASK, SEND = "dispatch", "dispatch_ask", "dispatch_send"
@@ -68,14 +78,33 @@ def _dispatch_node(classify: Classifier, then: str) -> Node:
         inbox_id = await inbox.current(store, context.user_id)
         if inbox_id is None or thread_of(config) != inbox_id:
             return Command(goto=then)
+        kind = skill_homes.kind_of(message, context.channel)
+        if home := await _home(store, context.user_id, kind):
+            return _to_home(home, kind)
         found = await candidates(
             store, require_search(context), context.user_id, inbox_id, said(message), context.similar
         )
         exchange = state.get("inbox_exchange")
         pick, pick_id = await _picked(classify, context, store, state["messages"], exchange, found)
-        return _routed(state["messages"], exchange, pick, found, then, pick_id)
+        return _routed(state["messages"], exchange, pick, found, then, pick_id, kind)
 
     return _dispatch
+
+
+async def _home(store: BaseStore, user_id: str, kind: skill_homes.Kind) -> Conversation | None:
+    """The home of the skill messages of `kind` go to by habit (skill_homes.py), made when it has none; None
+    without a habit."""
+    if not (skill := await skill_homes.habit(store, user_id, kind)):
+        return None
+    home = await skill_homes.home(store, user_id, skill) or await skill_homes.make_home(store, user_id, skill)
+    logger.info("Routed a message to %s, the home of %s, by habit, without the model.", home.thread_id, skill)
+    return home
+
+
+def _to_home(home: Conversation, kind: skill_homes.Kind) -> Command:
+    titles = {home.thread_id: home.title}
+    dispatching = {"thread_id": home.thread_id, "other": "", "titles": titles, "pick": "", "kind": asdict(kind)}
+    return Command(goto=SEND, update={"dispatching": dispatching, "inbox_exchange": None})
 
 
 async def _picked(
@@ -122,6 +151,7 @@ def _routed(
     found: Sequence[Candidate],
     then: str,
     pick_id: str = "",
+    kind: skill_homes.Kind | None = None,
 ) -> Command:
     """Answered in the inbox (`then`), or sent on: a quick exchange that went on long enough is carried. A message
     sent on takes the id its pick is logged under, for its final place to be measured (routing_picks.py)."""
@@ -135,6 +165,7 @@ def _routed(
         "other": "",
         "titles": titles,
         "pick": pick_id,
+        "kind": asdict(kind) if kind else None,
     }
     if pick.place == FOLLOW_UP and exchange is not None:
         dispatching["carried"] = carried_before(messages, exchange, len(messages) - 1)
@@ -189,8 +220,11 @@ async def _send(state: dict[str, Any], runtime: Runtime[Context]) -> Command:
     text = _said(state, dispatching)
     exchange = dispatching.get("carried", [])
     dispatch_id = dispatching.get("id") or await _keep(state, runtime, text, exchange)
+    store, user_id = require_store(runtime.store), runtime.context.user_id
     if pick_id := dispatching.get("pick"):
-        await routing_picks.sent_on(require_store(runtime.store), runtime.context.user_id, pick_id, dispatch_id)
+        await routing_picks.sent_on(store, user_id, pick_id, dispatch_id)
+    if kind := dispatching.get("kind"):
+        await skill_homes.expect(store, user_id, dispatch_id, skill_homes.Kind(**kind))
     thread_id = dispatching["thread_id"]
     title = dispatching["titles"].get(thread_id, "")
     line = _line(thread_id, title, text if "id" in dispatching else "", bool(exchange))
@@ -231,6 +265,13 @@ def _line(thread_id: str, title: str, moved: str, carried: bool) -> str:
 def new_conversation_line(carried: bool) -> str:
     """What the inbox records for a message it took to a new conversation, with the quick exchange before it or not."""
     return _line("", "", "", carried)
+
+
+def continued_line(dispatch_id: str, thread_id: str, title: str) -> AIMessage:
+    """What the inbox records for a message whose new conversation was merged into `thread_id`, a skill's home; history
+    shows it instead of the line recorded when the message was sent on."""
+    metadata = {DISPATCH_ID: dispatch_id, REPLACES_LINE: True}
+    return AIMessage(_line(thread_id, title, "", False), response_metadata=metadata)
 
 
 def _exchange_text(messages: list[BaseMessage], exchange: dict[str, int] | None) -> str:

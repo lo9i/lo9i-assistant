@@ -4,6 +4,7 @@ import logging
 from collections.abc import AsyncIterator, Callable, Iterator, Sequence
 from typing import Any, cast
 
+import httpx
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
@@ -19,7 +20,7 @@ from lo9i.core.conversation.held import HeldRun
 from lo9i.core.conversation.oversized import ConversationTooLargeError
 from lo9i.core.events import ApprovalRequired, Cancelled, Done, Error, Event, Held, declined
 from lo9i.core.health import HealthLog
-from lo9i.core.i18n import Texts
+from lo9i.core.i18n import Texts, translatable
 from lo9i.core.skills.tracker import SkillScriptTracker
 from lo9i.core.stream_events import approval_events, to_events
 from lo9i.core.to_the_end import settled, to_the_end
@@ -33,6 +34,8 @@ logger = logging.getLogger(__name__)
 # The result of a tool call that a cancelled run never finished. Every tool call needs a result
 # before the model is called again.
 _CANCELLED_TOOL = "[cancelled by the user before it finished]"
+# How much of an error a chat channel's line about a failed run says.
+_REASON_CHARS = 80
 
 
 class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
@@ -181,7 +184,7 @@ class RunsMixin(LockingMixin, SearchMixin, ThreadFilesMixin):
         except Exception as e:
             # The apps show only the message; the log keeps where it came from.
             logger.exception("A run in %s failed", thread_id)
-            events.put_nowait(Error(_shown(e, await i18n.chosen(self._storage.store))))
+            events.put_nowait(Error(_shown(e, await i18n.chosen(self._storage.store)), failed=_reason(e)))
 
     async def pending_approvals(self, thread_id: str) -> list[ApprovalRequired]:
         """The approvals the conversation's run stopped for, still waiting for an answer."""
@@ -280,6 +283,22 @@ def _shown(error: Exception, texts: Texts) -> str:
     if isinstance(error, ConversationTooLargeError | OverBudgetError):
         return texts.shown(error)
     return f"{type(error).__name__}: {texts.shown(error)}"
+
+
+def _reason(error: BaseException) -> str:
+    """Why the run failed, in a few words: a connection error (the model unreachable, a dropped stream), else the
+    error as it's shown, cut short."""
+    cause, seen = error, set()
+    while cause is not None and id(cause) not in seen:
+        if (
+            isinstance(cause, ConnectionError | TimeoutError | httpx.TransportError)
+            or "Connection" in type(cause).__name__
+        ):
+            return translatable("connection error")
+        seen.add(id(cause))
+        cause = cause.__cause__ or cause.__context__
+    text = " ".join(i18n.message(error).split()) or type(error).__name__
+    return text if len(text) <= _REASON_CHARS else text[: _REASON_CHARS - 1] + "…"
 
 
 async def _until_error(first: AsyncIterator[Event], then: Callable[[], AsyncIterator[Event]]) -> AsyncIterator[Event]:

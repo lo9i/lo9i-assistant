@@ -48,6 +48,11 @@ async def transcribe_tool_audio(transcriber: Transcriber, audio: Attachment, spe
     return _block(transcript, path, _TOOL_AUDIO)
 
 
+def is_voice_block(block: object) -> bool:
+    """True for the text block a voice message's transcript is kept in."""
+    return isinstance(block, dict) and block.get("type") == "text" and bool(_HEADER.match(str(block.get("text", ""))))
+
+
 def audio_paths(messages: Sequence[BaseMessage]) -> list[Path]:
     """The recordings of the voice messages among the user's messages, and the audio from tools."""
     return [

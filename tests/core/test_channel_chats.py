@@ -7,10 +7,12 @@ from collections.abc import AsyncIterator
 
 import pytest
 
+from lo9i.core import conversations
 from lo9i.core.agent import Session
 from lo9i.core.approvals import RemoteApprovals
 from lo9i.core.channels.chat.conversations import GREETING, ChannelChats
 from lo9i.core.channels.chat.port import ChatLimits, Delivered
+from lo9i.core.conversation import skill_homes
 from lo9i.core.conversation.dispatch import FOLLOW_UP, QUICK, Pick
 from lo9i.core.events import Done, Event, TextDelta
 from lo9i.core.outbox import DeliveryError
@@ -497,3 +499,16 @@ async def test_a_clear_from_before_new_conversations_were_named_still_starts_one
     assert fresh != await service.inbox_thread("owner")
     assert [m.text for m in await service.conversation_messages(fresh)] == ["a fresh start", "Hi."]
     assert await service.channel_new_thread("owner", "telegram") is None
+
+
+async def test_a_new_conversation_that_used_a_skill_with_a_home_goes_on_there(dispatch, channel, jobs, script, service):
+    home = await skill_homes.make_home(service.store, "owner", "watchlist")
+    script.call("use_skill", name="watchlist").reply("Added.")
+    runs = _Runs(quiet_in=await service.inbox_thread("owner"))
+    chats = ChannelChats(service, runs, channel, jobs)
+    await chats.message("telegram", "42", "Gachiakuta", [], voice=False, message="m1")
+    assert await service.channel_thread("owner", "telegram") == home.thread_id
+    assert [c.thread_id for c in await conversations.recent(service.store, "owner") if c.title == "Gachiakuta"] == []
+    # Replying to the user's message or to the reply goes on in the home.
+    assert await service.chat_message_thread("owner", "telegram", "42", "m1") == home.thread_id
+    assert await service.chat_message_thread("owner", "telegram", "42", channel.last_sent()) == home.thread_id

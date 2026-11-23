@@ -689,5 +689,7 @@
   "Too many sign-in links asked for. Wait a few minutes and try again.": "Se pidieron demasiados enlaces para iniciar sesión. Espera unos minutos y vuelve a intentarlo.",
   "its page's shown must be always or without_screen": "su shown de page debe ser always o without_screen",
   "Replies are running, so the database wasn't compacted: clean it again once they end.": "Hay respuestas en curso, así que la base de datos no se compactó: vuelve a limpiar cuando terminen.",
-  "There's no category {names} to clean.": "No hay ninguna categoría {names} para limpiar."
+  "There's no category {names} to clean.": "No hay ninguna categoría {names} para limpiar.",
+  "⚠️ Couldn't finish that ({reason}). Send it again.": "⚠️ No pude terminarlo ({reason}). Envíalo de nuevo.",
+  "connection error": "error de conexión"
 }

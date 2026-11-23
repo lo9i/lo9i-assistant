@@ -2,6 +2,7 @@
 conversation, under ("conversations", user_id). Scheduled job runs aren't listed."""
 
 from dataclasses import asdict, dataclass, field
+from uuid import uuid4
 
 from langgraph.store.base import BaseStore
 
@@ -27,12 +28,19 @@ class Conversation:
     tags: list[str] = field(default_factory=list)
     # Kept to read, never routed to: the home conversation from before the inbox (core/inbox.py).
     archived: bool = False
+    # The skill it's the home of (core/conversation/skill_homes.py): titled after it, never retitled.
+    home_of: str = ""
     # Whether it's the inbox (core/inbox.py). Set when listed, not stored.
     inbox: bool = False
 
 
 def namespace(user_id: str) -> tuple[str, ...]:
     return ("conversations", user_id)
+
+
+def new_id(user_id: str) -> str:
+    """A new conversation's id. It's saved, and listed, once it has a message."""
+    return f"{user_id}:{uuid4().hex[:12]}"
 
 
 def title_from(text: str) -> str:
@@ -57,9 +65,9 @@ async def recent(store: BaseStore, user_id: str) -> list[Conversation]:
 
 
 async def set_title(store: BaseStore, user_id: str, thread_id: str, title: str, tags: list[str]) -> bool:
-    """False for an empty title, an unknown conversation or an archived one, which keeps its own."""
+    """False for an empty title, an unknown conversation, an archived one or a skill's home, which keep their own."""
     conversation = await load(store, user_id, thread_id)
-    if conversation is None or not title or conversation.archived:
+    if conversation is None or not title or conversation.archived or conversation.home_of:
         return False
     conversation.title, conversation.titled, conversation.tags = title_from(title), True, tags
     await save(store, user_id, conversation)

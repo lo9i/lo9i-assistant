@@ -89,6 +89,10 @@ class ChatTurn:
                 self.dispatched = event
             case Held():
                 await self._chat.send(self._t("⏳ An update is being installed. I'll answer this once it's done."))
+            case Error(failed=failed) if failed:
+                await self._chat.send(
+                    self._t("⚠️ Couldn't finish that ({reason}). Send it again.", reason=self._t(failed))
+                )
             case Error(message):
                 await self._chat.send(f"⚠️ {message}")
             case Cancelled():
