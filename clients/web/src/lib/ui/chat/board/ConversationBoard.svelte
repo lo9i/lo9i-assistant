@@ -2,7 +2,7 @@
   import MessagesSquare from "@lucide/svelte/icons/messages-square";
   import { onMount } from "svelte";
   import type { Conversation } from "$lib/api/types";
-  import { beforeOf, movedCard, ordered, restored, toggledMax, unordered, type Layout } from "$lib/chat/cardLayout";
+  import { beforeOf, movedCard, ordered, toggledMax, unordered, type Layout } from "$lib/chat/cardLayout";
   import { cardStatus } from "$lib/chat/cards";
   import { newestFirst } from "$lib/chat/order";
   import { matching } from "$lib/chat/search";
@@ -64,7 +64,7 @@
   }
 
   // Full screen is gone once the page is left.
-  onMount(() => () => change(restored(conversationLayout.current)));
+  onMount(() => () => conversationLayout.restore());
 
   async function maximize(id: string): Promise<void> {
     try {
@@ -86,7 +86,7 @@
   }
 
   function keydown(e: KeyboardEvent): void {
-    if (conversationLayout.current.maximized !== null && restoresOnEscape(e, document)) change(restored(conversationLayout.current));
+    if (conversationLayout.current.maximized !== null && restoresOnEscape(e, document)) conversationLayout.restore();
   }
 
   function dragStart(e: DragEvent, id: string): void {
