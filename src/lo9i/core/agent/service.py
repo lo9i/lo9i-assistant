@@ -255,6 +255,7 @@ class AssistantService(
                 lambda: self._proactive_models,
                 self.today_lists,
                 unread,
+                lambda since: self.merge_into_homes(settings.owner_id, since),
                 settings.owner_id,
             ),
         )

@@ -1876,7 +1876,7 @@
   },
   "proactiveCard": {
     "title": "Resumen y revisiones",
-    "sub": "Lo que el asistente hace por su cuenta, a las horas de abajo, en la zona horaria de la computadora del asistente. Sugiere; nunca actúa por ti.",
+    "sub": "Lo que el asistente hace por su cuenta, a las horas de abajo, en la zona horaria de la computadora del asistente.",
     "briefing": "Resumen de la mañana",
     "briefingHint": "Calendario, vencimientos, correo importante y pendientes, enviado a tus canales de chat.",
     "nightly": "Revisión nocturna",

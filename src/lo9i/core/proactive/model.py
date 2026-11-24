@@ -184,7 +184,9 @@ class Review(BaseModel):
     # Open loops it added and closed.
     added: int = 0
     closed: int = 0
-    # Its suggestions went into a briefing.
+    # Conversations the nightly review merged into skills' homes: how many into each, by the home's title.
+    merged: dict[str, int] = {}
+    # Its suggestions and merges went into a briefing.
     briefed: bool = False
     error: str = ""
     # The user dismissed the alert of its failure (failed.py).

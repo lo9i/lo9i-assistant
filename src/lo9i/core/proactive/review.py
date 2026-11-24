@@ -1,6 +1,10 @@
-"""The nightly and weekly reviews: looking back so nothing the user cares about is forgotten. They suggest only: what
-they find is kept as open loops, habits in memory, and suggestions for the next morning briefing; they never send,
-pay or change anything on the user's behalf, and nothing they write reaches the user but through the briefing.
+"""The nightly and weekly reviews: looking back so nothing the user cares about is forgotten. What they find is kept
+as open loops, habits in memory, and suggestions for the next morning briefing, which is how what they write reaches
+the user.
+
+The nightly review also tidies the day's conversations: one whose every exchange used only a skill that has a home
+conversation (core/conversation/skill_homes.py) is merged into that home (core/agent/skill_homes.py), and the next
+briefing says how many went into each.
 
 The nightly review reads what happened since the last one (at most MAX_DAYS): the conversations written in, by their
 title, latest running summary and what wasn't archived into memory yet; the scheduled jobs' runs; the last health
@@ -12,7 +16,7 @@ worker model."""
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -35,6 +39,10 @@ from lo9i.core.proactive.writing import ProactiveModels
 
 logger = logging.getLogger(__name__)
 
+# Merges the conversations written in since a moment that are only about a skill with a home into it; how many went
+# into each home, by its title.
+MergeIntoHomes = Callable[[datetime], Awaitable[dict[str, int]]]
+
 # How far back a nightly review reads when the last one is older, or there's none.
 MAX_DAYS = 3
 WEEK_DAYS = 7
@@ -55,9 +63,11 @@ class Reviewer:
         models: Callable[[], ProactiveModels],
         lists: TodayLists,
         unread: UnreadMail,
+        merge: MergeIntoHomes,
         user_id: str,
     ) -> None:
         self._store = store
+        self._merge = merge
         self._checkpointer = checkpointer
         self._models = models
         self._lists = lists
@@ -78,6 +88,8 @@ class Reviewer:
         return review
 
     async def _reviewed(self, kind: ReviewKind, now: datetime, day: str, at: str) -> Review:
+        # Before anything is kept, so a merge that fails leaves nothing half done; and the model reads the result.
+        merged = await self._merge(await self._since(now)) if kind == "nightly" else {}
         chosen = await records.load_settings(self._store, self._user_id)
         open_now = await loops.open_loops(self._store, self._user_id)
         read = await (self._nightly(now) if kind == "nightly" else self._weekly(now))
@@ -93,7 +105,9 @@ class Reviewer:
         )
         message = HumanMessage("\n\n".join([f"Now: {clock.stamp(now)}.", read, *shared]))
         draft = ReviewDraft.model_validate(await self._models().review.ainvoke([SystemMessage(system), message]))
-        return await self._kept(kind, day, at, draft, chosen.muted, {o.id for o in open_now})
+        review = await self._kept(kind, day, at, draft, chosen.muted, {o.id for o in open_now})
+        # What it merged waits for the next briefing too.
+        return review.model_copy(update={"merged": merged, "briefed": review.briefed and not merged})
 
     async def _kept(
         self, kind: ReviewKind, day: str, at: str, draft: ReviewDraft, muted: list[str], open_ids: set[str]

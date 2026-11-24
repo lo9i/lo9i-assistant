@@ -468,3 +468,24 @@ async def test_the_page_closes_and_opens_loops_again(service):
     assert page.loops[0].status == "done" and page.settings.muted == ["recurring task"]
     page = await service.close_loop("owner", loop.id, "open")
     assert page.loops[0].status == "open" and page.loops[0].closed_at == ""
+
+
+async def test_the_nightly_review_merges_the_days_skill_conversations_and_the_briefing_says_so(
+    service, drafts, monkeypatch
+):
+    asked: list[datetime] = []
+
+    async def merge(user_id: str, since: datetime) -> dict[str, int]:
+        asked.append(since)
+        return {"Watchlist": 4, "Expenses": 1}
+
+    monkeypatch.setattr(service, "merge_into_homes", merge)
+    await service.set_language("es")
+    await _run(service, "nightly", SUNDAY.replace(hour=23))
+    [review] = await records.reviews(service.store, "owner")
+    assert asked == [SUNDAY.replace(hour=23) - timedelta(days=1)]
+    assert review.merged == {"Watchlist": 4, "Expenses": 1} and not review.briefed
+    await _run(service, "briefing", SUNDAY.replace(hour=8) + timedelta(days=1))
+    told = await _told(service)
+    assert "- Junté 4 conversaciones de Watchlist\n- Junté una conversación de Expenses" in told
+    assert (await records.reviews(service.store, "owner"))[0].briefed

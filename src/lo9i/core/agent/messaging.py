@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.types import Command
 
 from lo9i.core import i18n, inbox, uploads
@@ -114,8 +114,12 @@ class MessagingMixin(HandoffsMixin, RunsMixin, ConversationsMixin, TitlesMixin):
         state = await self._graph.aget_state({"configurable": {"thread_id": session.thread_id}})
         messages = state.values.get("messages", [])
         asked = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=0)
-        skill = await skill_homes.handled_by(messages[asked:], _skill_plugin, lambda n: self.mcp.server_of(n) or "")
+        skill = await self._handled_by(messages[asked:])
         await skill_homes.ended(self._storage.store, session.user_id, dispatch_id, skill)
+
+    async def _handled_by(self, messages: list[BaseMessage]) -> str:
+        """The one skill `messages` used, "" for none or several (skill_homes.py)."""
+        return await skill_homes.handled_by(messages, _skill_plugin, lambda n: self.mcp.server_of(n) or "")
 
     async def _dispatched_handoff(self, session: Session, kept: dispatched.Kept) -> Handoff | Error | None:
         """The agent a coding task moved out of the inbox goes to, or why it can't (its folder went away), in

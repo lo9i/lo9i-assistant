@@ -691,5 +691,7 @@
   "Replies are running, so the database wasn't compacted: clean it again once they end.": "Hay respuestas en curso, así que la base de datos no se compactó: vuelve a limpiar cuando terminen.",
   "There's no category {names} to clean.": "No hay ninguna categoría {names} para limpiar.",
   "⚠️ Couldn't finish that ({reason}). Send it again.": "⚠️ No pude terminarlo ({reason}). Envíalo de nuevo.",
-  "connection error": "error de conexión"
+  "connection error": "error de conexión",
+  "Merged a conversation of {skill}": "Junté una conversación de {skill}",
+  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}"
 }

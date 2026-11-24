@@ -1876,7 +1876,7 @@
   },
   "proactiveCard": {
     "title": "Briefing and reviews",
-    "sub": "What the assistant does on its own, at the times below, in the assistant computer's time zone. It suggests; it never acts for you.",
+    "sub": "What the assistant does on its own, at the times below, in the assistant computer's time zone.",
     "briefing": "Morning briefing",
     "briefingHint": "Calendar, what's due, important mail and open loops, sent to your chat channels.",
     "nightly": "Nightly review",

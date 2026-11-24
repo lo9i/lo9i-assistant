@@ -3,6 +3,7 @@ one that still lands in a new conversation is merged into the home afterwards. A
 line, and the inbox's memory leaves out the messages it sent on."""
 
 import io
+from datetime import UTC, datetime
 
 import httpx
 from langchain_core.messages import HumanMessage
@@ -138,3 +139,41 @@ async def test_the_inbox_s_memory_leaves_out_the_messages_it_sent_on(dispatch, s
     await service.memory_writer.write_all()
     transcript = digests.inputs[-1].transcript
     assert "France" in transcript and "Watchlist" not in transcript and "conversation" not in transcript
+
+
+# The nightly review's merge (core/agent/skill_homes.py::merge_into_homes).
+
+
+async def _talked(service: AssistantService, script, exchanges: list[tuple[str, str]]) -> str:
+    """A conversation of its own on Telegram, one exchange per (message, skill used, "" for none)."""
+    thread_id = await service.new_thread("owner")
+    for text, skill in exchanges:
+        if skill:
+            script.call("use_skill", name=skill)
+        script.reply(f"Done: {text}.")
+        await collect(service.send(Session("owner", "telegram", thread_id), text))
+    return thread_id
+
+
+async def test_the_days_conversations_only_about_a_skill_with_a_home_are_merged_into_it(dispatch, service, script):
+    home = await skill_homes.make_home(service.store, "owner", "watchlist")
+    since = datetime.now(UTC)
+    only = await _talked(service, script, [("add Dune", "watchlist"), ("and Arrival", "watchlist")])
+    also = await _talked(service, script, [("add Heat", "watchlist")])
+    assert await service.merge_into_homes("owner", since) == {"Watchlist": 2}
+    for gone in (only, also):
+        assert await conversations.load(service.store, "owner", gone) is None
+    shown = [m.text for m in await service.conversation_messages(home.thread_id)]
+    assert [s for s in shown if s.startswith("Done")] == ["Done: add Dune.", "Done: and Arrival.", "Done: add Heat."]
+
+
+async def test_conversations_mixing_topics_or_without_a_home_or_from_before_stay(dispatch, service, script):
+    await skill_homes.make_home(service.store, "owner", "watchlist")
+    before = await _talked(service, script, [("add Dune", "watchlist")])
+    since = datetime.now(UTC)
+    mixed = await _talked(service, script, [("add Heat", "watchlist"), ("plan my week", "")])
+    two = await _talked(service, script, [("add Heat", "watchlist"), ("log lunch", "expenses")])
+    homeless = await _talked(service, script, [("log lunch", "expenses")])
+    assert await service.merge_into_homes("owner", since) == {}
+    for kept in (before, mixed, two, homeless):
+        assert await conversations.load(service.store, "owner", kept) is not None

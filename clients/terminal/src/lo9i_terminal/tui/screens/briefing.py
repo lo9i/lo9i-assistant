@@ -16,10 +16,7 @@ from lo9i_terminal.i18n import t, translatable
 from lo9i_terminal.tui.daemon_errors import reports_daemon_unavailable
 from lo9i_terminal.tui.section import SettingsSection
 
-_INTRO = translatable(
-    "What the assistant does on its own, at the times below, in the assistant computer's time zone. It suggests; it "
-    "never acts for you."
-)
+_INTRO = translatable("What the assistant does on its own, at the times below, in the assistant computer's time zone.")
 _SWITCHES = (
     ("briefing", translatable("Morning briefing")),
     ("nightly", translatable("Nightly review")),

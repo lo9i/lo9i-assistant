@@ -8,7 +8,8 @@ when it used none or several. When the latest HABIT_RUNS outcomes of a message's
 carried, the same caption or either without one) all ended in the same skill, that's a habit: the message goes to
 the skill's home conversation without the model, made the first time and again if the user deleted it, titled
 after the skill and never retitled (`Conversation.home_of`). A message that still lands in a new conversation and
-ends in a skill with a home is moved there afterwards (core/agent/skill_homes.py).
+ends in a skill with a home is moved there afterwards (core/agent/skill_homes.py), and so, by the nightly review, is
+a conversation of the day whose every exchange used only that skill.
 
 One Store record per message sent on under ("routing_outcomes", user_id), the latest _KEPT."""
 
@@ -115,6 +116,16 @@ async def handled_by(
         for call in message.tool_calls if isinstance(message, AIMessage) else []:
             used |= {await _skill(call, skill_plugin, plugin_of)} - {""}
     return used.pop() if len(used) == 1 else ""
+
+
+def exchanges(messages: Sequence[BaseMessage]) -> list[list[BaseMessage]]:
+    """The messages from each user message up to the next one; [] when there's none, or the last hasn't ended in a
+    reply."""
+    asked = [i for i, m in enumerate(messages) if isinstance(m, HumanMessage)]
+    last = messages[-1] if messages else None
+    if not asked or not isinstance(last, AIMessage) or last.tool_calls:
+        return []
+    return [list(messages[start:end]) for start, end in zip(asked, [*asked[1:], len(messages)], strict=True)]
 
 
 async def _skill(call: ToolCall, skill_plugin: Callable[[str], Awaitable[str]], plugin_of: Callable[[str], str]) -> str:

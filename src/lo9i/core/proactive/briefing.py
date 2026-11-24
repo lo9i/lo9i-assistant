@@ -1,5 +1,6 @@
 """The morning briefing: each plugin's list for the day (core/mcp/today.py: today's events, bills coming due, invoices
-to issue), the unread mail that matters, the open loops that matter now and the reviews' suggestions, laid out by code
+to issue), the unread mail that matters, the open loops that matter now, the reviews' suggestions and the conversations
+the nightly review merged into skills' homes, laid out by code
 (laid_out.py) in the language the apps show. What a plugin says needs doing is kept as an open loop. The one model call
 picks the unread mail worth the user's attention, made only when there's unread mail and the user didn't mute it.
 Nothing is sent when there's nothing to tell.
@@ -11,6 +12,7 @@ its turn header. It never fails the schedule: a failure is recorded on the brief
 
 import asyncio
 import logging
+from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 
@@ -25,7 +27,7 @@ from lo9i.core.proactive import clock, inputs, loops, records
 from lo9i.core.proactive.failures import SECONDS, reason
 from lo9i.core.proactive.laid_out import Part, compose, item_line, loop_line
 from lo9i.core.proactive.mail import Unread, UnreadMail, render
-from lo9i.core.proactive.model import Briefing, LoopDraft, MailDraft, MailPick, ProactiveSettings
+from lo9i.core.proactive.model import Briefing, LoopDraft, MailDraft, MailPick, ProactiveSettings, Review
 from lo9i.core.proactive.telling import Teller
 from lo9i.core.proactive.writing import ProactiveModels
 
@@ -88,6 +90,7 @@ class Briefer:
             Part(t("Mail"), [p.line for p in mail]),
             Part(t("Open loops"), await self._loop_lines(t, chosen, {*map(_key_of, items), *map(_mail_key, mail)})),
             Part(t("Suggestions"), [s.text for r in waiting for s in r.suggestions]),
+            Part(t("Conversations"), _merged_lines(t, waiting)),
             Part(t("Last week"), [r.summary for r in waiting if r.kind == "weekly" and r.summary]),
             Part(t("Couldn't read"), [f"{found.plugin}: {found.error}" for found in listed if found.error]),
         ]
@@ -162,6 +165,19 @@ def _plugin_parts(t: Texts, listed: list[Listed], chosen: ProactiveSettings, tod
         )
         for found in listed
         if found.today
+    ]
+
+
+def _merged_lines(t: Texts, reviews: list[Review]) -> list[str]:
+    """A line per skill's home the reviews merged conversations into."""
+    merged: Counter[str] = Counter()
+    for review in reviews:
+        merged.update(review.merged)
+    return [
+        t("Merged a conversation of {skill}", skill=skill)
+        if count == 1
+        else t("Merged {count} conversations of {skill}", count=count, skill=skill)
+        for skill, count in merged.items()
     ]
 
 
