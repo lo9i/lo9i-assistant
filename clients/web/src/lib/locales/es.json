@@ -1940,5 +1940,19 @@
     "sshHint": "Inicia sesión con tu agente y tus claves ssh; no copia ninguna clave.",
     "moved": "lo9i funciona en {host} con los datos de esta computadora.",
     "toRedoThere": "Para hacer allí"
+  },
+  "backupModels": {
+    "title": "Modelos de respaldo",
+    "sub": "Se prueban en orden cuando falla el proveedor del modelo principal: límites de uso, cuota agotada, caídas. No ante errores del pedido mismo. Una respuesta escrita por un respaldo lo dice.",
+    "none": "No hay modelos de respaldo. Una respuesta falla cuando falla el proveedor del modelo principal.",
+    "add": "Agregar un respaldo",
+    "adding": "Probando el respaldo…",
+    "added": "Agregado ✓ Respondió.",
+    "model": "Modelo",
+    "usesMain": "Los campos vacíos usan los del modelo principal.",
+    "moveUp": "Probar antes",
+    "moveDown": "Probar después",
+    "remove": "Quitar {model}",
+    "mainKey": "clave del modelo principal"
   }
 }

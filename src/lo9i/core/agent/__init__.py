@@ -10,6 +10,7 @@ reviews, open loops), usage, live voice calls, messaging, runs and locking.
 
 from lo9i.core.agent.about_you import AboutYou, AboutYouStatus, Suggested
 from lo9i.core.agent.alerts import Alert, AlertArea
+from lo9i.core.agent.backup_models import BackupModelStatus
 from lo9i.core.agent.channels import ChannelNotConnectedError, ChannelStatus, SetupItem
 from lo9i.core.agent.conversations import Conversation, ShownCall, ShownMessage, ShownStep
 from lo9i.core.agent.devices import Device, DeviceError, PairingCode
@@ -141,6 +142,7 @@ __all__ = [
     "AssistantService",
     "BackgroundStep",
     "BackgroundSubagent",
+    "BackupModelStatus",
     "Briefing",
     "Cause",
     "ChannelNotConnectedError",

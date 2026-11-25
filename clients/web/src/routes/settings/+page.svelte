@@ -11,6 +11,7 @@
   import MicrophoneCard from "$lib/ui/settings/MicrophoneCard.svelte";
   import MoveCard from "$lib/ui/settings/MoveCard.svelte";
   import DiskCard from "$lib/ui/settings/DiskCard.svelte";
+  import BackupModelsCard from "$lib/ui/settings/BackupModelsCard.svelte";
   import DispatchCard from "$lib/ui/settings/DispatchCard.svelte";
   import ModelCard from "$lib/ui/settings/ModelCard.svelte";
   import PromptCard from "$lib/ui/settings/PromptCard.svelte";
@@ -80,6 +81,7 @@
         <DispatchCard />
       </div>
       <div class="stack">
+        <BackupModelsCard />
         <SpendingLimitsCard />
       </div>
     </div>

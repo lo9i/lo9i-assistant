@@ -7579,6 +7579,155 @@
         }
       }
     },
+    "/settings/model/backups": {
+      "get": {
+        "summary": "Backup Models",
+        "description": "In the order they're tried when the model fails on the provider's side.",
+        "operationId": "backup_models_settings_model_backups_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackupModelStatus"
+                  },
+                  "type": "array",
+                  "title": "Response Backup Models Settings Model Backups Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add Backup Model",
+        "description": "Checks that it answers, then adds it last.",
+        "operationId": "add_backup_model_settings_model_backups_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupModelAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackupModelStatus"
+                  },
+                  "type": "array",
+                  "title": "Response Add Backup Model Settings Model Backups Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/model/backups/order": {
+      "put": {
+        "summary": "Order Backup Models",
+        "operationId": "order_backup_models_settings_model_backups_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupModelOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BackupModelStatus"
+                  },
+                  "type": "array",
+                  "title": "Response Order Backup Models Settings Model Backups Order Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/settings/model/backups/{backup_id}": {
+      "delete": {
+        "summary": "Remove Backup Model",
+        "operationId": "remove_backup_model_settings_model_backups__backup_id__delete",
+        "parameters": [
+          {
+            "name": "backup_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Backup Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BackupModelStatus"
+                  },
+                  "title": "Response Remove Backup Model Settings Model Backups  Backup Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/usage": {
       "get": {
         "summary": "Usage",
@@ -8945,6 +9094,92 @@
           "started_at"
         ],
         "title": "BackgroundSubagent"
+      },
+      "BackupModelAdd": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values",
+            "default": {}
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model"
+        ],
+        "title": "BackupModelAdd"
+      },
+      "BackupModelOrder": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "BackupModelOrder"
+      },
+      "BackupModelStatus": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Values"
+          },
+          "secrets_set": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Secrets Set"
+          },
+          "uses_main_values": {
+            "type": "boolean",
+            "title": "Uses Main Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "model",
+          "values",
+          "secrets_set",
+          "uses_main_values"
+        ],
+        "title": "BackupModelStatus"
       },
       "Body_channel_message_channels__name__messages_post": {
         "properties": {

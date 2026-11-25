@@ -1117,6 +1117,31 @@ async def test_the_model_through_the_client(client, monkeypatch):
     assert (await client.model.reset()).source == "env"
 
 
+async def test_backup_models_through_the_client(client, monkeypatch):
+    from langchain_core.messages import AIMessage
+
+    import lo9i.core.agent.model as model_module
+    from lo9i.core.agent import ModelSettingsError
+
+    class _Answers:
+        async def ainvoke(self, messages, config=None):
+            return AIMessage("OK")
+
+    monkeypatch.setattr(model_module, "build_llm", lambda choice, model: _Answers())
+    first = await client.model.add_backup("anthropic", {"api_key": "k"}, "claude-sonnet-5-5")
+    assert [(b.provider, b.model, b.uses_main_values) for b in first] == [("anthropic", "claude-sonnet-5-5", True)]
+    both = await client.model.add_backup("openai", {"api_key": "sk-1"}, "gpt-5")
+    assert both[1].secrets_set == ["api_key"] and not both[1].uses_main_values
+    ordered = await client.model.order_backups([both[1].id])
+    assert [b.model for b in ordered] == ["gpt-5", "claude-sonnet-5-5"]
+    with pytest.raises(ModelSettingsError):
+        await client.model.order_backups(["nope"])
+    with pytest.raises(ModelSettingsError):
+        await client.model.add_backup("anthropic", {}, " ")
+    assert [b.model for b in await client.model.remove_backup(ordered[0].id)] == ["claude-sonnet-5-5"]
+    assert [b.model for b in await client.model.backups()] == ["claude-sonnet-5-5"]
+
+
 async def test_a_conversation_a_client_is_on_cant_be_deleted(client, service):
     from lo9i.core.agent import ConversationError
 

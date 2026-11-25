@@ -764,5 +764,8 @@
   "On: commands run in {runtime}.": "Activado: los comandos corren en {runtime}.",
   "Off, and it can't be turned on: {problem}": "Desactivado, y no se puede activar: {problem}",
   "Off: commands run on this computer. {runtime} is here to run them in a sandbox.": "Desactivado: los comandos corren en esta computadora. {runtime} está disponible para correrlos en un sandbox.",
-  "Turn it on in Settings → General (/sandbox in the terminal app).": "Actívalo en Ajustes → General (/sandbox en la app de terminal)."
+  "Turn it on in Settings → General (/sandbox in the terminal app).": "Actívalo en Ajustes → General (/sandbox en la app de terminal).",
+  "({main} isn't answering right now; the backup model {backup} answered.)": "({main} no está respondiendo ahora; respondió el modelo de respaldo {backup}.)",
+  "Pick a model for the backup.": "Elegí un modelo para el respaldo.",
+  "No backup model {backup_id}.": "No hay un modelo de respaldo {backup_id}."
 }

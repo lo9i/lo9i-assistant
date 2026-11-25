@@ -1144,5 +1144,18 @@
   "On: commands run in {runtime}, image {image}, with only the workspace.": "Activado: los comandos corren en {runtime}, imagen {image}, solo con el espacio de trabajo.",
   "Off: commands run on this computer. {runtime} is available to run them in a sandbox.": "Desactivado: los comandos corren en esta computadora. {runtime} está disponible para correrlos en un sandbox.",
   "Turning on… downloading the image.": "Activando… descargando la imagen.",
-  "Run the assistant's commands in a container that sees only its workspace": "Correr los comandos del asistente en un contenedor que solo ve su espacio de trabajo"
+  "Run the assistant's commands in a container that sees only its workspace": "Correr los comandos del asistente en un contenedor que solo ve su espacio de trabajo",
+  "Backup": "Respaldo",
+  "Try earlier": "Probar antes",
+  "Try later": "Probar después",
+  "Add a backup": "Agregar un respaldo",
+  "Add and test": "Agregar y probar",
+  "Testing the backup…": "Probando el respaldo…",
+  "Added ✓ It answered.": "Agregado ✓ Respondió.",
+  "Backup models": "Modelos de respaldo",
+  "Tried in order when the main model's provider fails.": "Se prueban en orden cuando falla el proveedor del modelo principal.",
+  "No backup models yet.": "Todavía no hay modelos de respaldo.",
+  "Fields left empty use the main model's.": "Los campos vacíos usan los del modelo principal.",
+  "main model's key": "clave del modelo principal",
+  "Backup models: tried in order when the main model's provider fails": "Modelos de respaldo: se prueban en orden cuando falla el proveedor del modelo principal"
 }

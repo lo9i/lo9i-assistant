@@ -105,7 +105,7 @@ class ModelSection(SettingsSection):
             else t("Testing the models…")
         )
         await self._show()
-        values = {key: _value(field) for key, field in self._inputs.items()}
+        values = {key: field_value(field) for key, field in self._inputs.items()}
         main, worker = (self.query_one(f"#model-{n}", Input).value.strip() for n in ("main", "worker"))
         try:
             self._status = await self._model.set(self._provider(), values, main, worker)
@@ -126,7 +126,7 @@ class ModelSection(SettingsSection):
         self.query_one("#model-worker", Input).value = status.worker_model if current else provider.worker_model
         box = self.query_one("#model-fields", Vertical)
         await box.remove_children()
-        self._inputs = {f.key: _field_input(f, status if current else None) for f in provider.fields}
+        self._inputs = {f.key: field_input(f, status if current else None) for f in provider.fields}
         await box.mount_all(list(self._inputs.values()))
         await self.query_one("#model-help", Markdown).update(_help(provider))
         await self._show()
@@ -150,7 +150,7 @@ class ModelSection(SettingsSection):
         return value if isinstance(value, str) else ""
 
 
-def _field_input(field: ProviderField, status: ModelStatus | None) -> Input | Select[str]:
+def field_input(field: ProviderField, status: ModelStatus | None) -> Input | Select[str]:
     """An input for a provider's field, with the current value when it isn't secret; a list to pick from when
     the field has options, the first picked until another is."""
     if field.options:
@@ -163,7 +163,7 @@ def _field_input(field: ProviderField, status: ModelStatus | None) -> Input | Se
     return Input(value, placeholder=f"{field.label}{hint}", password=field.secret)
 
 
-def _value(field: Input | Select[str]) -> str:
+def field_value(field: Input | Select[str]) -> str:
     if isinstance(field, Input):
         return field.value.strip()
     return field.value if isinstance(field.value, str) else ""

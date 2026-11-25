@@ -19,6 +19,7 @@ from lo9i.core.agent import (
     Alert,
     BackgroundStep,
     BackgroundSubagent,
+    BackupModelStatus,
     Briefing,
     ChannelNotConnectedError,
     ChannelStatus,
@@ -523,6 +524,7 @@ class FakeModel:
         self.state = _env_model()
         self.saved = None
         self.dispatching = DispatchSetting()
+        self.backup_list: list[BackupModelStatus] = []
         # Groq's package isn't installed yet, to show what saving will do.
         self.list = [replace(p, installed=p.id != "groq") for p in PROVIDERS_FOR_MODEL]
 
@@ -547,6 +549,25 @@ class FakeModel:
 
     async def dispatch(self):
         return self.dispatching
+
+    async def backups(self):
+        return list(self.backup_list)
+
+    async def add_backup(self, provider, values, model):
+        if not model:
+            raise ModelSettingsError("Pick a model for the backup.")
+        secret = sorted(k for k, v in values.items() if v and k == "api_key")
+        on_main = provider == self.state.provider
+        self.backup_list.append(BackupModelStatus(f"b{len(self.backup_list)}", provider, model, {}, secret, on_main))
+        return list(self.backup_list)
+
+    async def order_backups(self, ids):
+        self.backup_list.sort(key=lambda b: ids.index(b.id))
+        return list(self.backup_list)
+
+    async def remove_backup(self, backup_id):
+        self.backup_list = [b for b in self.backup_list if b.id != backup_id]
+        return list(self.backup_list)
 
     async def set_dispatch(self, setting):
         if not 0 <= setting.confidence <= 1:

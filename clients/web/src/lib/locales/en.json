@@ -1940,5 +1940,19 @@
     "sshHint": "Signs in with your ssh agent and keys; no key is copied.",
     "moved": "lo9i runs on {host} with this computer's data.",
     "toRedoThere": "To do there"
+  },
+  "backupModels": {
+    "title": "Backup models",
+    "sub": "Tried in order when the main model's provider fails: rate limits, used-up quota, outages. Not for errors in the request itself. A reply a backup writes says so.",
+    "none": "No backup models. A reply fails when the main model's provider does.",
+    "add": "Add a backup",
+    "adding": "Testing the backup…",
+    "added": "Added ✓ It answered.",
+    "model": "Model",
+    "usesMain": "Fields left empty use the main model's.",
+    "moveUp": "Try earlier",
+    "moveDown": "Try later",
+    "remove": "Remove {model}",
+    "mainKey": "main model's key"
   }
 }

@@ -24,6 +24,7 @@ from lo9i.core.agent import (
     AlertArea,
     AssistantService,
     BackgroundSubagent,
+    BackupModelStatus,
     ChannelNotConnectedError,
     ChannelStatus,
     Conversation,
@@ -347,6 +348,18 @@ class ModelChange(BaseModel):
     values: dict[str, str] = {}
     model: str
     worker_model: str
+
+
+class BackupModelAdd(BaseModel):
+    provider: str
+    # The provider's fields by key; on the main model's provider, those left empty take the main model's.
+    values: dict[str, str] = {}
+    model: str
+
+
+class BackupModelOrder(BaseModel):
+    # The backups' ids in the order they're tried; those left out go after them.
+    ids: list[str]
 
 
 class ModelValues(BaseModel):
@@ -1680,6 +1693,34 @@ def _add_model_routes(app: FastAPI, service: AssistantService) -> None:
     async def reset_model() -> ModelStatus:
         """Back to the model in .env."""
         return await service.reset_model()
+
+    _add_backup_model_routes(app, service)
+
+
+def _add_backup_model_routes(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/settings/model/backups")
+    async def backup_models() -> list[BackupModelStatus]:
+        """In the order they're tried when the model fails on the provider's side."""
+        return await service.backup_models()
+
+    @app.post("/settings/model/backups")
+    async def add_backup_model(body: BackupModelAdd) -> list[BackupModelStatus]:
+        """Checks that it answers, then adds it last."""
+        try:
+            return await service.add_backup_model(body.provider, body.values, body.model)
+        except ModelSettingsError as e:
+            raise HTTPException(400, message(e)) from e
+
+    @app.put("/settings/model/backups/order")
+    async def order_backup_models(body: BackupModelOrder) -> list[BackupModelStatus]:
+        try:
+            return await service.order_backup_models(body.ids)
+        except ModelSettingsError as e:
+            raise HTTPException(400, message(e)) from e
+
+    @app.delete("/settings/model/backups/{backup_id}")
+    async def remove_backup_model(backup_id: str) -> list[BackupModelStatus]:
+        return await service.remove_backup_model(backup_id)
 
 
 def _add_speech_routes(app: FastAPI, service: AssistantService) -> None:

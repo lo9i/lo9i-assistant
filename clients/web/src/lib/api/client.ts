@@ -69,6 +69,8 @@ import type {
   Me,
   MemorySnapshot,
   ModelChange,
+  BackupModelStatus,
+  BackupModelAdd,
   ModelOption,
   ModelProvider,
   ModelStatus,
@@ -565,6 +567,25 @@ export class ModelGroup {
   /** Back to the model in .env. */
   reset(): Promise<ModelStatus> {
     return this.transport.request("DELETE", "/settings/model");
+  }
+
+  /** The backup models, in the order they're tried when the model fails on the provider's side. */
+  backups(): Promise<BackupModelStatus[]> {
+    return this.transport.request("GET", "/settings/model/backups");
+  }
+
+  /** Adds it last once it answers; on the main model's provider, values left empty take the main model's. Throws
+   * ApiError (400) when it doesn't answer. */
+  addBackup(backup: BackupModelAdd): Promise<BackupModelStatus[]> {
+    return this.transport.request("POST", "/settings/model/backups", backup);
+  }
+
+  orderBackups(ids: string[]): Promise<BackupModelStatus[]> {
+    return this.transport.request("PUT", "/settings/model/backups/order", { ids });
+  }
+
+  removeBackup(id: string): Promise<BackupModelStatus[]> {
+    return this.transport.request("DELETE", `/settings/model/backups/${encodeURIComponent(id)}`);
   }
 }
 
