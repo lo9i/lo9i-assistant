@@ -9,6 +9,7 @@ from lo9i_terminal.tui.screens.agent_folder import AgentFolderScreen
 from lo9i_terminal.tui.screens.alerts import AlertsScreen
 from lo9i_terminal.tui.screens.approval import ApprovalScreen
 from lo9i_terminal.tui.screens.audio import SpeechToTextSection, SpokenRepliesSection
+from lo9i_terminal.tui.screens.backup_models import BackupModelsSection
 from lo9i_terminal.tui.screens.briefing import BriefingSection
 from lo9i_terminal.tui.screens.channel_setup import ChannelSetupScreen
 from lo9i_terminal.tui.screens.confirm import ConfirmScreen
@@ -53,6 +54,7 @@ __all__ = [
     "AgentFolderScreen",
     "AlertsScreen",
     "ApprovalScreen",
+    "BackupModelsSection",
     "BriefingSection",
     "ChannelSetupScreen",
     "ConfirmScreen",

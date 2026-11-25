@@ -1136,5 +1136,18 @@
   "Nothing was removed. Run it again with --yes to clean.": "No se borró nada. Ejecútalo de nuevo con --yes para limpiar.",
   "Plugins' downloads ({size}) are cleaned only when named: lo9i clean downloads": "Las descargas de los plugins ({size}) se limpian solo si las nombras: lo9i clean downloads",
   "Freed {size}.": "Se liberaron {size}.",
-  "Couldn't clean {path}: {reason}": "No se pudo limpiar {path}: {reason}"
+  "Couldn't clean {path}: {reason}": "No se pudo limpiar {path}: {reason}",
+  "Backup": "Respaldo",
+  "Try earlier": "Probar antes",
+  "Try later": "Probar después",
+  "Add a backup": "Agregar un respaldo",
+  "Add and test": "Agregar y probar",
+  "Testing the backup…": "Probando el respaldo…",
+  "Added ✓ It answered.": "Agregado ✓ Respondió.",
+  "Backup models": "Modelos de respaldo",
+  "Tried in order when the main model's provider fails.": "Se prueban en orden cuando falla el proveedor del modelo principal.",
+  "No backup models yet.": "Todavía no hay modelos de respaldo.",
+  "Fields left empty use the main model's.": "Los campos vacíos usan los del modelo principal.",
+  "main model's key": "clave del modelo principal",
+  "Backup models: tried in order when the main model's provider fails": "Modelos de respaldo: se prueban en orden cuando falla el proveedor del modelo principal"
 }

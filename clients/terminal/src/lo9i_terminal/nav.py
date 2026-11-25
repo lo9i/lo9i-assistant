@@ -68,7 +68,7 @@ def _alone(key: str) -> tuple[tuple[str, ...], ...]:
 SETTINGS_TABS: tuple[SettingsTab, ...] = (
     SettingsTab("general", translatable("General"), (("language", "briefing"), ("startup", "websearch", "email"))),
     SettingsTab("memory", translatable("About you"), _alone("profile")),
-    SettingsTab("model", translatable("Model"), (("model",), ("limits",))),
+    SettingsTab("model", translatable("Model"), (("model",), ("backups", "limits"))),
     SettingsTab("context", translatable("Context"), (("context", "prompt"),)),
     SettingsTab("audio", translatable("Audio"), (("audio",), ("spoken",))),
     SettingsTab("plugins", translatable("Plugins"), _alone("plugins")),

@@ -3313,6 +3313,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/model/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Backup Models
+         * @description In the order they're tried when the model fails on the provider's side.
+         */
+        get: operations["backup_models_settings_model_backups_get"];
+        put?: never;
+        /**
+         * Add Backup Model
+         * @description Checks that it answers, then adds it last.
+         */
+        post: operations["add_backup_model_settings_model_backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/model/backups/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Order Backup Models */
+        put: operations["order_backup_models_settings_model_backups_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/settings/model/backups/{backup_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Backup Model */
+        delete: operations["remove_backup_model_settings_model_backups__backup_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage": {
         parameters: {
             query?: never;
@@ -4020,6 +4078,42 @@ export interface components {
             /** Waiting */
             waiting?: components["schemas"]["ApprovalRequired"][];
         };
+        /** BackupModelAdd */
+        BackupModelAdd: {
+            /** Provider */
+            provider: string;
+            /**
+             * Values
+             * @default {}
+             */
+            values: {
+                [key: string]: string;
+            };
+            /** Model */
+            model: string;
+        };
+        /** BackupModelOrder */
+        BackupModelOrder: {
+            /** Ids */
+            ids: string[];
+        };
+        /** BackupModelStatus */
+        BackupModelStatus: {
+            /** Id */
+            id: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Values */
+            values: {
+                [key: string]: string;
+            };
+            /** Secrets Set */
+            secrets_set: string[];
+            /** Uses Main Values */
+            uses_main_values: boolean;
+        };
         /** Body_channel_message_channels__name__messages_post */
         Body_channel_message_channels__name__messages_post: {
             /** Chat */
@@ -4397,6 +4491,11 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /**
+             * Home Of
+             * @default
+             */
+            home_of: string;
             /**
              * Inbox
              * @default false
@@ -6675,6 +6774,13 @@ export interface components {
              * @default 0
              */
             closed: number;
+            /**
+             * Merged
+             * @default {}
+             */
+            merged: {
+                [key: string]: number;
+            };
             /**
              * Briefed
              * @default false
@@ -13719,6 +13825,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelOption"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    backup_models_settings_model_backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupModelStatus"][];
+                };
+            };
+        };
+    };
+    add_backup_model_settings_model_backups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupModelAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupModelStatus"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_backup_models_settings_model_backups_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupModelOrder"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupModelStatus"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_backup_model_settings_model_backups__backup_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupModelStatus"][];
                 };
             };
             /** @description Validation Error */

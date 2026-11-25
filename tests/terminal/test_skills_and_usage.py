@@ -214,3 +214,25 @@ async def test_the_plain_repl_shows_and_sets_a_limit(capsys):
     assert usage.limits == SpendingLimits()
     await repl._limits("day -1")
     assert "more than 0" in capsys.readouterr().out
+
+
+async def test_backups_screen_adds_orders_and_removes_backup_models(app, client):
+    from lo9i_terminal.tui.screens import BackupModelsSection
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        screen = await _open_section(pilot, app, "/backups", BackupModelsSection)
+
+        def body() -> str:
+            return screen.query_one("#backups-body", Markdown).source
+
+        await wait_for(pilot, lambda: "No backup models yet." in body())
+        for name in ("claude-sonnet-5-5", "claude-haiku-5-5"):
+            screen.query_one("#backups-model", Input).value = name
+            screen.query_one("#backups-add", Button).press()
+            await wait_for(pilot, lambda name=name: f"`{name}`" in body())
+        assert "main model's key" in body()
+        screen.query_one("#backups-picked").value = "b1"  # type: ignore[attr-defined]
+        screen.query_one("#backups-up", Button).press()
+        await wait_for(pilot, lambda: client.model.backup_list[0].model == "claude-haiku-5-5")
+        screen.query_one("#backups-remove", Button).press()
+        await wait_for(pilot, lambda: [b.model for b in client.model.backup_list] == ["claude-sonnet-5-5"])

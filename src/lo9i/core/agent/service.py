@@ -8,6 +8,7 @@ from lo9i.core import observability
 from lo9i.core.agent.about_you import AboutYouMixin
 from lo9i.core.agent.alerts import AlertsMixin
 from lo9i.core.agent.archive import ArchiveMixin
+from lo9i.core.agent.backup_models import BackupModelsMixin
 from lo9i.core.agent.channel_threads import ChannelThreadsMixin
 from lo9i.core.agent.channels import ChannelsMixin
 from lo9i.core.agent.devices import DevicesMixin
@@ -152,6 +153,7 @@ class AssistantService(
     SubagentsMixin,
     RepositoriesMixin,
     ModelMixin,
+    BackupModelsMixin,
     SignInLinksMixin,
     DevicesMixin,
     PasskeysMixin,

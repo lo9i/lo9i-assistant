@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol, cast
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, SystemMessage, ToolCall, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolCall, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -20,6 +20,7 @@ from lo9i.core.attachments import hydrate
 from lo9i.core.config import settings
 from lo9i.core.context import Context, require_store
 from lo9i.core.conversation import called_at, failed, own_model
+from lo9i.core.conversation.backup_replies import reply_with_backups
 from lo9i.core.conversation.dispatch import build_classifier
 from lo9i.core.conversation.dispatch_nodes import ASK, DISPATCH, SEND, dispatch_nodes
 from lo9i.core.conversation.epochs import (
@@ -39,9 +40,11 @@ from lo9i.core.conversation.summary import Summarizer
 from lo9i.core.conversation.trim import trim_update, trimmed
 from lo9i.core.conversation.unanswered import answered
 from lo9i.core.llm import build_llm, metered
+from lo9i.core.llm.backups import BackupModels
 from lo9i.core.llm.choice import ModelChoice, prompt_cache_minutes
-from lo9i.core.llm.errors import too_large
+from lo9i.core.llm.errors import provider_failed, too_large
 from lo9i.core.llm.providers import IMAGES_IN_TOOL_RESULTS
+from lo9i.core.secret_store import SecretBox
 from lo9i.core.storage import Storage
 from lo9i.core.tools import tools_for
 from lo9i.core.tools.registry import offered_tools
@@ -94,6 +97,8 @@ class AgentState(MessagesState):
     # The model the conversation answers with: the main model, or the one the user picked for it
     # (conversation/own_model.py).
     model: str
+    # The backup model that answered for it this run, once it said so (conversation/backup_replies.py).
+    answered_by: str
 
 
 Graph = CompiledStateGraph[AgentState, Context, AgentState, AgentState]
@@ -117,14 +122,20 @@ class McpTools(Protocol):
     def unavailable(self, name: str) -> str: ...
 
 
-def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, mcp: McpTools) -> Graph:
+def build_graph(
+    storage: Storage, choice: ModelChoice, summarizer: Summarizer, mcp: McpTools, secrets: SecretBox | None = None
+) -> Graph:
+    """`secrets`: where the backup models' keys are read (llm/backups.py); without it, a failed call isn't tried
+    with them."""
     tools = tools_for(settings.toolsets)
     builder = StateGraph(AgentState, context_schema=Context)
     builder.add_node("epoch", _epoch_node(summarizer, mcp, choice))
     # The groups loaded on demand come with the plugins' tools (core/plugin_tools.py); every tool runs.
     offered = offered_tools(settings.toolsets)
-    models = _reply_models(storage, choice)
-    builder.add_node("agent", _agent_node(models, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
+    meter = TokenMeter(storage.usage, "reply")
+    models = _reply_models(choice, meter)
+    backups = BackupModels(storage.store, secrets, choice, meter) if secrets else None
+    builder.add_node("agent", _agent_node(models, offered, choice, backups))
     builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
     builder.add_node("installed", _loaded_node(mcp))
     builder.add_node("shrink", _shrink_node(summarizer, mcp))
@@ -141,10 +152,9 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     return builder.compile(checkpointer=storage.checkpointer, store=storage.store)
 
 
-def _reply_models(storage: Storage, choice: ModelChoice) -> Callable[[str], BaseChatModel]:
+def _reply_models(choice: ModelChoice, meter: TokenMeter) -> Callable[[str], BaseChatModel]:
     """The models replies are written with, by id: the main model, built now, and those conversations picked
     (conversation/own_model.py), each built the first time it's used."""
-    meter = TokenMeter(storage.usage, "reply")
     built = {choice.model: metered(build_llm(choice, choice.model), meter)}
 
     def _model(model: str) -> BaseChatModel:
@@ -174,7 +184,7 @@ def _epoch_node(summarizer: Summarizer, mcp: McpTools, choice: ModelChoice) -> N
         if "system_prompt" in update:
             named = await _named_plugins(state, runtime, catalog)
             update |= await _plugins_update(state, update, mcp, catalog, named)
-        return {**trim, **update, "model": model, "last_activity": now.isoformat()}
+        return {**trim, **update, "model": model, "answered_by": "", "last_activity": now.isoformat()}
 
     return _epoch
 
@@ -352,30 +362,49 @@ def mcp_calls(mcp: McpTools) -> AsyncToolCallWrapper:
 
 
 def _agent_node(
-    models: Callable[[str], BaseChatModel], tools: Sequence[BaseTool], images_in_tool_results: bool
+    models: Callable[[str], BaseChatModel], tools: Sequence[BaseTool], main: ModelChoice, backups: BackupModels | None
 ) -> Node:
-    """`models`: the model by its id; the conversation's is the one its epoch says (`_epoch_node`)."""
+    """`models`: the model by its id; the conversation's is the one its epoch says (`_epoch_node`). One that fails on
+    the provider's side hands the call to the backups, when there are any."""
 
-    async def _agent(state: AgentState) -> dict:
+    async def _agent(state: AgentState, runtime: Runtime[Context]) -> dict:
         kept = trimmed(state["messages"], state.get("epoch_start", 0), state.get("trimmed_before", 0))
         epoch = answered(own_model.without_marks(failed.without_marks(without_routed(without_spoken(kept)))))
-        messages = await asyncio.to_thread(hydrate, epoch, images_in_tool_results)
-        llm = models(state.get("model", ""))
-        bound = llm.bind_tools([*tools, *state.get("mcp_tools", [])])
+        system = SystemMessage(state["system_prompt"])
+        offered = [*tools, *state.get("mcp_tools", [])]
+
+        async def _call(llm: BaseChatModel, provider: str) -> BaseMessage:
+            messages = await asyncio.to_thread(hydrate, epoch, provider in IMAGES_IN_TOOL_RESULTS)
+            return await llm.bind_tools(offered).ainvoke([system, *messages])
+
+        model = state.get("model", "") or main.model
+        answered_by = ""
         try:
-            response = await bound.ainvoke([SystemMessage(state["system_prompt"]), *messages])
+            response = await _call(models(model), main.provider)
         except Exception as e:
-            return _refused(state, e)
-        now = datetime.now(UTC)
-        if isinstance(response, AIMessage):
-            called_at.stamp(response, now)
-        return {
-            "messages": [response],
-            "usage_anchor": usage_anchor(response, len(state["messages"]) + 1),
-            "last_model_call": now.isoformat(),
-        }
+            if backups is None or not provider_failed(e):
+                return _refused(state, e)
+            store = require_store(runtime.store)
+            noted = state.get("answered_by", "")
+            try:
+                response, answered_by = await reply_with_backups(backups, store, model, e, _call, noted)
+            except Exception as last:
+                return _refused(state, last)
+        return _replied(state, response, answered_by)
 
     return _agent
+
+
+def _replied(state: AgentState, response: BaseMessage, answered_by: str) -> dict:
+    now = datetime.now(UTC)
+    if isinstance(response, AIMessage):
+        called_at.stamp(response, now)
+    return {
+        "messages": [response],
+        "usage_anchor": usage_anchor(response, len(state["messages"]) + 1),
+        "last_model_call": now.isoformat(),
+        "answered_by": answered_by,
+    }
 
 
 def _refused(state: AgentState, error: Exception) -> dict:

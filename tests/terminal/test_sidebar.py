@@ -10,6 +10,7 @@ from lo9i_terminal.nav import OPEN, SETTINGS_TABS
 from lo9i_terminal.preferences import Preferences
 from lo9i_terminal.tui.page import PageScreen
 from lo9i_terminal.tui.screens import (
+    BackupModelsSection,
     BriefingSection,
     EmailRecipientsSection,
     HostSection,
@@ -108,7 +109,9 @@ async def test_a_tab_of_several_sections_stacks_them_as_cards_with_one_close(app
         model = section_shown(app, ModelSection)
         assert model is not None and settings.shown == "model"
         await wait_for(pilot, lambda: limits.region.height > 0)
-        assert limits.region.y == model.region.y and limits.region.x > model.region.right  # side by side
+        backups = section_shown(app, BackupModelsSection)
+        assert backups is not None and backups.region.y == model.region.y  # side by side
+        assert backups.region.x > model.region.right and limits.region.x == backups.region.x  # in the second column
         settings.query_one("#settings-model .settings-close", Button).press()
         await wait_for(pilot, lambda: app.screen is app.screen_stack[0])
 

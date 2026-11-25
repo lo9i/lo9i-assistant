@@ -83,6 +83,7 @@ COMMANDS = [
     Command(
         "/limits", "/limits", translatable("Spending limits: what model calls may spend per job, conversation and day")
     ),
+    Command("/backups", "/backups", translatable("Backup models: tried in order when the main model's provider fails")),
     Command("/email", "/email", translatable("Who the assistant emails without asking, from any account")),
     Command("/mcp", "/mcp", translatable("MCP servers and their tools")),
     Command("/keys", "/keys", translatable("Keys and tokens removed plugins left kept, to delete them")),

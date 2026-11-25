@@ -78,12 +78,11 @@ class ModelMixin(ServiceBase):
         if known is None:
             raise ModelSettingsError(said("Unknown provider {provider_id}.", provider_id=provider_id))
         new = ModelChoice(known.id, model.strip(), worker_model.strip(), self._values(known, values))
-        _check_complete(known, new)
-        try:
-            await packages.ensure(known)
-        except PackageError as e:
-            raise ModelSettingsError(message(e)) from e
-        await _check(new, TokenMeter(self._storage.usage, "check"))
+        check_fields(known, new)
+        if not new.model or not new.worker_model:
+            raise ModelSettingsError(said("Enter both models: the main one and the worker."))
+        await ensure_package(known)
+        await check_answers(new, [new.model, new.worker_model], TokenMeter(self._storage.usage, "check"))
         await choice.save(self._storage.store, self.secrets, new)
         self._use_model(new)
         await self._windows.of(new)  # Learned now, with the values just checked.
@@ -125,7 +124,7 @@ class ModelMixin(ServiceBase):
         self._digester = build_digester(model, self._storage.usage)
         self._titler = build_titler(model, self._storage.usage)
         self._graph = build_graph(
-            self._storage, model, build_summarizer(model, self._storage.usage), self._plugin_tools
+            self._storage, model, build_summarizer(model, self._storage.usage), self._plugin_tools, self.secrets
         )
         self._subagents = build_subagents(self._storage, model, self._plugin_tools, self._windows)
         self._classify = build_classifier(model, self._storage.usage)
@@ -148,17 +147,24 @@ async def usable_choice(store: BaseStore, secrets: SecretBox) -> ModelChoice:
     return current
 
 
-def _check_complete(known: ModelProvider, new: ModelChoice) -> None:
+def check_fields(known: ModelProvider, new: ModelChoice) -> None:
+    """Raises ModelSettingsError for a required field left empty."""
     missing = next((f for f in known.fields if f.required and not new.values.get(f.key)), None)
     if missing is not None:
         raise ModelSettingsError(said("Enter the {label}.", label=missing.label))
-    if not new.model or not new.worker_model:
-        raise ModelSettingsError(said("Enter both models: the main one and the worker."))
 
 
-async def _check(new: ModelChoice, meter: TokenMeter) -> None:
+async def ensure_package(known: ModelProvider) -> None:
+    """Installs the provider's package if it isn't yet. Raises ModelSettingsError."""
+    try:
+        await packages.ensure(known)
+    except PackageError as e:
+        raise ModelSettingsError(message(e)) from e
+
+
+async def check_answers(new: ModelChoice, models: list[str], meter: TokenMeter) -> None:
     """One short request to each model, so a wrong key or model id is caught before it's used."""
-    for model in dict.fromkeys([new.model, new.worker_model]):
+    for model in dict.fromkeys(models):
         try:
             async with asyncio.timeout(_CHECK_SECONDS):
                 await build_llm(new, model).ainvoke([HumanMessage("Reply with OK.")], config={"callbacks": [meter]})
