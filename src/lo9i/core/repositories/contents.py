@@ -112,6 +112,9 @@ async def _download(url: str, token: str) -> Listing:
 
 # Runs a server's check of the values it was given (core/mcp/checks.py); raises McpServerError when they don't work.
 Check = Callable[[McpServer], Awaitable[None]]
+# Says, before anything is copied in or built, whether the servers and skills about to be installed may be; raises
+# McpServerError when they may not (core/mcp/owner_approval.py).
+Approve = Callable[[list[McpServer], list[Skill]], Awaitable[None]]
 
 
 async def install(
@@ -122,10 +125,12 @@ async def install(
     wanted: list[ServerValues],
     token: str = "",
     check: Check | None = None,
+    approve: Approve | None = None,
 ) -> Installed:
-    """A field left empty takes the key kept from an earlier install. Each server's `check` runs before anything
-    is saved; when one fails, the servers this installed are taken out again and nothing is. Raises
-    RepositoryError, SkillError or McpServerError, saying what's wrong."""
+    """A field left empty takes the key kept from an earlier install. `approve` is asked once everything picked is
+    found and valid, before anything is copied in or built. Each server's `check` runs before anything is saved;
+    when one fails, the servers this installed are taken out again and nothing is. Raises RepositoryError,
+    SkillError or McpServerError, saying what's wrong."""
     if not skills and not wanted:
         raise RepositoryError(said("Pick at least one skill or MCP server to install."))
     wanted = [await legacy.fill(store, w) for w in wanted]
@@ -135,6 +140,10 @@ async def install(
         found_skills, (found_servers, _) = await asyncio.to_thread(_find, root, url)
         await asyncio.to_thread(skill_install.check, skills, found_skills, url)
         await server_install.check(store, wanted, found_servers, url)
+        if approve is not None:
+            await approve(
+                [found_servers[w.name].server(w.values, url) for w in wanted], [found_skills[n].skill for n in skills]
+            )
         new = [await server_install.install(found_servers[w.name], w.values, url, commit) for w in wanted]
         await _checked(store, box, new, check, before)
         installed = [await asyncio.to_thread(skill_install.install, found_skills[n], url, commit) for n in skills]

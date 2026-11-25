@@ -1884,10 +1884,13 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.repositories()
 
     @app.post("/repositories")
-    async def add_repository(body: RepositoryAdd) -> Repository:
-        """400: listed already, can't be read (with the token, for a private one), or offers no plugins."""
+    async def add_repository(body: RepositoryAdd, request: Request) -> Repository:
+        """400: listed already, can't be read (with the token, for a private one), or offers no plugins. 403: from a
+        paired device, and the owner didn't approve it (core/mcp/owner_approval.py)."""
         try:
-            return await service.add_repository(body.url, body.token)
+            return await service.add_repository(body.url, body.token, _asked_by(request))
+        except NotApprovedError as e:
+            raise HTTPException(403, message(e)) from e
         except RepositoryError as e:
             raise HTTPException(400, message(e)) from e
 
@@ -1930,11 +1933,18 @@ def _add_repository_routes(app: FastAPI, service: AssistantService) -> None:
             raise HTTPException(400, message(e)) from e
 
     @app.post("/repositories/install")
-    async def install_from_repository(body: RepositoryInstall, texts: _Answering) -> InstalledFromRepository:
-        """400: the repository can't be read, lacks something picked, a name is taken, or a field is empty."""
+    async def install_from_repository(
+        body: RepositoryInstall, request: Request, texts: _Answering
+    ) -> InstalledFromRepository:
+        """400: the repository can't be read, lacks something picked, a name is taken, or a field is empty. 403: a
+        paired device's install of code that runs here, which the owner didn't approve (core/mcp/owner_approval.py)."""
         wanted = [ServerValues(s.name, s.values) for s in body.servers]
         try:
-            return texts.within(await service.install_from_repository(body.url, body.skills, wanted))
+            return texts.within(
+                await service.install_from_repository(body.url, body.skills, wanted, _asked_by(request))
+            )
+        except NotApprovedError as e:
+            raise HTTPException(403, message(e)) from e
         except (RepositoryError, SkillError, McpServerError) as e:
             raise HTTPException(400, message(e)) from e
 

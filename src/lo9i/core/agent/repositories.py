@@ -6,8 +6,10 @@ from dataclasses import dataclass
 
 from lo9i.core.agent.base import ServiceBase
 from lo9i.core.agent.mcp import McpServerStatus, mcp_status
-from lo9i.core.mcp import plugin_oauth
+from lo9i.core.config import settings
+from lo9i.core.mcp import owner_approval, plugin_oauth
 from lo9i.core.mcp.install import FoundServer, ServerField, ServerValues
+from lo9i.core.mcp.servers import McpServer
 from lo9i.core.repositories import contents, listed, updates
 from lo9i.core.repositories.contents import RepositoryContents
 from lo9i.core.repositories.errors import RepositoryError
@@ -44,13 +46,18 @@ class RepositoriesMixin(ServiceBase):
         return await contents.browse(store, url, await listed.token(store, self.secrets, url))
 
     async def install_from_repository(
-        self, url: str, skills: list[str], servers: list[ServerValues]
+        self, url: str, skills: list[str], servers: list[ServerValues], asked_by: str | None = None
     ) -> InstalledFromRepository:
-        """Raises RepositoryError, SkillError or McpServerError, saying what's wrong: CheckFailedError when a
-        server's check says the values it was given don't work (core/mcp/checks.py)."""
+        """`asked_by` names the paired device asking, None for the owner on this computer. Raises RepositoryError,
+        SkillError or McpServerError, saying what's wrong: CheckFailedError when a server's check says the values it
+        was given don't work (core/mcp/checks.py), NotApprovedError when the owner doesn't approve a device's
+        install of code that runs here (core/mcp/owner_approval.py)."""
         store = self._storage.store
         token = await listed.token(store, self.secrets, url)
-        installed = await contents.install(store, self.secrets, url, skills, servers, token, self._plugin_checks.run)
+        approve = self._install_approval(url, asked_by) if asked_by is not None else None
+        installed = await contents.install(
+            store, self.secrets, url, skills, servers, token, self._plugin_checks.run, approve
+        )
         if installed.skills:
             self.bus.publish("skills")
         if installed.servers:
@@ -64,10 +71,29 @@ class RepositoriesMixin(ServiceBase):
     async def repositories(self) -> list[Repository]:
         return await listed.listed(self._storage.store)
 
-    async def add_repository(self, url: str, token: str = "") -> Repository:
-        """`token` reads a private repository; it's kept encrypted. Raises RepositoryError when it's
-        listed already, can't be read, or offers no plugins."""
+    async def add_repository(self, url: str, token: str = "", asked_by: str | None = None) -> Repository:
+        """`token` reads a private repository; it's kept encrypted. `asked_by` names the paired device asking, None
+        for the owner on this computer. Raises RepositoryError when it's listed already, can't be read, or offers no
+        plugins, NotApprovedError when the owner doesn't approve a device adding it."""
+        if asked_by is not None:
+            await self._owner_approves_repository(owner_approval.repository(url.strip(), asked_by), asked_by)
         return await listed.add(self._storage.store, self.secrets, url, token)
+
+    def _install_approval(self, url: str, device: str) -> contents.Approve:
+        """Asks the owner when what a device installs runs code here: a plugin's processes, a skill's scripts."""
+
+        async def approve(plugins: list[McpServer], skills: list[Skill]) -> None:
+            running = [p for p in plugins if owner_approval.runs_code(p)]
+            scripted = [s for s in skills if s.files]
+            if running or scripted:
+                await self._owner_approves_repository(
+                    owner_approval.repository_install(url, running, scripted, device), device
+                )
+
+        return approve
+
+    async def _owner_approves_repository(self, request: owner_approval.Request, device: str) -> None:
+        await owner_approval.ask(self.approvals, request, device, settings.job_approval_minutes)
 
     async def remove_repository(self, url: str) -> None:
         """Its plugins stay installed. Raises RepositoryError for the extras or one not listed."""

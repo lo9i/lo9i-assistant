@@ -95,3 +95,25 @@ async def test_a_remote_server_from_a_device_doesnt_ask(app, service):
     async with _device(app) as browser:
         assert (await browser.post("/mcp/servers", json=remote)).status_code == 200
     assert await _saved(service) == ["docs"]
+
+
+async def test_a_device_changing_env_asks_only_for_variables_that_change_what_runs(app, service):
+    async with _socket(app) as cli:
+        assert (await cli.post("/mcp/servers", json={**_LOCAL, "enabled": False})).status_code == 200
+    owner = _Owner(service, approved=False)
+    service.approvals.register("telegram", owner)
+    async with _device(app) as browser:
+        assert (await browser.patch("/mcp/servers/evil", json={"env": {"API_TOKEN": "t0ken"}})).status_code == 200
+        preload = {"API_TOKEN": "t0ken", "DYLD_INSERT_LIBRARIES": "/tmp/x.dylib"}
+        assert (await browser.patch("/mcp/servers/evil", json={"env": preload})).status_code == 403
+        assert (await browser.patch("/mcp/servers/evil", json={"env": {"NODE_OPTIONS": "-r x"}})).status_code == 403
+    asked = [a["command"] for a in owner.asked]
+    assert len(asked) == 2 and "DYLD_INSERT_LIBRARIES=/tmp/x.dylib" in asked[0] and "NODE_OPTIONS" in asked[1]
+    assert "t0ken" not in asked[0]
+    assert "DYLD_INSERT_LIBRARIES" not in (await servers.load(service._storage.store, "evil")).env
+
+
+async def test_a_device_adding_a_repository_asks_the_owner(app, service):
+    async with _device(app) as browser:
+        response = await browser.post("/repositories", json={"url": "https://github.com/me/plugins.git"})
+    assert response.status_code == 403
