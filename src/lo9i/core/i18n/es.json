@@ -693,5 +693,8 @@
   "⚠️ Couldn't finish that ({reason}). Send it again.": "⚠️ No pude terminarlo ({reason}). Envíalo de nuevo.",
   "connection error": "error de conexión",
   "Merged a conversation of {skill}": "Junté una conversación de {skill}",
-  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}"
+  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}",
+  "A local MCP server runs a command on the computer lo9i runs on, so adding it from another device needs your approval on a connected chat channel, and none is connected. Connect one, or add it from the app on that computer.": "Un servidor MCP local ejecuta un comando en la computadora donde corre lo9i, así que agregarlo desde otro dispositivo necesita tu aprobación en un canal de chat conectado, y no hay ninguno. Conecta uno, o agrégalo desde la app en esa computadora.",
+  "Nobody approved running this command within {minutes} minutes.": "Nadie aprobó ejecutar este comando en {minutes} minutos.",
+  "Running this command as an MCP server was rejected.": "Se rechazó ejecutar este comando como servidor MCP."
 }

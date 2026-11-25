@@ -152,6 +152,7 @@ from lo9i.core.logs import (
 )
 from lo9i.core.mcp import install as server_install
 from lo9i.core.mcp.badges import PluginBadges
+from lo9i.core.mcp.owner_approval import NotApprovedError
 from lo9i.core.memory.about_you import HelpTopic, ReplyLength
 from lo9i.core.memory.profile import MAX_ITEMS, Section
 from lo9i.core.proactive.schedule import Work
@@ -1950,25 +1951,37 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
         return await service.plugin_badges(texts.language)
 
     @app.post("/mcp/probe")
-    async def probe_mcp_server(body: McpServerSettings) -> McpProbe:
+    async def probe_mcp_server(body: McpServerSettings, request: Request) -> McpProbe:
         """Connect once and list the server's tools, without saving it. A remote server may ask to
-        sign in instead: it can be added, then signed in to."""
+        sign in instead: it can be added, then signed in to. 403: a paired device's local command the owner didn't
+        approve (core/mcp/owner_approval.py)."""
         try:
-            return await service.probe_mcp_server(body.server())
+            return await service.probe_mcp_server(body.server(), _asked_by(request))
+        except NotApprovedError as e:
+            raise HTTPException(403, message(e)) from e
         except McpServerError as e:
             raise HTTPException(400, message(e)) from e
 
     @app.post("/mcp/servers")
-    async def add_mcp_server(body: McpServerSettings, texts: _Answering) -> McpServerStatus:
+    async def add_mcp_server(body: McpServerSettings, request: Request, texts: _Answering) -> McpServerStatus:
+        """403: a paired device's local command the owner didn't approve (core/mcp/owner_approval.py)."""
         try:
-            return texts.within(await service.add_mcp_server(body.server()))
+            return texts.within(await service.add_mcp_server(body.server(), _asked_by(request)))
+        except NotApprovedError as e:
+            raise HTTPException(403, message(e)) from e
         except McpServerError as e:
             raise HTTPException(400, message(e)) from e
 
     @app.patch("/mcp/servers/{name}")
-    async def change_mcp_server(name: str, body: McpServerChange, texts: _Answering) -> McpServerStatus:
+    async def change_mcp_server(
+        name: str, body: McpServerChange, request: Request, texts: _Answering
+    ) -> McpServerStatus:
+        """403: a new local command from a paired device the owner didn't approve (core/mcp/owner_approval.py)."""
+        changes = McpServerChanges(**body.model_dump())
         try:
-            return texts.within(await service.update_mcp_server(name, McpServerChanges(**body.model_dump())))
+            return texts.within(await service.update_mcp_server(name, changes, _asked_by(request)))
+        except NotApprovedError as e:
+            raise HTTPException(403, message(e)) from e
         except McpServerError as e:
             raise HTTPException(400, message(e)) from e
 
@@ -2053,6 +2066,15 @@ def _add_mcp_routes(app: FastAPI, service: AssistantService) -> None:
             return Removed(kept=await service.remove_mcp_server(name, delete_data))
         except McpServerError as e:
             raise HTTPException(404, message(e)) from e
+
+
+def _asked_by(request: Request) -> str | None:
+    """The paired device a request comes from, by name, for the owner's approval of what it runs on this computer;
+    None on the Unix socket, where the owner is."""
+    if is_trusted(request):
+        return None
+    device = device_of(request)
+    return device.name if device else "unknown"
 
 
 def _add_alert_routes(app: FastAPI, service: AssistantService) -> None:
