@@ -31,6 +31,9 @@ code from it. In its commands, arguments and env values:
     exclude: []
     approve: [download]            # optional, format 7: tools that ask the user before each call, even on a
                                    # trusted server (names or globs); an update replaces them
+    outside: [read_email, search_*]  # optional: tools whose results hold text from outside the user (pages, mail,
+                                   # other people's messages) even on a trusted server (names or globs): given to
+                                   # the model as data, and a run that reads one asks before acting (core/untrusted.py)
     page:                          # optional: a web page, shown in the web app (core/mcp/pages.py); its
                                    # WebSockets pass through too, with no time limit (daemon/page_sockets.py);
                                    # it's told the app's theme: ?theme=light|dark on its first address, and a
@@ -557,7 +560,8 @@ def _template(data: dict[str, Any], name: str) -> McpServer:
         trusted=bool(data.get("trusted", False)),
         include=[str(t) for t in data.get("include", [])],
         exclude=[str(t) for t in data.get("exclude", [])],
-        approve=_tool_patterns(data.get("approve", [])),
+        approve=_tool_patterns(data.get("approve", []), "approve"),
+        outside=_tool_patterns(data.get("outside", []), "outside"),
         page_command=str(data.get("page", {}).get("command", "")),
         page_args=[str(a) for a in data.get("page", {}).get("args", [])],
         page_shown=page_shown.parse(data.get("page", {}).get("shown")),
@@ -590,11 +594,12 @@ def _oauth(value: object) -> dict[str, Any]:
     return {"oauth_provider": provider, "oauth_scopes": scopes}
 
 
-def _tool_patterns(value: object) -> list[str]:
+def _tool_patterns(value: object, key: str) -> list[str]:
     """Raises ValueError for anything but a list of tool names: a lone name is refused, not read letter by
-    letter, since a tool left out of `approve` would run without asking."""
+    letter, since a tool left out of `approve` would run without asking, and one left out of `outside` would give
+    the model outside content as the user's."""
     if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        raise ValueError(said("its approve must be a list of tool names"))
+        raise ValueError(said("its {key} must be a list of tool names", key=key))
     return [t.strip() for t in value]
 
 

@@ -232,7 +232,7 @@
   "its SKILL.md must be named {name}, a skill name (lowercase letters, digits, -)": "su SKILL.md debe llamarse {name}, un nombre de habilidad (minúsculas, dígitos, -)",
   "its agent command {command!r} must be a lowercase word, like claude": "su comando de agente {command!r} debe ser una palabra en minúsculas, como claude",
   "its agent section has a worker, which needs format: 3": "su sección agent tiene un worker, que necesita format: 3",
-  "its approve must be a list of tool names": "su approve debe ser una lista de nombres de herramientas",
+  "its {key} must be a list of tool names": "su {key} debe ser una lista de nombres de herramientas",
   "its category {category!r} isn't one of {categories}": "su categoría {category!r} no es ninguna de {categories}",
   "its channel protocol must be a whole number from 1": "su protocolo de canal debe ser un número entero desde 1",
   "its check args must be a list": "los args de su check deben ser una lista",

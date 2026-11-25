@@ -13,7 +13,7 @@ import pytest
 from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.store.memory import InMemoryStore
 
-from lo9i.core import notifications
+from lo9i.core import notifications, untrusted
 from lo9i.core.agent import AssistantService, McpServer, Session
 from lo9i.core.agent_tasks.reports import TaskReports
 from lo9i.core.background import BackgroundEnds, Ended, Origin
@@ -95,7 +95,8 @@ async def test_a_tasks_end_is_told_on_its_channel_and_once_in_the_next_turn_head
     await _until(lambda: sender.sent == [told["text"]])
     await collect(service.send(session, "how did it go?"))
     note = _notes(script.requests[-1])
-    assert f'Claude Code\'s task {task_id} in {tmp_path}, asked "finish", is done: Done in' in note
+    assert f'Claude Code\'s task {task_id} in {tmp_path}, asked "finish", is done: ' in note
+    assert f"Done in {tmp_path}" in untrusted.shown(note) and untrusted.holds(note)
     assert "[You sent this on" not in str(script.requests[-1][-1].content)  # it's this channel's conversation
     await collect(service.send(session, "and now?"))
     assert _notes(script.requests[-1]) == ""

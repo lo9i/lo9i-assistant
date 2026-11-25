@@ -72,7 +72,7 @@ class McpTool(BaseTool):
         rejection = self._approve(arguments)
         if rejection:
             return rejection, []
-        return _as_data(await self._call(arguments), self.connection.server, self.name)
+        return _as_data(await self._call(arguments), self.connection.server, self.name, self.remote_name)
 
     def asks_when_tainted(self, arguments: dict[str, Any]) -> bool:
         """A run that read content from outside asks before a call that changes things (core/untrusted.py), unless
@@ -172,10 +172,12 @@ def _truncate(text: str) -> str:
     return f"{text[:limit]}\n[cut: {len(text) - limit} more characters]"
 
 
-def _as_data(output: Output, server: McpServer, tool: str) -> Output:
-    """An untrusted server's result, its errors included, is data from outside (core/untrusted.py)."""
+def _as_data(output: Output, server: McpServer, tool: str, remote_name: str) -> Output:
+    """An untrusted server's result, its errors included, or one of a tool its plugin says returns outside content,
+    is data from outside (core/untrusted.py)."""
     content, references = output
-    return (content if server.trusted else untrusted.wrap_blocks(content, tool)), references
+    outside = server.returns_outside(remote_name)
+    return (untrusted.wrap_blocks(content, tool) if outside else content), references
 
 
 def _content(text: str, transcripts: list[Block]) -> str | list[Block]:
@@ -202,7 +204,7 @@ class McpListingTool(BaseTool):
         raise NotImplementedError("MCP tools only run async.")
 
     async def _arun(self, **arguments: Any) -> Output:
-        return _as_data(await self._listing(arguments), self.connection.server, self.name)
+        return _as_data(await self._listing(arguments), self.connection.server, self.name, self.remote_name)
 
     def asks_when_tainted(self, arguments: dict[str, Any]) -> bool:
         """They only read."""

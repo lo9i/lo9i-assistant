@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from lo9i.core import uploads
+from lo9i.core import untrusted, uploads
 from lo9i.core.agent import AssistantService, Session
 from lo9i.core.agent_tasks.service import AgentTaskError
 from lo9i.core.context import UNATTENDED_CHANNEL
@@ -114,7 +114,8 @@ async def test_status_shows_steps_and_stop_stops_a_running_task(service, tmp_pat
     done = await tasks.start("claude-code", str(tmp_path), "show your steps")
     await tasks.wait(done.id, 30)
     status = await _call(service, "task_status", task_id=done.id)
-    assert "Latest steps:\n- Read: README.md\n- Ran: pytest" in status and "Result:" in status
+    assert "- Read: README.md\n- Ran: pytest" in untrusted.shown(status) and "Result:" in status
+    assert untrusted.holds(status)  # what the agent did and says is data from outside
     running = await tasks.start("claude-code", str(tmp_path), "sleep")
     pid = folders.data("claude-code") / "tasks" / running.id / "pid"
     for _ in range(200):

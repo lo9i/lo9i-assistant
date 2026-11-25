@@ -115,7 +115,9 @@ async def _titles(store: BaseStore, user_id: str, thread_ids: set[str]) -> dict[
 def _result(found: Found, title: str, output: bool) -> str:
     snippet = " ".join(found.snippet.split())
     who = f"{found.role} output{_call(found)}" if output else found.role
-    return f'- {found.at or "unknown time"}, in "{title}", {who}: {snippet}'
+    # A snippet of a page or an email is still data from outside (core/untrusted.py).
+    shown = untrusted.wrap(snippet, found.role) if found.outside else snippet
+    return f'- {found.at or "unknown time"}, in "{title}", {who}: {shown}'
 
 
 def _call(found: Found) -> str:
