@@ -22,6 +22,7 @@
   import StartupCard from "$lib/ui/settings/StartupCard.svelte";
   import VoiceCallsCard from "$lib/ui/settings/VoiceCallsCard.svelte";
   import WebSearchCard from "$lib/ui/settings/WebSearchCard.svelte";
+  import SandboxCard from "$lib/ui/settings/SandboxCard.svelte";
   import SettingsTabs from "$lib/ui/settings/SettingsTabs.svelte";
   import TopBar from "$lib/ui/TopBar.svelte";
   import { t, type Key } from "$lib/i18n.svelte";
@@ -56,13 +57,14 @@
     </div>
   </div>
   {#if tab === "general"}
-    <!-- Two balanced columns: assistant, language, agent notices and the folder panel; briefing, startup, search, email. -->
+    <!-- Two balanced columns: assistant, language, agent notices, the folder panel and the sandbox; briefing, startup, search, email. -->
     <div class="grid">
       <div class="stack">
         <AssistantCard />
         <LanguageCard />
         <AgentDoneCard />
         <FolderPanelCard />
+        <SandboxCard />
       </div>
       <div class="stack">
         <ProactiveCard />

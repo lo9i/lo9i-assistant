@@ -5,13 +5,17 @@ import pwd
 import shlex
 import shutil
 import signal
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 
 from lo9i.core.config import settings
-from lo9i.core.context import Context
+from lo9i.core.context import Context, require_store
+from lo9i.core.sandbox import container
+from lo9i.core.sandbox import runtime as runtimes
+from lo9i.core.sandbox import setting as sandbox_setting
 from lo9i.core.tools.approval import ask
 from lo9i.core.tools.bash_guard import find_danger
 from lo9i.core.tools.registry import register
@@ -38,6 +42,8 @@ async def bash(command: str, runtime: ToolRuntime[Context]) -> tuple[str, Artifa
     rejection = _request_approval(command, runtime.context)
     if rejection:
         return rejection, None
+    if await sandbox_setting.enabled(require_store(runtime.store)):
+        return await _in_sandbox(command)
     return await _run(command)
 
 
@@ -56,14 +62,42 @@ def _request_approval(command: str, context: Context) -> str | None:
 
 
 async def _run(command: str) -> tuple[str, Artifact]:
+    workspace = _workspace()
+    output, exit_code = await _execute(["bash", "-c", command], workspace, _environment())
+    return _shown(output, exit_code), {"exit_code": exit_code}
+
+
+async def _in_sandbox(command: str) -> tuple[str, Artifact]:
+    """In a container with only the workspace (core/sandbox/); never on this computer when it can't."""
+    workspace, found = _workspace(), runtimes.find()
+    if found is None:
+        return container.no_runtime(), None
+    if refused := container.refusal(workspace):
+        return refused, None
+    name = container.name()
+    argv = container.argv(found, workspace, name, command)
+    output, exit_code = await _execute(argv, workspace, runtimes.environment(), lambda: container.remove(found, name))
+    if exit_code is None:
+        return _shown(output, exit_code), {"exit_code": None}
+    if container.not_started(exit_code):
+        return await container.why_not_started(found, output), None
+    return _shown(container.explained(found, exit_code, output), exit_code), {"exit_code": exit_code}
+
+
+def _workspace() -> Path:
     workspace = Path(settings.workspace_dir).expanduser().resolve()
     workspace.mkdir(parents=True, exist_ok=True)
+    return workspace
+
+
+async def _execute(
+    argv: list[str], cwd: Path, env: dict[str, str], stopped: Callable[[], Awaitable[None]] | None = None
+) -> tuple[str, int | None]:
+    """Its output and exit code; None for the code when it timed out. `stopped` cleans up after it's killed."""
     proc = await asyncio.create_subprocess_exec(
-        "bash",
-        "-c",
-        command,
-        cwd=workspace,
-        env=_environment(),
+        *argv,
+        cwd=cwd,
+        env=env,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         # Its own process group, so stopping it also stops the commands it started.
@@ -71,14 +105,18 @@ async def _run(command: str) -> tuple[str, Artifact]:
     )
     try:
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=settings.bash_timeout)
-    except TimeoutError:
-        await _kill(proc)
-        return f"Timed out after {settings.bash_timeout}s.", {"exit_code": None}
-    except asyncio.CancelledError:
-        await _kill(proc)
-        raise
-    output = f"exit code: {proc.returncode}\n{_truncate(stdout.decode(errors='replace'))}"
-    return output, {"exit_code": proc.returncode}
+    except (TimeoutError, asyncio.CancelledError) as e:
+        await _kill(proc, stopped)
+        if isinstance(e, asyncio.CancelledError):
+            raise
+        return "", None
+    return stdout.decode(errors="replace"), proc.returncode
+
+
+def _shown(output: str, exit_code: int | None) -> str:
+    if exit_code is None:
+        return f"Timed out after {settings.bash_timeout}s."
+    return f"exit code: {exit_code}\n{_truncate(output)}"
 
 
 def _environment() -> dict[str, str]:
@@ -101,10 +139,12 @@ def _github_credentials() -> dict[str, str]:
     return {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": _GITHUB_HELPER, "GIT_CONFIG_VALUE_0": helper}
 
 
-async def _kill(proc: asyncio.subprocess.Process) -> None:
+async def _kill(proc: asyncio.subprocess.Process, stopped: Callable[[], Awaitable[None]] | None) -> None:
     with contextlib.suppress(ProcessLookupError):
         os.killpg(proc.pid, signal.SIGKILL)
     await proc.wait()
+    if stopped is not None:
+        await asyncio.shield(stopped())
 
 
 def _truncate(output: str) -> str:

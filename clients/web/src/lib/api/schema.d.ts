@@ -1640,6 +1640,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/settings/bash-sandbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sandbox Status */
+        get: operations["sandbox_status_settings_bash_sandbox_get"];
+        /** Set Sandbox */
+        put: operations["set_sandbox_settings_bash_sandbox_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/integrations/email/providers": {
         parameters: {
             query?: never;
@@ -4398,6 +4416,11 @@ export interface components {
              */
             archived: boolean;
             /**
+             * Home Of
+             * @default
+             */
+            home_of: string;
+            /**
              * Inbox
              * @default false
              */
@@ -6676,6 +6699,13 @@ export interface components {
              */
             closed: number;
             /**
+             * Merged
+             * @default {}
+             */
+            merged: {
+                [key: string]: number;
+            };
+            /**
              * Briefed
              * @default false
              */
@@ -6784,6 +6814,26 @@ export interface components {
             started_at: string;
             /** Steps */
             steps: string[];
+        };
+        /** SandboxStatus */
+        SandboxStatus: {
+            /** Enabled */
+            enabled: boolean;
+            /** Runtime */
+            runtime: string;
+            /** Available */
+            available: boolean;
+            /** Problem */
+            problem: string;
+            /** Fix */
+            fix: string;
+            /** Image */
+            image: string;
+        };
+        /** SandboxSwitch */
+        SandboxSwitch: {
+            /** Enabled */
+            enabled: boolean;
         };
         /** SavedHost */
         SavedHost: {
@@ -10608,6 +10658,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WebSearchStatus"];
+                };
+            };
+        };
+    };
+    sandbox_status_settings_bash_sandbox_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxStatus"];
+                };
+            };
+        };
+    };
+    set_sandbox_settings_bash_sandbox_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxSwitch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

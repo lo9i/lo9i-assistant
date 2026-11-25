@@ -120,6 +120,7 @@ import type {
   VoiceCallAnswer,
   VoiceCallSettings,
   WebSearchStatus,
+  SandboxStatus,
   Suggested,
 } from "./types";
 
@@ -451,6 +452,20 @@ export class WebSearchGroup {
 
   removeBraveKey(): Promise<WebSearchStatus> {
     return this.transport.request("DELETE", "/integrations/web-search/brave-key");
+  }
+}
+
+/** The bash sandbox: whether the assistant's commands run in a container, and whether one can run here. */
+export class SandboxGroup {
+  constructor(private readonly transport: Transport) {}
+
+  status(): Promise<SandboxStatus> {
+    return this.transport.request("GET", "/settings/bash-sandbox");
+  }
+
+  /** Turning it on downloads its image first. Throws ApiError (400) saying why when it can't be turned on. */
+  setEnabled(enabled: boolean): Promise<SandboxStatus> {
+    return this.transport.request("PUT", "/settings/bash-sandbox", { enabled });
   }
 }
 
@@ -1450,6 +1465,7 @@ export class DaemonClient {
   readonly speech: SpeechGroup;
   readonly voiceCalls: VoiceCallsGroup;
   readonly webSearch: WebSearchGroup;
+  readonly sandbox: SandboxGroup;
   readonly email: EmailGroup;
   readonly oauth: OAuthGroup;
   readonly model: ModelGroup;
@@ -1493,6 +1509,7 @@ export class DaemonClient {
     this.speech = new SpeechGroup(transport);
     this.voiceCalls = new VoiceCallsGroup(transport);
     this.webSearch = new WebSearchGroup(transport);
+    this.sandbox = new SandboxGroup(transport);
     this.email = new EmailGroup(transport);
     this.oauth = new OAuthGroup(transport);
     this.model = new ModelGroup(transport);

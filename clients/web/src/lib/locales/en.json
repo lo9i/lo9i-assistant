@@ -35,6 +35,18 @@
     "finished": "{agent} finished",
     "failed": "{agent} stopped with a problem"
   },
+  "sandboxCard": {
+    "title": "Command sandbox",
+    "sub": "Runs the assistant's shell commands in a container that sees only its workspace, never lo9i's data or your other files. For every device.",
+    "run": "Run commands in a sandbox",
+    "runLabel": "Run the assistant's commands in a sandbox",
+    "on": "On",
+    "off": "Off",
+    "uses": "Commands run in {runtime}, image {image}, with only the workspace.",
+    "available": "{runtime} is available.",
+    "starting": "Turning on… downloading the image.",
+    "noRuntime": "Can't be turned on"
+  },
   "folderPanelCard": {
     "title": "Folder panel",
     "sub": "The files beside a conversation: the agent's folder, or your home folder. For every device.",

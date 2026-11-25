@@ -693,5 +693,20 @@
   "⚠️ Couldn't finish that ({reason}). Send it again.": "⚠️ No pude terminarlo ({reason}). Envíalo de nuevo.",
   "connection error": "error de conexión",
   "Merged a conversation of {skill}": "Junté una conversación de {skill}",
-  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}"
+  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}",
+  "Neither Docker nor Podman is installed on this computer, so commands can't run in a sandbox.": "Ni Docker ni Podman están instalados en esta computadora, así que los comandos no pueden correr en un sandbox.",
+  "Install Docker Desktop or Podman Desktop, start it, then turn the sandbox on.": "Instala Docker Desktop o Podman Desktop, ábrelo y después activa el sandbox.",
+  "Install Docker or Podman, start it, then turn the sandbox on.": "Instala Docker o Podman, inícialo y después activa el sandbox.",
+  "{runtime} is installed but isn't running.": "{runtime} está instalado pero no está corriendo.",
+  "Start Podman (Podman Desktop, or its machine), then try again.": "Inicia Podman (Podman Desktop o su máquina) y prueba de nuevo.",
+  "Open Docker Desktop and wait until it says it's running, then try again.": "Abre Docker Desktop, espera a que diga que está corriendo y prueba de nuevo.",
+  "Start Docker's service, then try again.": "Inicia el servicio de Docker y prueba de nuevo.",
+  "{problem} {fix}": "{problem} {fix}",
+  "{runtime} couldn't download the sandbox's image ({image}). Check the internet connection, then try again.": "{runtime} no pudo descargar la imagen del sandbox ({image}). Revisa la conexión a internet y prueba de nuevo.",
+  "Bash sandbox": "Sandbox de bash",
+  "On, but {problem}": "Activado, pero {problem}",
+  "On: commands run in {runtime}.": "Activado: los comandos corren en {runtime}.",
+  "Off, and it can't be turned on: {problem}": "Desactivado, y no se puede activar: {problem}",
+  "Off: commands run on this computer. {runtime} is here to run them in a sandbox.": "Desactivado: los comandos corren en esta computadora. {runtime} está disponible para correrlos en un sandbox.",
+  "Turn it on in Settings → General (/sandbox in the terminal app).": "Actívalo en Ajustes → General (/sandbox en la app de terminal)."
 }

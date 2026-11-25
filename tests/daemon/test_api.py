@@ -569,7 +569,7 @@ async def test_the_setup_check_lists_each_part_in_the_language_asked(app, client
     monkeypatch.setattr(service, "_model", ModelChoice("anthropic", "claude-opus-5-5", "w", {"api_key": "k"}))
     report = await client.setup_check.run()
     checks = {c.id: c for c in report.checks}
-    assert list(checks) == ["daemon", "model", "web_app", "disk", "command"]
+    assert list(checks) == ["daemon", "model", "sandbox", "web_app", "disk", "command"]
     assert checks["daemon"].status == "ok"
     assert checks["model"].status == "fail" and checks["model"].detail == "Anthropic refused the key: HTTP 401"
     transport = httpx.ASGITransport(app=trusted(app))

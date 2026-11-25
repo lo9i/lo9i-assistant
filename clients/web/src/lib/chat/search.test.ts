@@ -12,6 +12,7 @@ const conversation = (thread_id: string, title: string): Conversation => ({
   channels: [],
   tags: [],
   archived: false,
+  home_of: "",
   inbox: false,
 });
 

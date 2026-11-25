@@ -1136,5 +1136,13 @@
   "Nothing was removed. Run it again with --yes to clean.": "No se borró nada. Ejecútalo de nuevo con --yes para limpiar.",
   "Plugins' downloads ({size}) are cleaned only when named: lo9i clean downloads": "Las descargas de los plugins ({size}) se limpian solo si las nombras: lo9i clean downloads",
   "Freed {size}.": "Se liberaron {size}.",
-  "Couldn't clean {path}: {reason}": "No se pudo limpiar {path}: {reason}"
+  "Couldn't clean {path}: {reason}": "No se pudo limpiar {path}: {reason}",
+  "Command sandbox": "Sandbox de comandos",
+  "Runs the assistant's shell commands in a container that sees only its workspace, never lo9i's data or your other files. For every device.": "Corre los comandos de shell del asistente en un contenedor que solo ve su espacio de trabajo, nunca los datos de lo9i ni tus otros archivos. Para todos los dispositivos.",
+  "On": "Activado",
+  "Off, and it can't be turned on": "Desactivado, y no se puede activar",
+  "On: commands run in {runtime}, image {image}, with only the workspace.": "Activado: los comandos corren en {runtime}, imagen {image}, solo con el espacio de trabajo.",
+  "Off: commands run on this computer. {runtime} is available to run them in a sandbox.": "Desactivado: los comandos corren en esta computadora. {runtime} está disponible para correrlos en un sandbox.",
+  "Turning on… downloading the image.": "Activando… descargando la imagen.",
+  "Run the assistant's commands in a container that sees only its workspace": "Correr los comandos del asistente en un contenedor que solo ve su espacio de trabajo"
 }

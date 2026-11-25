@@ -12,6 +12,7 @@ from lo9i.core.integrations.email import accounts
 from lo9i.core.llm import key_check
 from lo9i.core.llm.providers import provider
 from lo9i.core.mcp import servers
+from lo9i.core.sandbox.status import status as sandbox_status
 from lo9i.core.setup_check import SetupCheck, SetupReport, local, service
 
 __all__ = ["SetupCheck", "SetupCheckMixin", "SetupReport"]
@@ -43,7 +44,12 @@ class SetupCheckMixin(ServiceBase):
             for s in installed
             if s.channel_command
         ]
-        return [*plugins, *emails, *channels]
+        return [*plugins, *emails, *channels, await self._sandbox_check()]
+
+    async def _sandbox_check(self) -> SetupCheck:
+        status = await sandbox_status(self._storage.store)
+        runtime = {"docker": "Docker", "podman": "Podman"}.get(status.runtime, "")
+        return service.sandbox(status.enabled, runtime, status.problem, status.fix)
 
     async def _plugin_check(self, name: str) -> SetupCheck:
         status, error, tools = self.mcp.state(name)
