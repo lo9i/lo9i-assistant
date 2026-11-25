@@ -693,5 +693,8 @@
   "⚠️ Couldn't finish that ({reason}). Send it again.": "⚠️ No pude terminarlo ({reason}). Envíalo de nuevo.",
   "connection error": "error de conexión",
   "Merged a conversation of {skill}": "Junté una conversación de {skill}",
-  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}"
+  "Merged {count} conversations of {skill}": "Junté {count} conversaciones de {skill}",
+  "This runs code on the computer lo9i runs on, so doing it from another device needs your approval on a connected chat channel, and none is connected. Connect one, or do it from the app on that computer.": "Esto ejecuta código en la computadora donde corre lo9i, así que hacerlo desde otro dispositivo necesita tu aprobación en un canal de chat conectado, y no hay ninguno. Conecta uno, o hazlo desde la app en esa computadora.",
+  "Nobody approved it within {minutes} minutes.": "Nadie lo aprobó en {minutes} minutos.",
+  "It was rejected.": "Se rechazó."
 }

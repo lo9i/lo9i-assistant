@@ -6,9 +6,19 @@ import asyncio
 from dataclasses import dataclass, field, fields, replace
 
 from lo9i.core.agent.base import ServiceBase
+from lo9i.core.config import settings
 from lo9i.core.i18n import message, said
 from lo9i.core.integrations.email import accounts as email_accounts
-from lo9i.core.mcp import data_key, install, keys, page_shown, plugin_oauth, plugin_settings, servers
+from lo9i.core.mcp import (
+    data_key,
+    install,
+    keys,
+    owner_approval,
+    page_shown,
+    plugin_oauth,
+    plugin_settings,
+    servers,
+)
 from lo9i.core.mcp.badges import PluginBadges
 from lo9i.core.mcp.checks import CheckFailedError
 from lo9i.core.mcp.hub import McpHub, McpProbe, McpToolInfo
@@ -114,23 +124,36 @@ class McpMixin(ServiceBase):
         `language`."""
         return await self.badges.every(language)
 
-    async def probe_mcp_server(self, server: McpServer) -> McpProbe:
-        """The server's tools, to choose from before adding it, or that it asks to sign in.
-        Raises McpServerError."""
+    async def probe_mcp_server(self, server: McpServer, asked_by: str | None = None) -> McpProbe:
+        """The server's tools, to choose from before adding it, or that it asks to sign in. `asked_by` names the
+        paired device asking, None for the owner on this computer. Raises McpServerError (NotApprovedError when the
+        owner doesn't approve a device's local command)."""
+        if asked_by is not None and server.command:
+            await self._owner_approves_server(server, asked_by)
         return await self.mcp.probe(server)
 
-    async def add_mcp_server(self, server: McpServer) -> McpServerStatus:
-        """Raises McpServerError for invalid settings or a name in use."""
+    async def add_mcp_server(self, server: McpServer, asked_by: str | None = None) -> McpServerStatus:
+        """Raises McpServerError for invalid settings or a name in use, NotApprovedError when the owner doesn't
+        approve the local command of a server a paired device (`asked_by`) adds."""
         if server.name in {s.name for s in await servers.load_all(self._storage.store)}:
             raise McpServerError(said("There's already an MCP server named {name}.", name=server.name))
+        if asked_by is not None and server.command:
+            servers.validate(server)
+            await self._owner_approves_server(server, asked_by)
         return await self._save_mcp_server(server)
 
-    async def update_mcp_server(self, name: str, changes: McpServerChanges) -> McpServerStatus:
-        """Raises McpServerError for an unknown server or invalid settings, and CheckFailedError when its plugin's
+    async def update_mcp_server(
+        self, name: str, changes: McpServerChanges, asked_by: str | None = None
+    ) -> McpServerStatus:
+        """Raises McpServerError for an unknown server or invalid settings, NotApprovedError when the owner doesn't
+        approve a new local command, or env variables that change what it runs, a paired device (`asked_by`) gives it,
+        and CheckFailedError when its plugin's
         check says new env or header values don't work."""
         server = await keys.fill(self._storage.store, self.secrets, await servers.load(self._storage.store, name))
         values = {f.name: v for f in fields(changes) if (v := getattr(changes, f.name)) is not None}
         changed = replace(server, **(values | _merged(server, changes)))
+        if asked_by is not None:
+            await self._owner_approves_change(server, changed, asked_by)
         if changes.env is not None or changes.headers is not None:
             # Its plugin's check says before they're saved whether the new values work (core/mcp/checks.py).
             await self._plugin_checks.run(changed)
@@ -227,6 +250,23 @@ class McpMixin(ServiceBase):
         await self.channel_processes.restart(name)
         await self._servers_changed()
         return await self._mcp_status(server)
+
+    async def _owner_approves_server(self, server: McpServer, device: str) -> None:
+        await self._owner_approves_mcp(owner_approval.local_server(server, device), device)
+
+    async def _owner_approves_change(self, server: McpServer, changed: McpServer, device: str) -> None:
+        """A local server's new command or arguments, or env variables that change what it runs (an ordinary
+        value, like a token, doesn't ask)."""
+        if not changed.command:
+            return
+        servers.validate(changed)
+        if (changed.command, changed.args) != (server.command, server.args):
+            await self._owner_approves_server(changed, device)
+        elif variables := owner_approval.runs_code_variables(server.env, changed.env):
+            await self._owner_approves_mcp(owner_approval.code_variables(changed, variables, device), device)
+
+    async def _owner_approves_mcp(self, request: owner_approval.Request, device: str) -> None:
+        await owner_approval.ask(self.approvals, request, device, settings.job_approval_minutes)
 
     async def _save_mcp_server(self, server: McpServer) -> McpServerStatus:
         await keys.save(self._storage.store, self.secrets, server)
