@@ -17,7 +17,7 @@ _GROUP = "open-loops"
 _LISTED = 50
 
 
-@register("memory", subagents=True, group=_GROUP)
+@register("memory", subagents=True, group=_GROUP, free_when_tainted=True)
 @tool
 async def list_open_loops(runtime: ToolRuntime[Context], status: ListedStatus = "open") -> str:
     """The user's open loops (what's still to do, waiting on someone, or promised to them), with their ids, and

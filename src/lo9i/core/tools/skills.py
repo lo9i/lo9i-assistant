@@ -15,7 +15,7 @@ from lo9i.core.tools.approval import ask
 from lo9i.core.tools.registry import register
 
 
-@register("skills", group="skill-writing")
+@register("skills", group="skill-writing", free_when_tainted=True)
 @tool
 async def save_skill(
     name: str,
@@ -42,7 +42,7 @@ async def save_skill(
     return f"Saved skill {name}. It shows up in the skill list from the next epoch; use_skill works now."
 
 
-@register("skills", subagents=True)
+@register("skills", subagents=True, free_when_tainted=True)
 @tool
 async def use_skill(name: str) -> str:
     """Load a skill's full instructions. Follow them step by step."""
@@ -55,7 +55,7 @@ async def use_skill(name: str) -> str:
     return f"# Skill: {skill.name}\n\n{render_skill(skill)}{loaded if skill.server else ''}"
 
 
-@register("skills", group="skill-writing")
+@register("skills", group="skill-writing", free_when_tainted=True)
 @tool
 async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
     """Delete a skill. The user approves it first."""
@@ -78,7 +78,7 @@ async def delete_skill(name: str, runtime: ToolRuntime[Context]) -> str:
     return f"Deleted skill {name}."
 
 
-@register("skills", subagents=True)
+@register("skills", subagents=True, free_when_tainted=True)
 @tool
 async def list_skills() -> str:
     """List the saved skills with their descriptions (current, including ones saved in this conversation)."""

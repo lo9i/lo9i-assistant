@@ -86,7 +86,7 @@ async def delete_job(name: str, runtime: ToolRuntime[Context]) -> str:
     return f"Deleted {name}." if deleted else f"No job named {name}."
 
 
-@register("jobs", subagents=True, group="jobs")
+@register("jobs", subagents=True, group="jobs", free_when_tainted=True)
 @tool
 async def list_jobs(runtime: ToolRuntime[Context], state: ListedState = "all") -> str:
     """List scheduled jobs in three groups: active (will run), paused (turned off; won't run until

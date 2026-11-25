@@ -28,7 +28,7 @@ _MOVED = (
 )
 
 
-@register("messages")
+@register("messages", free_when_tainted=True)
 @tool
 async def move_to_conversation(runtime: ToolRuntime[Context]) -> str | Command:
     """Move the user's message out of the inbox into a new conversation, without asking, as soon as what they ask

@@ -15,7 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 from langgraph.types import Command
 
-from lo9i.core import observability
+from lo9i.core import observability, untrusted
 from lo9i.core.background import short
 from lo9i.core.background_subagents import records
 from lo9i.core.background_subagents.records import RUNNING, WAITING, BackgroundStep, BackgroundSubagent
@@ -61,13 +61,17 @@ class SubagentWork:
         saved = await graph.aget_state(config)
         await self._reopen(list(saved.values.get("messages", [])) if saved.values else [])
         input: Any = (
-            None if saved.values else await runner.background_start(subagent.task, subagent.plugins, subagent.agent)
+            None
+            if saved.values
+            else await runner.background_start(subagent.task, subagent.plugins, subagent.agent, subagent.tainted_by)
         )
         subagent.context_limit = status(saved.values or input, 0).context_limit
         while True:
             await self._stream(graph, input, config, context)
             state = await graph.aget_state(config)
             if not state.interrupts:
+                # What it read, kept for its end's note (ends.py), which says its answer is data from outside.
+                subagent.tainted_by = untrusted.taint_source(state.values)
                 return answer(state.values.get("messages", []), NO_BACKGROUND_ANSWER)
             input = Command(resume=await self._waiting(approval_events(state.interrupts)))
 
@@ -121,7 +125,7 @@ class SubagentWork:
                 self._open[step.call_id] = step
                 await self._step(step)
         elif isinstance(message, ToolMessage) and (step := self._open.pop(message.tool_call_id, None)):
-            step.output, step.done = message.text, True
+            step.output, step.done = untrusted.shown(message.text), True
             await self._step(step)
 
     async def _step(self, step: BackgroundStep) -> None:

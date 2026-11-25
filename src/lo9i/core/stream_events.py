@@ -6,6 +6,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 from langgraph.types import Interrupt
 
+from lo9i.core import untrusted
 from lo9i.core.events import ApprovalRequired, Error, Event, TextDelta, ToolFinished, ToolStarted
 
 
@@ -50,7 +51,7 @@ def _message_events(message: BaseMessage) -> list[Event]:
     if isinstance(message, AIMessage):
         return _ai_message_events(message)
     if isinstance(message, ToolMessage):
-        return [ToolFinished(name=message.name or "", output=message.text)]
+        return [ToolFinished(name=message.name or "", output=untrusted.shown(message.text))]
     return []
 
 

@@ -3,6 +3,7 @@
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 
+from lo9i.core import untrusted
 from lo9i.core.context import Context, require_secrets, require_store
 from lo9i.core.internet import brave_key
 from lo9i.core.internet.fetch import FetchError
@@ -18,7 +19,7 @@ _MAX_RESULTS = 10
 _web = WebService()
 
 
-@register("web", subagents=True)
+@register("web", subagents=True, free_when_tainted=True)
 @tool
 async def web_search(query: str, runtime: ToolRuntime[Context], limit: int = 5) -> str:
     """Search the web. Returns titles, URLs and short snippets. Use web_extract to read a result."""
@@ -30,15 +31,15 @@ async def web_search(query: str, runtime: ToolRuntime[Context], limit: int = 5) 
         outcome = await _web.search(query, max(1, min(limit, _MAX_RESULTS)), key)
     except SearchError as e:
         return f"Search failed: {e}"
-    return _format(outcome)
+    return untrusted.wrap(_format(outcome), "web_search")
 
 
-@register("web", subagents=True)
+@register("web", subagents=True, free_when_tainted=True)
 @tool
 async def web_extract(url: str) -> str:
     """Read a web page as text. Long pages are shortened; the full text is saved in the workspace."""
     try:
-        return await _web.extract(url)
+        return untrusted.wrap(await _web.extract(url), f"web_extract {url}")
     except (FetchError, UnsafeUrlError, BlockedDomainError) as e:
         return f"Could not read {url}: {e}"
 

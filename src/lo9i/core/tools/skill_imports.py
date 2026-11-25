@@ -15,7 +15,7 @@ from lo9i.core.tools.approval import ask
 from lo9i.core.tools.registry import register
 
 
-@register("skills", group="skill-writing")
+@register("skills", group="skill-writing", free_when_tainted=True)
 @tool
 async def list_importable_skills(runtime: ToolRuntime[Context]) -> str:
     """List the skills Claude Code and Codex have on this computer that can be copied into yours: whether each was
@@ -24,7 +24,7 @@ async def list_importable_skills(runtime: ToolRuntime[Context]) -> str:
     return _listed(found) or "Claude Code and Codex have no skills on this computer."
 
 
-@register("skills", group="skill-writing")
+@register("skills", group="skill-writing", free_when_tainted=True)
 @tool
 async def import_skills(ids: list[str], runtime: ToolRuntime[Context], replace: bool = False) -> str:
     """Copy the skills the user picked from list_importable_skills, by id. One imported before is updated from its

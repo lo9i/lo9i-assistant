@@ -91,14 +91,21 @@ class BackgroundSubagents(BackgroundSubagentStarts):
         self._added = asyncio.Event()
 
     async def start(
-        self, task: str, user_id: str, thread_id: str, channel: str, plugins: Collection[str], agent: str = ""
+        self,
+        task: str,
+        user_id: str,
+        thread_id: str,
+        channel: str,
+        plugins: Collection[str],
+        agent: str = "",
+        tainted_by: str = "",
     ) -> str:
         if thread_id in self._gone:
             raise SubagentError(said("That conversation was deleted."))
         await self._runner().background_graph(agent)  # an unknown agent raises before anything is kept
         started = datetime.now(UTC).isoformat()
         subagent = BackgroundSubagent(
-            uuid.uuid4().hex[:8], user_id, thread_id, channel, task, agent, [*plugins], started
+            uuid.uuid4().hex[:8], user_id, thread_id, channel, task, agent, [*plugins], started, tainted_by=tainted_by
         )
         await records.save(self._storage.store, subagent)
         publish(self._bus, subagent)

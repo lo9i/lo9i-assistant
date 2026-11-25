@@ -13,6 +13,7 @@ from mcp.client.extension import ClientExtension, NotificationBinding
 from mcp.types import RequestParamsMeta
 from pydantic import BaseModel, Field
 
+from lo9i.core import untrusted
 from lo9i.core.background import Ended, Origin, short
 from lo9i.core.hidden_text import strip_hidden
 
@@ -65,10 +66,12 @@ def origin_meta(origin: Origin | None) -> RequestParamsMeta | None:
     return meta
 
 
-def ended(server: str, finished: WorkFinished) -> Ended:
-    """The server's text is cleaned like its tools' results and said to be the server's."""
+def ended(server: str, finished: WorkFinished, trusted: bool) -> Ended:
+    """The server's text is cleaned like its tools' results and said to be the server's; an untrusted server's is data
+    from outside in the note the model reads (core/untrusted.py), so the run following it up is tainted."""
     text = strip_hidden(finished.text)
     notice = f"{'✅' if finished.ok else '⚠️'} {server}: {short(text, _NOTICE)}"
     outcome = "finished" if finished.ok else "failed"
-    note = f"The MCP server {server} says its background work {finished.work} {outcome}: {short(text, _NOTE)}"
+    said = short(text, _NOTE) if trusted else untrusted.wrap(short(text, _NOTE), server)
+    note = f"The MCP server {server} says its background work {finished.work} {outcome}: {said}"
     return Ended(f"mcp:{server}:{finished.work}", finished.ok, notice, note, finished.follow_up, plugin=server)

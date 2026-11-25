@@ -17,9 +17,10 @@ from lo9i.core import subagent_steps
 from lo9i.core.context import BackgroundSubagentStarts, Context, Subagents, thread_of
 from lo9i.core.mcp.subagents import UnknownSubagentError
 from lo9i.core.tools.registry import register
+from lo9i.core.untrusted import taint_source
 
 
-@register("subagents")
+@register("subagents", free_when_tainted=True)
 @tool
 async def delegate(
     task: str,
@@ -49,11 +50,13 @@ async def delegate(
     if unknown := _unreadable(plugins or [], context.subagents):
         return unknown
     given = [*runtime.state.get("loaded_plugins", []), *(plugins or [])]
+    # The task is written after what this run read, so the subagent starts as tainted as it is.
+    tainted_by = taint_source(runtime.state)
     try:
         if background and context.background is not None:
-            return await _sent_off(task, runtime, context.background, given, agent.strip())
+            return await _sent_off(task, runtime, context.background, given, agent.strip(), tainted_by)
         call_id = runtime.tool_call_id or ""
-        answer = await context.subagents.run(task, context, call_id, given, agent.strip())
+        answer = await context.subagents.run(task, context, call_id, given, agent.strip(), tainted_by)
     except UnknownSubagentError as e:
         return f"Not delegated: {e}"
     return subagent_steps.result(answer, call_id, "delegate")
@@ -71,10 +74,15 @@ def _unreadable(named: Collection[str], subagents: Subagents) -> str:
 
 
 async def _sent_off(
-    task: str, runtime: ToolRuntime[Context], starts: BackgroundSubagentStarts, plugins: list[str], agent: str
+    task: str,
+    runtime: ToolRuntime[Context],
+    starts: BackgroundSubagentStarts,
+    plugins: list[str],
+    agent: str,
+    tainted_by: str,
 ) -> str:
     context, thread_id = runtime.context, thread_of(runtime.config)
-    subagent_id = await starts.start(task, context.user_id, thread_id, context.channel, plugins, agent)
+    subagent_id = await starts.start(task, context.user_id, thread_id, context.channel, plugins, agent, tainted_by)
     return (
         f"Sent off as background subagent {subagent_id}. Its answer comes back to this conversation when it ends: "
         "don't wait for it, and don't do its task yourself meanwhile."

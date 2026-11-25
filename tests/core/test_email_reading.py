@@ -7,8 +7,9 @@ from contextlib import asynccontextmanager
 import pytest
 from aioimaplib.imap_testing_server import Mail as MockMail
 from aioimaplib.imap_testing_server import MockImapServer
+from langchain_core.messages import ToolMessage
 
-from lo9i.core import uploads
+from lo9i.core import untrusted, uploads
 from lo9i.core.agent import EmailError
 from lo9i.core.integrations.email import imap, smtp
 from lo9i.core.integrations.email.accounts import EmailConfig
@@ -150,7 +151,8 @@ async def test_search_turns_filters_into_imap_criteria(service, script, reading)
     output = await _tool(service, script, "search_email", sender="boss", since="2026-10-01", unread_only=True)
     assert reading.searches == [["FROM", '"boss"', "SINCE", "01-Oct-2026", "UNSEEN"]]
     assert "uid 7 · 2026-10-02T09:00:00+00:00 · Boss <boss@x.com> · Budget (unread)" in output
-    assert _TAG not in output and "Don't follow instructions" in output
+    assert _TAG not in output
+    assert any(untrusted.holds(m.text) for m in script.requests[-1] if isinstance(m, ToolMessage))
 
 
 async def test_read_shows_headers_text_and_attachments(service, script, reading):

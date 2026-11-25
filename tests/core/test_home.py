@@ -16,6 +16,7 @@ from mcp import Client
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
+from lo9i.core import untrusted
 from lo9i.core.agent import AssistantService, HomeItem, HomeSection, HomeSectionsError, McpServer
 from lo9i.core.config import settings
 from lo9i.core.gathering import LIMIT_REACHED, MAX_STEPS
@@ -149,7 +150,7 @@ async def test_a_section_is_built_from_its_plugins_read_only_tools(service, scri
     formats.answers.append(SectionContent(items=[HomeItem(title="Standup", date="2026-10-22", time="09:00")]))
     await _only(service, "Agenda")
     assert _bound_names(script.bound[0]) == {LIST}
-    assert [m.text for m in script.requests[1] if isinstance(m, ToolMessage)] == ["Standup at 09:00"]
+    assert [untrusted.shown(m.text) for m in script.requests[1] if isinstance(m, ToolMessage)] == ["Standup at 09:00"]
     assert "What was found:\nStandup, today 09:00." in formats.requests[0][-1].text
     result = (await service.home("owner")).cards[0].result
     assert result is not None and result.status == "ok" and result.title == "Agenda"

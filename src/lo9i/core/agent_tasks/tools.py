@@ -31,6 +31,7 @@ from lo9i.core.conversation import queued
 from lo9i.core.ending import EndingState
 from lo9i.core.subagent_steps import SubagentAnswer
 from lo9i.core.tools.approval import ask
+from lo9i.core.tools.registry import free
 from lo9i.core.tools.side import moved_out_of_inbox
 
 # A task's tab, or the conversation it moves to from the inbox, is titled with the start of the task when the call
@@ -180,8 +181,8 @@ def _build(
 
     return [
         StructuredTool.from_function(coroutine=start_task, description=_START, args_schema=_Start),
-        StructuredTool.from_function(coroutine=task_status, args_schema=_Status),
-        StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
+        free(StructuredTool.from_function(coroutine=task_status, args_schema=_Status)),
+        free(StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing)),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
         StructuredTool.from_function(coroutine=restart_daemon, args_schema=_Nothing),
     ]

@@ -25,12 +25,19 @@ class Subagents(ABC):
 
     @abstractmethod
     async def run(
-        self, task: str, context: "Context", call_id: str, plugins: Collection[str], agent: str = ""
+        self,
+        task: str,
+        context: "Context",
+        call_id: str,
+        plugins: Collection[str],
+        agent: str = "",
+        tainted_by: str = "",
     ) -> SubagentAnswer:
         """`call_id`: the delegate call's, which the subagent's tool events name. `plugins`: those the
         conversation loaded (core/plugin_loading.py) and those the delegate call named, whose read-only tools the
         subagent gets. `agent`: a named subagent a plugin brings (core/mcp/subagents.py), "" for the general one; an
-        unknown one raises UnknownSubagentError."""
+        unknown one raises UnknownSubagentError. `tainted_by`: the outside content the delegating run read
+        (core/untrusted.py), which the subagent starts tainted by; "" for none."""
 
     @abstractmethod
     def readable_plugins(self) -> set[str]:
@@ -43,10 +50,17 @@ class BackgroundSubagentStarts(ABC):
 
     @abstractmethod
     async def start(
-        self, task: str, user_id: str, thread_id: str, channel: str, plugins: Collection[str], agent: str = ""
+        self,
+        task: str,
+        user_id: str,
+        thread_id: str,
+        channel: str,
+        plugins: Collection[str],
+        agent: str = "",
+        tainted_by: str = "",
     ) -> str:
-        """Its id. It works for the conversation `thread_id`, which its answer goes back to when it ends. `plugins`
-        and `agent` as in Subagents.run; an unknown agent raises UnknownSubagentError."""
+        """Its id. It works for the conversation `thread_id`, which its answer goes back to when it ends. `plugins`,
+        `agent` and `tainted_by` as in Subagents.run; an unknown agent raises UnknownSubagentError."""
 
 
 class McpStarts(ABC):

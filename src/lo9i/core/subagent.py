@@ -35,6 +35,7 @@ from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import AsyncToolCallWrapper, ToolCallRequest
 from langgraph.types import Send
 
+from lo9i.core import untrusted
 from lo9i.core.attachments import hydrate
 from lo9i.core.config import settings
 from lo9i.core.context import Context, Subagents
@@ -54,7 +55,9 @@ from lo9i.core.mcp.sanitize import MCP_PREFIX
 from lo9i.core.mcp.subagents import NamedSubagent, UnknownSubagentError
 from lo9i.core.storage import Storage
 from lo9i.core.subagent_steps import SubagentAnswer, SubagentStatus, SubagentStep
+from lo9i.core.tainted import guarded
 from lo9i.core.tools.registry import subagent_tools
+from lo9i.core.untrusted import taint_source
 from lo9i.core.usage.meter import TokenMeter
 
 # The result of a tool call made after the subagent's limits ran out.
@@ -86,6 +89,8 @@ class SubagentState(MessagesState):
     context_limit: int
     # When it started, as ISO 8601.
     started_at: str
+    # The outside content the run that delegated it read (core/untrusted.py): it starts tainted by it; "" for none.
+    tainted_by: str
 
 
 SubagentGraph = CompiledStateGraph[SubagentState, Context, SubagentState, SubagentState]
@@ -110,24 +115,26 @@ class SubagentRunner(Subagents):
         return await named.installed(self._storage.store)
 
     async def run(
-        self, task: str, context: Context, call_id: str, plugins: Collection[str], agent: str = ""
+        self, task: str, context: Context, call_id: str, plugins: Collection[str], agent: str = "", tainted_by: str = ""
     ) -> SubagentAnswer:
         """Raises UnknownSubagentError for an `agent` no installed plugin brings."""
-        graph, start = await self._prepared(task, call_id, plugins, agent, background=False)
+        graph, start = await self._prepared(task, call_id, plugins, agent, False, tainted_by)
         state = await graph.ainvoke(
             start,
             {"recursion_limit": 2 * settings.subagent_max_steps + 5},
             context=replace(context, subagents=None, background=None),
         )
-        return SubagentAnswer(answer(state["messages"]), steps(state["messages"]), _ended(state))
+        return SubagentAnswer(_tainted_answer(state), steps(state["messages"]), _ended(state))
 
     def readable_plugins(self) -> set[str]:
         return {plugin for d in self._mcp.read_only_definitions() if (plugin := self._mcp.plugin_of(_name(d)))}
 
-    async def background_start(self, task: str, plugins: Collection[str], agent: str = "") -> SubagentState:
+    async def background_start(
+        self, task: str, plugins: Collection[str], agent: str = "", tainted_by: str = ""
+    ) -> SubagentState:
         """Where a subagent sent off in the background starts, its tools' events naming no call. Raises
         UnknownSubagentError for an `agent` no installed plugin brings."""
-        return (await self._prepared(task, "", plugins, agent, background=True))[1]
+        return (await self._prepared(task, "", plugins, agent, True, tainted_by))[1]
 
     async def background_graph(self, agent: str = "") -> SubagentGraph:
         """The graph a subagent sent off in the background runs on: it saves its checkpoints, and has no step limit.
@@ -135,7 +142,7 @@ class SubagentRunner(Subagents):
         return self._background if not agent else self._graph_of(await self._find(agent), background=True)
 
     async def _prepared(
-        self, task: str, call_id: str, plugins: Collection[str], agent: str, background: bool
+        self, task: str, call_id: str, plugins: Collection[str], agent: str, background: bool, tainted_by: str
     ) -> tuple[SubagentGraph, SubagentState]:
         graph, model = (self._background if background else self._graph), self._choice.worker_model
         if agent:
@@ -151,6 +158,7 @@ class SubagentRunner(Subagents):
             context_tokens=0,
             context_limit=await self._windows.of(replace(self._choice, model=model)),
             started_at=datetime.now(UTC).isoformat(),
+            tainted_by=tainted_by,
         )
         return graph, start
 
@@ -193,6 +201,13 @@ def answer(messages: Sequence[Any], missing: str = NO_ANSWER) -> str:
     """Its last reply; `missing` when it ended without one."""
     last = messages[-1] if messages else None
     return (last.text if isinstance(last, AIMessage) else "") or missing
+
+
+def _tainted_answer(state: Mapping[str, Any], missing: str = NO_ANSWER) -> str:
+    """Its answer, as data from outside when it read some or its delegating run had (core/untrusted.py): what it
+    read could steer what it says."""
+    text = answer(state.get("messages") or [], missing)
+    return untrusted.wrap(text, f"subagent, after {source}") if (source := taint_source(state)) else text
 
 
 def steps(messages: Sequence[Any]) -> list[SubagentStep]:
@@ -242,7 +257,7 @@ def _compiled(
     builder = StateGraph(SubagentState, context_schema=Context)
     images = choice.provider in IMAGES_IN_TOOL_RESULTS
     builder.add_node(_AGENT, _agent_node(llm, tools, images, system_prompt(tools, own)))
-    calls = _offered_mcp(mcp_calls(mcp))
+    calls = _offered_mcp(guarded(mcp_calls(mcp)))
     route = each_tool_call(_TOOLS)
     if saved is None:
         calls, route = _limited(calls), _until_limit(route)
@@ -317,7 +332,9 @@ def _reported(execute_call: AsyncToolCallWrapper) -> AsyncToolCallWrapper:
     async def _wrap(request: ToolCallRequest, execute: Callable[[ToolCallRequest], Awaitable[Any]]) -> Any:
         result = await execute_call(request, execute)
         if isinstance(result, ToolMessage):
-            get_stream_writer()(ToolFinished(result.name or "", result.text, within=request.state["call_id"]))
+            get_stream_writer()(
+                ToolFinished(result.name or "", untrusted.shown(result.text), within=request.state["call_id"])
+            )
         return result
 
     return _wrap

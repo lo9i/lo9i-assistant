@@ -22,6 +22,7 @@ from mcp.types import (
 )
 from pydantic import ConfigDict, Field
 
+from lo9i.core import untrusted
 from lo9i.core.attachments import Block, is_reference
 from lo9i.core.background import current_origin
 from lo9i.core.config import settings
@@ -71,7 +72,12 @@ class McpTool(BaseTool):
         rejection = self._approve(arguments)
         if rejection:
             return rejection, []
-        return await self._call(arguments)
+        return _as_data(await self._call(arguments), self.connection.server, self.name)
+
+    def asks_when_tainted(self, arguments: dict[str, Any]) -> bool:
+        """A run that read content from outside asks before a call that changes things (core/untrusted.py), unless
+        the call asks anyway."""
+        return not self._reads_only(arguments) and self._approval_reason(arguments) is None
 
     def _approve(self, arguments: dict[str, Any]) -> str | None:
         reason = self._approval_reason(arguments)
@@ -166,6 +172,12 @@ def _truncate(text: str) -> str:
     return f"{text[:limit]}\n[cut: {len(text) - limit} more characters]"
 
 
+def _as_data(output: Output, server: McpServer, tool: str) -> Output:
+    """An untrusted server's result, its errors included, is data from outside (core/untrusted.py)."""
+    content, references = output
+    return (content if server.trusted else untrusted.wrap_blocks(content, tool)), references
+
+
 def _content(text: str, transcripts: list[Block]) -> str | list[Block]:
     """The result's text, followed by the transcripts of its audio."""
     if not transcripts:
@@ -190,6 +202,13 @@ class McpListingTool(BaseTool):
         raise NotImplementedError("MCP tools only run async.")
 
     async def _arun(self, **arguments: Any) -> Output:
+        return _as_data(await self._listing(arguments), self.connection.server, self.name)
+
+    def asks_when_tainted(self, arguments: dict[str, Any]) -> bool:
+        """They only read."""
+        return False
+
+    async def _listing(self, arguments: dict[str, Any]) -> Output:
         server = self.connection.server.name
         try:
             return await self._listed(arguments)
