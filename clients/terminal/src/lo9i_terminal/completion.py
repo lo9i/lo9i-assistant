@@ -1,7 +1,7 @@
 """`lo9i completion <shell>`: the completion script for bash, zsh or fish, written from the commands cli.py parses, so
 the two never differ. install.sh installs the one for the user's shell."""
 
-from lo9i_terminal.cli import CLEANED, COMMANDS, DAEMON_ACTIONS, SHELLS
+from lo9i_terminal.cli import CLEANED, COMMANDS, DAEMON_ACTIONS, SECURITY_ACTIONS, SHELLS
 
 _DOCTOR_OPTIONS = ("--json",)
 _IMPORT_OPTIONS = ("--force", "--password-stdin", "--json", "--wait")
@@ -23,6 +23,8 @@ _lo9i() {{
     1:*) COMPREPLY=($(compgen -W "{top}" -- "$cur")) ;;
     2:daemon) COMPREPLY=($(compgen -W "{" ".join(DAEMON_ACTIONS)}" -- "$cur")) ;;
     2:doctor) COMPREPLY=($(compgen -W "{" ".join(_DOCTOR_OPTIONS)}" -- "$cur")) ;;
+    2:security) COMPREPLY=($(compgen -W "{" ".join(SECURITY_ACTIONS)}" -- "$cur")) ;;
+    3:security) COMPREPLY=($(compgen -W "{" ".join(_DOCTOR_OPTIONS)}" -- "$cur")) ;;
     2:export) COMPREPLY=($(compgen -f -- "$cur")) ;;
     *:import) COMPREPLY=($(compgen -W "{" ".join(_IMPORT_OPTIONS)}" -f -- "$cur")) ;;
     *:migrate) COMPREPLY=($(compgen -W "{" ".join(_MIGRATE_OPTIONS)}" -- "$cur")) ;;
@@ -51,6 +53,7 @@ _lo9i() {{
   case $words[2] in
     daemon) compadd -- {" ".join(DAEMON_ACTIONS)} ;;
     doctor) compadd -- {" ".join(_DOCTOR_OPTIONS)} ;;
+    security) compadd -- {" ".join([*SECURITY_ACTIONS, *_DOCTOR_OPTIONS])} ;;
     export) _files ;;
     import) compadd -- {" ".join(_IMPORT_OPTIONS)}; _files ;;
     migrate) compadd -- {" ".join(_MIGRATE_OPTIONS)} ;;
@@ -78,7 +81,8 @@ def _fish() -> str:
     ]
     lines += [
         f"complete -c lo9i -n '__fish_seen_subcommand_from daemon' -a '{' '.join(DAEMON_ACTIONS)}'",
-        "complete -c lo9i -n '__fish_seen_subcommand_from doctor' -l json -d 'Print the report as JSON'",
+        "complete -c lo9i -n '__fish_seen_subcommand_from doctor security' -l json -d 'Print the report as JSON'",
+        f"complete -c lo9i -n '__fish_seen_subcommand_from security' -a '{' '.join(SECURITY_ACTIONS)}'",
         "complete -c lo9i -n '__fish_seen_subcommand_from export import' -F",
         "complete -c lo9i -n '__fish_seen_subcommand_from import' -l force -d 'Replace the data lo9i has here'",
         "complete -c lo9i -n '__fish_seen_subcommand_from migrate' -l replace -d 'Replace the data lo9i has there'",
