@@ -66,7 +66,9 @@ def _alone(key: str) -> tuple[tuple[str, ...], ...]:
 # cards (the assistant, the agent notices, the folder panel) are elsewhere here or the browser's, and Audio without
 # the cards of what only a browser does (live voice calls, the microphone).
 SETTINGS_TABS: tuple[SettingsTab, ...] = (
-    SettingsTab("general", translatable("General"), (("language", "briefing"), ("startup", "websearch", "email"))),
+    SettingsTab(
+        "general", translatable("General"), (("language", "briefing", "sandbox"), ("startup", "websearch", "email"))
+    ),
     SettingsTab("memory", translatable("About you"), _alone("profile")),
     SettingsTab("model", translatable("Model"), (("model",), ("limits",))),
     SettingsTab("context", translatable("Context"), (("context", "prompt"),)),

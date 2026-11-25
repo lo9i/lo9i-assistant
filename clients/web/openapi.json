@@ -3719,6 +3719,60 @@
         }
       }
     },
+    "/settings/bash-sandbox": {
+      "get": {
+        "summary": "Sandbox Status",
+        "operationId": "sandbox_status_settings_bash_sandbox_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Sandbox",
+        "operationId": "set_sandbox_settings_bash_sandbox_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxSwitch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SandboxStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/integrations/email/providers": {
       "get": {
         "summary": "Email Providers",
@@ -9612,6 +9666,11 @@
             "title": "Archived",
             "default": false
           },
+          "home_of": {
+            "type": "string",
+            "title": "Home Of",
+            "default": ""
+          },
           "inbox": {
             "type": "boolean",
             "title": "Inbox",
@@ -13935,6 +13994,14 @@
             "title": "Closed",
             "default": 0
           },
+          "merged": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Merged",
+            "default": {}
+          },
           "briefed": {
             "type": "boolean",
             "title": "Briefed",
@@ -14122,6 +14189,57 @@
           "steps"
         ],
         "title": "RunningTask"
+      },
+      "SandboxStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "runtime": {
+            "type": "string",
+            "title": "Runtime"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "fix": {
+            "type": "string",
+            "title": "Fix"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "runtime",
+          "available",
+          "problem",
+          "fix",
+          "image"
+        ],
+        "title": "SandboxStatus"
+      },
+      "SandboxSwitch": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "SandboxSwitch"
       },
       "SavedHost": {
         "properties": {

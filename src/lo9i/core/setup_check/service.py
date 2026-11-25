@@ -101,3 +101,24 @@ def channel(name: str, connected: bool, problem: str) -> SetupCheck:
     if connected:
         return SetupCheck(check_id, title, "ok", said("Connected."))
     return SetupCheck(check_id, title, "fail", said("Its process isn't connected."), _CHANNEL_FIX)
+
+
+def sandbox(enabled: bool, runtime: str, problem: str, fix: str) -> SetupCheck:
+    """The bash sandbox (core/sandbox/): on and able to run, or why not. `runtime` is Docker's or Podman's name ("" for
+    neither), `problem` and `fix` why it can't run containers now ("" when it can)."""
+    title = said("Bash sandbox")
+    if enabled and problem:
+        return SetupCheck("sandbox", title, "fail", said("On, but {problem}", problem=problem), fix)
+    if enabled:
+        return SetupCheck("sandbox", title, "ok", said("On: commands run in {runtime}.", runtime=runtime))
+    if problem:
+        return SetupCheck(
+            "sandbox", title, "ok", said("Off, and it can't be turned on: {problem}", problem=problem), fix
+        )
+    return SetupCheck(
+        "sandbox",
+        title,
+        "ok",
+        said("Off: commands run on this computer. {runtime} is here to run them in a sandbox.", runtime=runtime),
+        said("Turn it on in Settings → General (/sandbox in the terminal app)."),
+    )

@@ -39,6 +39,7 @@ from lo9i.core.agent.proactive import ProactiveMixin
 from lo9i.core.agent.prompts import PromptsMixin
 from lo9i.core.agent.repositories import RepositoriesMixin
 from lo9i.core.agent.runs import RunsMixin
+from lo9i.core.agent.sandbox import SandboxMixin
 from lo9i.core.agent.security_audit import SecurityAuditMixin
 from lo9i.core.agent.setup_check import SetupCheckMixin
 from lo9i.core.agent.sign_in_links import SignInLinksMixin
@@ -164,6 +165,7 @@ class AssistantService(
     LanguageMixin,
     DispatchMixin,
     WebSearchMixin,
+    SandboxMixin,
     SkillsMixin,
     SkillImportsMixin,
     PinnedSkillsMixin,

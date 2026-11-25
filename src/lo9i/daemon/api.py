@@ -93,6 +93,8 @@ from lo9i.core.agent import (
     RepositoryError,
     RepositoryPlugins,
     RunningTask,
+    SandboxStatus,
+    SandboxUnavailableError,
     Sent,
     ServerValues,
     Session,
@@ -461,6 +463,10 @@ class FolderDeleting(BaseModel):
     enabled: bool
 
 
+class SandboxSwitch(BaseModel):
+    enabled: bool
+
+
 class FileCount(BaseModel):
     total: int
 
@@ -795,6 +801,7 @@ def create_app(
         app, service, chats or ChannelChats(service, ChannelRuns(hub), service.channels_hub, service.approvals)
     )
     _add_web_search_routes(app, service)
+    _add_sandbox_routes(app, service)
     _add_email_routes(app, service)
     _add_sign_in_routes(app, service)
     _add_skill_routes(app, service)
@@ -1491,6 +1498,21 @@ def _add_web_search_routes(app: FastAPI, service: AssistantService) -> None:
     @app.delete("/integrations/web-search/brave-key")
     async def remove_brave_key() -> WebSearchStatus:
         return await service.remove_brave_key()
+
+
+def _add_sandbox_routes(app: FastAPI, service: AssistantService) -> None:
+    """The bash sandbox (core/sandbox/): on or off, and whether a container runtime can run it."""
+
+    @app.get("/settings/bash-sandbox")
+    async def sandbox_status(texts: _Answering) -> SandboxStatus:
+        return texts.within(await service.sandbox_status())
+
+    @app.put("/settings/bash-sandbox")
+    async def set_sandbox(body: SandboxSwitch, texts: _Answering) -> SandboxStatus:
+        try:
+            return texts.within(await service.set_sandbox(body.enabled))
+        except SandboxUnavailableError as e:
+            raise HTTPException(400, message(e)) from e
 
 
 def _add_voice_call_routes(app: FastAPI, service: AssistantService, calls: VoiceCalls) -> None:

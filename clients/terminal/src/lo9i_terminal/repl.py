@@ -15,6 +15,7 @@ from lo9i.core.agent import (
     InvalidNameError,
     LanguageError,
     ModelChangeError,
+    SandboxUnavailableError,
     Session,
     SkillError,
     TaskSession,
@@ -48,6 +49,7 @@ from lo9i_terminal.notifications_text import notification_line
 from lo9i_terminal.plugins_text import checked_line, from_repositories, last_checked, source
 from lo9i_terminal.profile_text import section_label
 from lo9i_terminal.render import render
+from lo9i_terminal.sandbox_text import describe as describe_sandbox
 from lo9i_terminal.sessions_text import describe as describe_sessions
 from lo9i_terminal.skill_imports_text import detail, label, numbers, outcome, selectable, suggestions
 from lo9i_terminal.style import GREEN, RESET, YELLOW, code, paint
@@ -88,6 +90,7 @@ class Repl:
             "/model": self._model,
             "/audio": self._audio,
             "/websearch": self._web_search,
+            "/sandbox": self._sandbox,
             "/skills": self._skills,
             "/import-skills": self._import_skills,
             "/plugins": self._plugins,
@@ -505,6 +508,15 @@ class Repl:
             if not status.brave_key_set
             else text
         )
+
+    async def _sandbox(self, arg: str) -> None:
+        """/sandbox shows it, /sandbox on or off changes it."""
+        sandbox, error = self._service.sandbox, ""
+        try:
+            status = await sandbox.set_enabled(arg == "on") if arg in ("on", "off") else await sandbox.status()
+        except SandboxUnavailableError as e:
+            status, error = await sandbox.status(), str(e)
+        print(describe_sandbox(status, error))
 
     async def _attach(self, arg: str) -> None:
         try:

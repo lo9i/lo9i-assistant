@@ -84,6 +84,8 @@ from lo9i.core.agent import (
     RepositoryError,
     RepositoryPlugins,
     RunRecord,
+    SandboxStatus,
+    SandboxUnavailableError,
     SectionResult,
     ServerField,
     Session,
@@ -332,6 +334,24 @@ class FakeWebSearch:
     async def remove_brave_key(self):
         self.state = WebSearchStatus(brave_key_set=False)
         return self.state
+
+
+class FakeSandbox:
+    """Docker installed but not running until `available` is set."""
+
+    def __init__(self):
+        self.available = False
+        self.enabled = False
+
+    async def status(self):
+        problem, fix = ("", "") if self.available else ("Docker is installed but isn't running.", "Start it.")
+        return SandboxStatus(self.enabled, "docker", self.available, problem, fix, "python:3.12-slim")
+
+    async def set_enabled(self, enabled):
+        if enabled and not self.available:
+            raise SandboxUnavailableError("Docker is installed but isn't running. Start it.")
+        self.enabled = enabled
+        return await self.status()
 
 
 # The installed email plugins: gmail with an app password, microsoft signing in, custom-email with
@@ -1600,6 +1620,7 @@ class FakeClient:
         self.model = FakeModel()
         self.speech = FakeSpeech()
         self.web_search = FakeWebSearch()
+        self.sandbox = FakeSandbox()
         self.notifications = FakeNotifications()
         self.alerts = FakeAlerts()
         self.doctor = FakeDoctor()

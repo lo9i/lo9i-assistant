@@ -81,6 +81,9 @@ COMMANDS = [
     Command("/spoken", "/spoken", translatable("Spoken replies: when replies are spoken, in which voice")),
     Command("/websearch", "/websearch", translatable("Web search: the Brave Search API key")),
     Command(
+        "/sandbox", "/sandbox", translatable("Run the assistant's commands in a container that sees only its workspace")
+    ),
+    Command(
         "/limits", "/limits", translatable("Spending limits: what model calls may spend per job, conversation and day")
     ),
     Command("/email", "/email", translatable("Who the assistant emails without asking, from any account")),

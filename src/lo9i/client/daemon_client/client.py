@@ -26,6 +26,7 @@ from lo9i.client.daemon_client.proactive import ProactiveApi
 from lo9i.client.daemon_client.prompts import PromptsApi
 from lo9i.client.daemon_client.repositories import RepositoriesApi
 from lo9i.client.daemon_client.runs import RunsMixin
+from lo9i.client.daemon_client.sandbox import SandboxApi
 from lo9i.client.daemon_client.security import SecurityApi
 from lo9i.client.daemon_client.sessions import SessionsMixin
 from lo9i.client.daemon_client.setup_check import SetupCheckApi
@@ -58,6 +59,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.channels = ChannelsApi(transport)
         self.speech = SpeechApi(transport)
         self.web_search = WebSearchApi(transport)
+        self.sandbox = SandboxApi(transport)
         self.voice_calls = VoiceCallsApi(transport)
         self.model = ModelApi(transport)
         self.email = EmailApi(transport)

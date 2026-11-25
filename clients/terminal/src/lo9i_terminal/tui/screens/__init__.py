@@ -38,6 +38,7 @@ from lo9i_terminal.tui.screens.profile import ProfileSection
 from lo9i_terminal.tui.screens.prompts import PromptsSection
 from lo9i_terminal.tui.screens.question import QuestionScreen
 from lo9i_terminal.tui.screens.repository_install import RepositoryInstallScreen
+from lo9i_terminal.tui.screens.sandbox import SandboxSection
 from lo9i_terminal.tui.screens.sessions import SessionsSection
 from lo9i_terminal.tui.screens.settings import SettingsScreen
 from lo9i_terminal.tui.screens.skill_imports import SkillImportsSection
@@ -82,6 +83,7 @@ __all__ = [
     "PromptsSection",
     "QuestionScreen",
     "RepositoryInstallScreen",
+    "SandboxSection",
     "SessionsSection",
     "SettingsScreen",
     "SkillImportsSection",

@@ -35,6 +35,18 @@
     "finished": "{agent} terminó",
     "failed": "{agent} se detuvo con un problema"
   },
+  "sandboxCard": {
+    "title": "Sandbox de comandos",
+    "sub": "Corre los comandos de shell del asistente en un contenedor que solo ve su espacio de trabajo, nunca los datos de lo9i ni tus otros archivos. Para todos los dispositivos.",
+    "run": "Correr comandos en un sandbox",
+    "runLabel": "Correr los comandos del asistente en un sandbox",
+    "on": "Activado",
+    "off": "Desactivado",
+    "uses": "Los comandos corren en {runtime}, imagen {image}, solo con el espacio de trabajo.",
+    "available": "{runtime} está disponible.",
+    "starting": "Activando… descargando la imagen.",
+    "noRuntime": "No se puede activar"
+  },
   "folderPanelCard": {
     "title": "Panel de carpeta",
     "sub": "Los archivos junto a una conversación: la carpeta del agente o tu carpeta personal. Para todos los dispositivos.",

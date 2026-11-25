@@ -191,6 +191,8 @@ class Settings(BaseSettings):
     bash_max_output: int = 30_000
     # always: every command. dangerous: only commands matching core/tools/bash_guard.py. never: none.
     bash_approval: Literal["always", "dangerous", "never"] = "dangerous"
+    # The image bash commands run in while the sandbox is on (core/sandbox/), pulled when it's turned on.
+    bash_sandbox_image: str = "python:3.12-slim"
 
     @property
     def https_hosts(self) -> list[str]:

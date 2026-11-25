@@ -100,6 +100,7 @@ from lo9i.core.agent.repositories import (
     ServerField,
     ServerValues,
 )
+from lo9i.core.agent.sandbox import SandboxStatus, SandboxUnavailableError
 from lo9i.core.agent.service import AssistantService
 from lo9i.core.agent.session import Session
 from lo9i.core.agent.setup_check import SetupCheck, SetupReport
@@ -246,6 +247,8 @@ __all__ = [
     "Review",
     "RunRecord",
     "RunningTask",
+    "SandboxStatus",
+    "SandboxUnavailableError",
     "SavedHost",
     "SectionResult",
     "Sent",

@@ -19,6 +19,7 @@ export type ChannelStatus = Schemas["ChannelStatus"];
 export type SetupItem = Schemas["SetupItem"];
 export type SpeechStatus = Schemas["SpeechStatus"];
 export type WebSearchStatus = Schemas["WebSearchStatus"];
+export type SandboxStatus = Schemas["SandboxStatus"];
 export type VoiceCallSettings = Schemas["VoiceCallSettings"];
 export type VoiceCallAnswer = Schemas["VoiceCallAnswer"];
 export type EmailAccount = Schemas["EmailAccount"];
