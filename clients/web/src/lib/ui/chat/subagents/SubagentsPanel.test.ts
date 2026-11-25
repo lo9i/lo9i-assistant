@@ -21,6 +21,7 @@ function subagent(id: string, status: BackgroundSubagent["status"], fields: Part
     context_tokens: 0,
     context_limit: 0,
     result: "",
+    tainted_by: "",
     waiting: [],
     ...fields,
   };

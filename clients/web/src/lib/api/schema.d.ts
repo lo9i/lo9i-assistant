@@ -1992,7 +1992,10 @@ export interface paths {
         /** Mcp Servers */
         get: operations["mcp_servers_mcp_servers_get"];
         put?: never;
-        /** Add Mcp Server */
+        /**
+         * Add Mcp Server
+         * @description 403: a paired device's local command the owner didn't approve (core/mcp/owner_approval.py).
+         */
         post: operations["add_mcp_server_mcp_servers_post"];
         delete?: never;
         options?: never;
@@ -2033,7 +2036,8 @@ export interface paths {
         /**
          * Probe Mcp Server
          * @description Connect once and list the server's tools, without saving it. A remote server may ask to
-         *     sign in instead: it can be added, then signed in to.
+         *     sign in instead: it can be added, then signed in to. 403: a paired device's local command the owner didn't
+         *     approve (core/mcp/owner_approval.py).
          */
         post: operations["probe_mcp_server_mcp_probe_post"];
         delete?: never;
@@ -2060,7 +2064,10 @@ export interface paths {
         delete: operations["remove_mcp_server_mcp_servers__name__delete"];
         options?: never;
         head?: never;
-        /** Change Mcp Server */
+        /**
+         * Change Mcp Server
+         * @description 403: a new local command from a paired device the owner didn't approve (core/mcp/owner_approval.py).
+         */
         patch: operations["change_mcp_server_mcp_servers__name__patch"];
         trace?: never;
     };
@@ -2294,6 +2301,27 @@ export interface paths {
          *     provider whether the key works, so it runs only when asked.
          */
         get: operations["setup_check_setup_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/security-audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Security Audit
+         * @description The security audit (core/security_audit/): what the daemon is exposed on, who can read its data, paired
+         *     devices and what plugins run here, each with a fix.
+         */
+        get: operations["security_audit_security_audit_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2841,7 +2869,8 @@ export interface paths {
         put?: never;
         /**
          * Add Repository
-         * @description 400: listed already, can't be read (with the token, for a private one), or offers no plugins.
+         * @description 400: listed already, can't be read (with the token, for a private one), or offers no plugins. 403: from a
+         *     paired device, and the owner didn't approve it (core/mcp/owner_approval.py).
          */
         post: operations["add_repository_repositories_post"];
         delete?: never;
@@ -2965,7 +2994,8 @@ export interface paths {
         put?: never;
         /**
          * Install From Repository
-         * @description 400: the repository can't be read, lacks something picked, a name is taken, or a field is empty.
+         * @description 400: the repository can't be read, lacks something picked, a name is taken, or a field is empty. 403: a
+         *     paired device's install of code that runs here, which the owner didn't approve (core/mcp/owner_approval.py).
          */
         post: operations["install_from_repository_repositories_install_post"];
         delete?: never;
@@ -4093,6 +4123,11 @@ export interface components {
              * @default
              */
             result: string;
+            /**
+             * Tainted By
+             * @default
+             */
+            tainted_by: string;
             /** Waiting */
             waiting?: components["schemas"]["ApprovalRequired"][];
         };
@@ -7067,6 +7102,11 @@ export interface components {
             };
             /** Output */
             output: string;
+            /**
+             * Outside
+             * @default false
+             */
+            outside: boolean;
         };
         /**
          * ShownConversation
@@ -12039,6 +12079,26 @@ export interface operations {
         };
     };
     setup_check_setup_check_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupReport"];
+                };
+            };
+        };
+    };
+    security_audit_security_audit_get: {
         parameters: {
             query?: never;
             header?: never;

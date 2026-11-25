@@ -20,6 +20,7 @@ function subagent(status: BackgroundSubagent["status"], waiting: BackgroundSubag
     context_tokens: 0,
     context_limit: 0,
     result: "",
+    tainted_by: "",
     waiting,
   };
 }

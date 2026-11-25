@@ -15,6 +15,7 @@ import httpx
 from dotenv import dotenv_values, load_dotenv
 from sse_starlette.sse import AppStatus
 
+from lo9i.core import private_home
 from lo9i.core.agent import AssistantService
 from lo9i.core.channels.chat.conversations import ChannelChats
 from lo9i.core.config import settings
@@ -325,6 +326,7 @@ def _stopped_by(sig: signal.Signals, stop: asyncio.Event) -> None:
 
 
 def run() -> None:
+    private_home.make_home()  # before anything writes in it, so it's made private
     moved = launchd.move_legacy_output()
     rotated = output.rotate(output_path())
     # Settings read .env themselves, but the model and tracing SDKs read their keys from the

@@ -25,6 +25,7 @@ function subagent(
     context_tokens: 0,
     context_limit: 0,
     result: "",
+    tainted_by: "",
     waiting: [],
     ...fields,
   };
@@ -69,7 +70,9 @@ vi.mock("$app/paths", () => ({ resolve: (path: string) => `/app${path}` }));
 // A link to one (?id=) lists those that ended too.
 const shownAt = vi.hoisted(() => ({ url: new URL("http://localhost/app/subagents") }));
 vi.mock("$app/state", () => ({ page: shownAt }));
-vi.mock("$lib/daemon.svelte", () => ({
+vi.mock("$lib/daemon.svelte", async (actual) => ({
+  // A picked coding agent's session loads its work with a Resource of its own (TaskSessionView).
+  Resource: (await actual<typeof import("$lib/daemon.svelte")>()).Resource,
   resource: (load: (c: typeof client) => unknown) => ({ data: load(client) }),
   useDaemon: () => ({
     client,

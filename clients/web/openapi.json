@@ -4640,6 +4640,7 @@
       },
       "post": {
         "summary": "Add Mcp Server",
+        "description": "403: a paired device's local command the owner didn't approve (core/mcp/owner_approval.py).",
         "operationId": "add_mcp_server_mcp_servers_post",
         "requestBody": {
           "content": {
@@ -4697,7 +4698,7 @@
     "/mcp/probe": {
       "post": {
         "summary": "Probe Mcp Server",
-        "description": "Connect once and list the server's tools, without saving it. A remote server may ask to\nsign in instead: it can be added, then signed in to.",
+        "description": "Connect once and list the server's tools, without saving it. A remote server may ask to\nsign in instead: it can be added, then signed in to. 403: a paired device's local command the owner didn't\napprove (core/mcp/owner_approval.py).",
         "operationId": "probe_mcp_server_mcp_probe_post",
         "requestBody": {
           "content": {
@@ -4736,6 +4737,7 @@
     "/mcp/servers/{name}": {
       "patch": {
         "summary": "Change Mcp Server",
+        "description": "403: a new local command from a paired device the owner didn't approve (core/mcp/owner_approval.py).",
         "operationId": "change_mcp_server_mcp_servers__name__patch",
         "parameters": [
           {
@@ -5329,6 +5331,25 @@
         "summary": "Setup Check",
         "description": "The setup check (core/setup_check/): each part ok, a warning or failing, with a fix. It asks the model's\nprovider whether the key works, so it runs only when asked.",
         "operationId": "setup_check_setup_check_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/security-audit": {
+      "get": {
+        "summary": "Security Audit",
+        "description": "The security audit (core/security_audit/): what the daemon is exposed on, who can read its data, paired\ndevices and what plugins run here, each with a fix.",
+        "operationId": "security_audit_security_audit_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6485,7 +6506,7 @@
       },
       "post": {
         "summary": "Add Repository",
-        "description": "400: listed already, can't be read (with the token, for a private one), or offers no plugins.",
+        "description": "400: listed already, can't be read (with the token, for a private one), or offers no plugins. 403: from a\npaired device, and the owner didn't approve it (core/mcp/owner_approval.py).",
         "operationId": "add_repository_repositories_post",
         "requestBody": {
           "content": {
@@ -6709,7 +6730,7 @@
     "/repositories/install": {
       "post": {
         "summary": "Install From Repository",
-        "description": "400: the repository can't be read, lacks something picked, a name is taken, or a field is empty.",
+        "description": "400: the repository can't be read, lacks something picked, a name is taken, or a field is empty. 403: a\npaired device's install of code that runs here, which the owner didn't approve (core/mcp/owner_approval.py).",
         "operationId": "install_from_repository_repositories_install_post",
         "requestBody": {
           "content": {
@@ -9072,6 +9093,11 @@
           "result": {
             "type": "string",
             "title": "Result",
+            "default": ""
+          },
+          "tainted_by": {
+            "type": "string",
+            "title": "Tainted By",
             "default": ""
           },
           "waiting": {
@@ -14713,6 +14739,11 @@
           "output": {
             "type": "string",
             "title": "Output"
+          },
+          "outside": {
+            "type": "boolean",
+            "title": "Outside",
+            "default": false
           }
         },
         "type": "object",

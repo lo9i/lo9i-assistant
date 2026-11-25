@@ -14,6 +14,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.store.base import Op, PutOp, Result
 from langgraph.store.sqlite.aio import AsyncSqliteStore
 
+from lo9i.core import private_home
 from lo9i.core.bus import EventBus
 from lo9i.core.conversation.search import MessageIndex
 from lo9i.core.memory.vectors import MemoryVectors
@@ -123,7 +124,7 @@ class Storage:
 @asynccontextmanager
 async def open_storage(path: str, bus: EventBus) -> AsyncIterator[Storage]:
     db = Path(path).expanduser()
-    db.parent.mkdir(parents=True, exist_ok=True)
+    private_home.make_database(db)
     async with AsyncExitStack() as stack:
         checkpointer = AsyncSqliteSaver(await stack.enter_async_context(_connect(db)))
         store = NotifyingStore(await stack.enter_async_context(_connect(db)))

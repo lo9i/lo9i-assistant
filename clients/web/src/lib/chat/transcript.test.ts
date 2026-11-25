@@ -616,7 +616,7 @@ describe("transcript", () => {
     expect(whole).toEqual({ kind: "tool", id: 2, name: "bash", args: { detail: "ls" }, output: "a.txt", state: "done", callId: "c2" });
     if (preview.kind !== "tool") throw new Error("not a tool call");
     expect(inlineArg(preview.args)).toBe("seq 1 100");
-    const loaded = withWhole(preview, { name: "bash", args: { command: "seq 1 100", timeout: 5 }, output: "1\n2\n3" });
+    const loaded = withWhole(preview, { name: "bash", args: { command: "seq 1 100", timeout: 5 }, output: "1\n2\n3", outside: false });
     expect(loaded).toMatchObject({ args: { command: "seq 1 100", timeout: 5 }, output: "1\n2\n3", partial: false, callId: "c1" });
     expect(inlineArg(loaded.args)).toBeUndefined();
   });

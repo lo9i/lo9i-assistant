@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from lo9i.client import DaemonClient, DaemonUnavailableError, connect
+from lo9i.core import private_home
 from lo9i.core.agent import Session
 from lo9i.core.config import settings
 from lo9i_terminal import clean_command, i18n, migration_command, move_command
@@ -37,6 +38,7 @@ async def _chat() -> None:
 
 async def _open(client: DaemonClient, session: Session) -> None:
     if sys.stdin.isatty() and sys.stdout.isatty():
+        private_home.make_home()  # the history may be the first thing written there
         history = History(Path(settings.cli_history_path).expanduser(), settings.cli_history_limit)
         preferences = Preferences(Path(settings.cli_preferences_path).expanduser())
         await AssistantApp(client, session, history, preferences).run_async(mouse=preferences.mouse)
