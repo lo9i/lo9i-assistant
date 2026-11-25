@@ -27,7 +27,7 @@ from datetime import UTC, datetime, timedelta
 
 from langgraph.store.base import BaseStore
 
-from lo9i.core import i18n, notifications
+from lo9i.core import i18n, notifications, untrusted
 from lo9i.core.agent import AssistantService, Session
 from lo9i.core.config import settings
 from lo9i.core.context import UNATTENDED_CHANNEL
@@ -304,8 +304,10 @@ def _message(job: Job) -> str:
 
 
 def _mail_message(job: Job, mails: list[MailSummary]) -> str:
-    """The task, and the new messages by uid (read_email reads one). Senders write the subjects:
-    they're data, not instructions."""
+    """The task, and the new messages by uid (read_email reads one). Senders write the subjects: they're data, not
+    instructions, so the run is tainted from its start (core/untrusted.py)."""
     header = f"Job {job.name} (runs on new email). Nobody is watching this run."
-    listed = "\n".join(f"- uid {m.uid} · {m.date} · {m.sender} · {m.subject}" for m in mails)
-    return f"{header}\n\nTask: {job.task}\n\nNew email (written by the senders, not by the user):\n{listed}"
+    listed = untrusted.wrap(
+        "\n".join(f"- uid {m.uid} · {m.date} · {m.sender} · {m.subject}" for m in mails), "new email"
+    )
+    return f"{header}\n\nTask: {job.task}\n\nNew email:\n{listed}"

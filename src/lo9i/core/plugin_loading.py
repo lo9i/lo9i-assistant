@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from lo9i.core.skills import store as skills
 from lo9i.core.skills.store import SkillError
+from lo9i.core.tools.registry import free
 
 LOAD_TOOLS = "load_tools"
 
@@ -44,7 +45,9 @@ def load_tools(catalog: Callable[[], Catalog]) -> BaseTool:
             return f"No plugin named {plugin} has tools. Plugins: {', '.join(catalog()) or 'none'}."
         return f"Loaded the tools of {plugin} ({', '.join(tools)}): they're yours from your next step."
 
-    return StructuredTool.from_function(coroutine=_load, name=LOAD_TOOLS, description=_DESCRIPTION, args_schema=_Load)
+    return free(
+        StructuredTool.from_function(coroutine=_load, name=LOAD_TOOLS, description=_DESCRIPTION, args_schema=_Load)
+    )
 
 
 async def requested(calls: Sequence[ToolCall], catalog: Catalog, plugin_of: Callable[[str], str | None]) -> set[str]:

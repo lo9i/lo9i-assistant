@@ -16,7 +16,7 @@ from mcp.server import MCPServer
 from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent, ToolAnnotations
 from pydantic import Field
 
-from lo9i.core import plugin_loading
+from lo9i.core import plugin_loading, untrusted
 from lo9i.core.agent import AssistantService, McpServer, McpServerChanges, McpServerError, Session
 from lo9i.core.bus import EventBus
 from lo9i.core.config import settings
@@ -467,7 +467,9 @@ async def test_images_from_a_tool_are_saved_and_the_model_sees_them(service, scr
     assert ToolFinished(CHART, "notes chart") in events
     state = await service._graph.aget_state({"configurable": {"thread_id": session.thread_id}})
     stored = next(m for m in state.values["messages"] if isinstance(m, ToolMessage))
-    assert stored.content == "notes chart" and stored.artifact[0]["type"] == "non_standard"
+    # The server isn't trusted: the model reads its text as data (core/untrusted.py).
+    assert untrusted.shown(stored.text) == "notes chart" and untrusted.holds(stored.text)
+    assert stored.artifact[0]["type"] == "non_standard"
     assert _PNG_BASE64 not in json.dumps(stored.artifact)
     sent = next(m for m in script.requests[-1] if isinstance(m, ToolMessage))
     assert {"type": "image", "base64": _PNG_BASE64, "mime_type": "image/png"} in list(sent.content)

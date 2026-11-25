@@ -19,7 +19,7 @@ from dataclasses import dataclass, replace
 import aiosqlite
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
-from lo9i.core import subagent_steps
+from lo9i.core import subagent_steps, untrusted
 from lo9i.core.conversation.display import agent_tool_calls, shown
 from lo9i.core.conversation.turn_header import sent_at
 
@@ -33,6 +33,7 @@ CREATE VIRTUAL TABLE IF NOT EXISTS tool_output_search USING fts5(
     at UNINDEXED,
     call_id UNINDEXED,
     step UNINDEXED,
+    outside UNINDEXED,
     tokenize = 'unicode61 remove_diacritics 2'
 )
 """
@@ -53,7 +54,8 @@ CREATE TABLE IF NOT EXISTS message_search_progress (
 );
 """
 _TOOLS_PROGRESS = "tools_indexed_upto"
-_CALL_COLUMN = "call_id"
+# The columns added since tool outputs were first indexed: an index without one is made again (_add_columns).
+_ADDED_COLUMNS = {"call_id", "outside"}
 
 # Words around each match shown in a result.
 _SNIPPET_WORDS = 32
@@ -80,6 +82,8 @@ class Found:
     # subagent's, a task's); "" when it can't be read whole (a handed-off agent's reply without an id).
     call_id: str = ""
     step: int | None = None
+    # A tool output that was data from outside (core/untrusted.py): its snippet is data too.
+    outside: bool = False
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,7 @@ class _Row:
     at: str = ""
     call_id: str = ""
     step: int | None = None
+    outside: bool = False
 
 
 @dataclass(frozen=True)
@@ -108,7 +113,7 @@ class MessageIndex:
     async def setup(self) -> None:
         await self._conn.executescript(_SCHEMA)
         await self._add_tools_progress()
-        await self._add_calls()
+        await self._add_columns()
 
     async def _add_tools_progress(self) -> None:
         """To a progress table from before tool outputs were indexed: 0 for each conversation, so the catch-up at
@@ -120,12 +125,13 @@ class MessageIndex:
                 f"ALTER TABLE message_search_progress ADD COLUMN {_TOOLS_PROGRESS} INTEGER NOT NULL DEFAULT 0"
             )
 
-    async def _add_calls(self) -> None:
-        """A tool output table from before outputs kept their calls is made again, empty, and every conversation's
-        outputs are indexed again by the catch-up at start: FTS5 tables take no new columns."""
+    async def _add_columns(self) -> None:
+        """A tool output table from before outputs kept their calls, or whether they were data from outside, is made
+        again, empty, and every conversation's outputs are indexed again by the catch-up at start: FTS5 tables take
+        no new columns."""
         async with self._conn.execute("PRAGMA table_info(tool_output_search)") as cursor:
             columns = {row[1] for row in await cursor.fetchall()}
-        if _CALL_COLUMN in columns:
+        if columns >= _ADDED_COLUMNS:
             return
         await self._conn.execute("BEGIN")
         try:
@@ -158,9 +164,9 @@ class MessageIndex:
             [(r.text, user_id, thread_id, r.role, r.at) for r in said],
         )
         await self._conn.executemany(
-            "INSERT INTO tool_output_search (text, user_id, thread_id, tool, at, call_id, step) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [(r.text, user_id, thread_id, r.role, r.at, r.call_id, r.step) for r in outputs],
+            "INSERT INTO tool_output_search (text, user_id, thread_id, tool, at, call_id, step, outside) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [(r.text, user_id, thread_id, r.role, r.at, r.call_id, r.step, int(r.outside)) for r in outputs],
         )
         await self._conn.execute(
             f"INSERT INTO message_search_progress (thread_id, indexed_upto, {_TOOLS_PROGRESS}) VALUES (?, ?, ?) "
@@ -172,15 +178,15 @@ class MessageIndex:
     async def search(self, user_id: str, query: str, limit: int) -> list[Found]:
         """What the user and the assistant wrote, the best matches first. Any of the query's words matches;
         messages with more of them, and rarer ones, rank higher."""
-        return await self._search("message_search", "role, at, '', NULL", user_id, query, limit)
+        return await self._search("message_search", "role, at, '', NULL, 0", user_id, query, limit)
 
     async def search_tool_outputs(self, user_id: str, query: str, limit: int) -> list[Found]:
         """What tools answered, ranked as `search` ranks messages; each found with its tool's name as its role, and
         its call."""
-        return await self._search("tool_output_search", "tool, at, call_id, step", user_id, query, limit)
+        return await self._search("tool_output_search", "tool, at, call_id, step, outside", user_id, query, limit)
 
     async def _search(self, table: str, columns: str, user_id: str, query: str, limit: int) -> list[Found]:
-        """`columns`: the role, the time, the call and the step, in that order."""
+        """`columns`: the role, the time, the call, the step and whether it was data from outside, in that order."""
         match = _match(query)
         if not match:
             return []
@@ -191,7 +197,8 @@ class MessageIndex:
         async with self._conn.execute(sql, (match, user_id, limit)) as cursor:
             rows = await cursor.fetchall()
         return [
-            Found(thread_id, role, at, snippet, call_id, step) for thread_id, role, at, call_id, step, snippet in rows
+            Found(thread_id, role, at, snippet, call_id, step, bool(outside))
+            for thread_id, role, at, call_id, step, outside, snippet in rows
         ]
 
     async def has_tool_output(self, user_id: str, thread_id: str, call_id: str, step: int | None) -> bool:
@@ -282,7 +289,13 @@ def _outputs(message: BaseMessage) -> list[_Row]:
         found += [_Row(s.name, s.output, call_id=c.call_id, step=i) for c in calls for i, s in enumerate(c.steps)]
     else:
         found = []
-    return [replace(row, text=row.text[:_MAX_TOOL_OUTPUT]) for row in found if row.role not in _COPIES]
+    return [_indexed(row) for row in found if row.role not in _COPIES]
+
+
+def _indexed(row: _Row) -> _Row:
+    """Data from outside is indexed without its markers and the note for the model, which every one has, and marked."""
+    text = untrusted.shown(row.text)
+    return replace(row, text=text[:_MAX_TOOL_OUTPUT], outside=untrusted.holds(row.text))
 
 
 def _match(query: str) -> str:

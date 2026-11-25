@@ -16,7 +16,7 @@ from langgraph.runtime import get_runtime
 from langgraph.store.base import BaseStore
 from pydantic import BaseModel, Field
 
-from lo9i.core import subagent_steps
+from lo9i.core import subagent_steps, untrusted
 from lo9i.core.agent_tasks.beside import TasksBeside
 from lo9i.core.agent_tasks.pending_restart import queue_note, restart_note
 from lo9i.core.agent_tasks.records import TaskState, lost
@@ -31,6 +31,7 @@ from lo9i.core.conversation import queued
 from lo9i.core.ending import EndingState
 from lo9i.core.subagent_steps import SubagentAnswer
 from lo9i.core.tools.approval import ask
+from lo9i.core.tools.registry import free
 from lo9i.core.tools.side import moved_out_of_inbox
 
 # A task's tab, or the conversation it moves to from the inbox, is titled with the start of the task when the call
@@ -180,8 +181,8 @@ def _build(
 
     return [
         StructuredTool.from_function(coroutine=start_task, description=_START, args_schema=_Start),
-        StructuredTool.from_function(coroutine=task_status, args_schema=_Status),
-        StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing),
+        free(StructuredTool.from_function(coroutine=task_status, args_schema=_Status)),
+        free(StructuredTool.from_function(coroutine=list_tasks, args_schema=_Nothing)),
         StructuredTool.from_function(coroutine=stop_task, args_schema=_Stop),
         StructuredTool.from_function(coroutine=restart_daemon, args_schema=_Nothing),
     ]
@@ -243,13 +244,15 @@ def render(found: FoundTask) -> str:
     lines = [_summary(found), f"Repository: {task.repository}", f"Asked: {_short(task.prompt, 500)}"]
     if task.follow_up_of:
         lines.append(f"Follows up on: {task.follow_up_of}")
+    # What the agent did and says is data from outside (core/untrusted.py): it read pages and files on its own.
+    agent = found.agent.name
     if steps := [text for step in found.state.progress if (text := line(step))]:
-        lines += ["", "Latest steps:", *(f"- {text}" for text in steps)]
-    lines += ["", *_ending(found.state)]
+        lines += ["", "Latest steps:", untrusted.wrap("\n".join(f"- {text}" for text in steps), agent)]
+    lines += ["", *_ending(found.state, agent)]
     return "\n".join(lines).rstrip()
 
 
-def _ending(state: TaskState) -> list[str]:
+def _ending(state: TaskState, agent: str) -> list[str]:
     outcome = state.outcome
     if lost(state):
         return ["Its worker ended without a result: the computer restarted or the process was killed."]
@@ -257,7 +260,8 @@ def _ending(state: TaskState) -> list[str]:
         return [] if state.status == "stopped" else ["Still working."]
     cost = [f"Cost: ${outcome.cost_usd:.2f}"] if outcome.cost_usd is not None else []
     follow = f'To continue this work, call start_task with follow_up_of="{state.task.id}".'
-    return ["Result:" if outcome.ok else "Failed:", _short(outcome.text, _MAX_RESULT), *cost, "", follow]
+    said = untrusted.wrap(_short(outcome.text, _MAX_RESULT), agent)
+    return ["Result:" if outcome.ok else "Failed:", said, *cost, "", follow]
 
 
 def _summary(found: FoundTask) -> str:

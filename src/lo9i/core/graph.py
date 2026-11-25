@@ -43,6 +43,7 @@ from lo9i.core.llm.choice import ModelChoice, prompt_cache_minutes
 from lo9i.core.llm.errors import too_large
 from lo9i.core.llm.providers import IMAGES_IN_TOOL_RESULTS
 from lo9i.core.storage import Storage
+from lo9i.core.tainted import guarded
 from lo9i.core.tools import tools_for
 from lo9i.core.tools.registry import offered_tools
 from lo9i.core.usage.meter import TokenMeter
@@ -125,7 +126,7 @@ def build_graph(storage: Storage, choice: ModelChoice, summarizer: Summarizer, m
     offered = offered_tools(settings.toolsets)
     models = _reply_models(storage, choice)
     builder.add_node("agent", _agent_node(models, offered, choice.provider in IMAGES_IN_TOOL_RESULTS))
-    builder.add_node("tools", ToolNode(tools, awrap_tool_call=mcp_calls(mcp)))
+    builder.add_node("tools", ToolNode(tools, awrap_tool_call=guarded(mcp_calls(mcp))))
     builder.add_node("installed", _loaded_node(mcp))
     builder.add_node("shrink", _shrink_node(summarizer, mcp))
     dispatch = dispatch_nodes(build_classifier(choice, storage.usage), then="epoch")

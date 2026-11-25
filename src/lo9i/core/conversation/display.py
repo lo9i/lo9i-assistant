@@ -15,7 +15,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.messages.tool import ToolCall
 
-from lo9i.core import subagent_steps
+from lo9i.core import subagent_steps, untrusted
 from lo9i.core.agent_tasks.steps import (
     STEPS,
     TAKEN,
@@ -104,6 +104,13 @@ class ShownCall:
     name: str
     args: dict[str, Any]
     output: str
+    # Its output is data from outside (core/untrusted.py), which reading it again keeps marked.
+    outside: bool = False
+
+
+def _shown_call(name: str, args: dict[str, Any], output: str) -> ShownCall:
+    """Its output without the markers the model reads, which `outside` keeps."""
+    return ShownCall(name, args, untrusted.shown(output), untrusted.holds(output))
 
 
 def shown(messages: Sequence[BaseMessage]) -> list[ShownMessage]:
@@ -162,7 +169,7 @@ def tool_call(messages: Sequence[BaseMessage], call_id: str) -> ShownCall | None
     if call is None:
         return None
     result = _result(messages, call_id)
-    return ShownCall(call["name"], call["args"], result.text if result is not None else "")
+    return _shown_call(call["name"], call["args"], result.text if result is not None else "")
 
 
 def tool_call_step(messages: Sequence[BaseMessage], call_id: str, index: int) -> ShownCall | None:
@@ -170,7 +177,7 @@ def tool_call_step(messages: Sequence[BaseMessage], call_id: str, index: int) ->
     steps = _whole_steps(messages, call_id)
     if not 0 <= index < len(steps):
         return None
-    return ShownCall(steps[index].name, steps[index].args, steps[index].output)
+    return _shown_call(steps[index].name, steps[index].args, steps[index].output)
 
 
 def _whole_steps(messages: Sequence[BaseMessage], call_id: str) -> list[ShownStep]:
@@ -208,10 +215,16 @@ def _call(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
     if result is None or not (steps := subagent_steps.of(result)):
         return _preview(call, result)
     about = str(call["args"].get("task") or call["args"].get("task_id", ""))
-    whole = [ShownStep(s.name, s.args, s.output, at=s.at) for s in steps]
+    whole = [ShownStep(s.name, s.args, untrusted.shown(s.output), at=s.at) for s in steps]
     subagent = subagent_steps.status_of(result)
     shown = ShownMessage(
-        "tool", call["name"], detail=about, output=result.text, steps=whole, call_id=call["id"] or "", subagent=subagent
+        "tool",
+        call["name"],
+        detail=about,
+        output=untrusted.shown(result.text),
+        steps=whole,
+        call_id=call["id"] or "",
+        subagent=subagent,
     )
     return _cut(shown)
 
@@ -241,7 +254,7 @@ def _about(detail: str) -> dict[str, Any]:
 def _preview(call: ToolCall, result: ToolMessage | None) -> ShownMessage:
     """A call with its arguments on one line, as live cards show a lone one (a command, a file), and the start
     of its output."""
-    output = result.text if result is not None else ""
+    output = untrusted.shown(result.text) if result is not None else ""
     detail, start = _start(_one_line(call["args"]), _DETAIL), _start(output, _OUTPUT)
     # Cards show `detail` as the arguments themselves only when they're one text or number on one line.
     exact = _alone(call["args"]) if call["args"] else ""

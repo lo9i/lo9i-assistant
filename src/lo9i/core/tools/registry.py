@@ -15,14 +15,20 @@ _REGISTRY: dict[str, tuple[str, BaseTool]] = {}
 _FOR_SUBAGENTS: set[str] = set()
 # The group each tool loaded on demand belongs to, by tool name.
 _GROUPS: dict[str, str] = {}
+# In a tool's metadata: a run that read content from outside calls it without asking (core/untrusted.py).
+_FREE_WHEN_TAINTED = "lo9i_free_when_tainted"
 
 # Tool modules live next to this one.
 _PACKAGE = __name__.rpartition(".")[0]
 
 
-def register(toolset: str, *, subagents: bool = False, group: str = "") -> Callable[[BaseTool], BaseTool]:
+def register(
+    toolset: str, *, subagents: bool = False, group: str = "", free_when_tainted: bool = False
+) -> Callable[[BaseTool], BaseTool]:
     """Add a tool to the registry under a toolset name. With `subagents`, subagents get it too. With `group`, a
-    conversation gets it once it loads the group; subagents, which load nothing, get it all the same."""
+    conversation gets it once it loads the group; subagents, which load nothing, get it all the same. Without
+    `free_when_tainted`, for a tool that only reads or asks the user anyway, a run that read content from outside
+    asks the user before calling it (core/untrusted.py), so a new tool asks unless it says otherwise."""
 
     def _decorator(tool: BaseTool) -> BaseTool:
         if tool.name in _REGISTRY:
@@ -32,9 +38,19 @@ def register(toolset: str, *, subagents: bool = False, group: str = "") -> Calla
             _FOR_SUBAGENTS.add(tool.name)
         if group:
             _GROUPS[tool.name] = group
-        return tool
+        return free(tool) if free_when_tainted else tool
 
     return _decorator
+
+
+def free(tool: BaseTool) -> BaseTool:
+    """Marks a tool a run that read content from outside calls without asking."""
+    tool.metadata = {**(tool.metadata or {}), _FREE_WHEN_TAINTED: True}
+    return tool
+
+
+def is_free_when_tainted(tool: BaseTool) -> bool:
+    return bool((tool.metadata or {}).get(_FREE_WHEN_TAINTED))
 
 
 def tools_for(toolsets: Iterable[str]) -> list[BaseTool]:

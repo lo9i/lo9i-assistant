@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import logging
 
+from lo9i.core import untrusted
 from lo9i.core.agent_tasks.records import TaskState, lost
 from lo9i.core.agent_tasks.reports import TaskReports, note_key
 from lo9i.core.agent_tasks.service import AgentTaskError, AgentTasks, FoundTask
@@ -95,7 +96,10 @@ def ended(found: FoundTask) -> Ended:
     asked = short(task.prompt, _ASKED_NOTE)
     note = f'{agent}\'s task {task.id} in {task.repository}, asked "{asked}", is {state.status}'
     if result:
-        note += f": {short(result, _RESULT_NOTE)}"
+        # Data from outside (core/untrusted.py), so the run following it up is tainted; only what lo9i says of a
+        # worker that never answered isn't.
+        told = short(result, _RESULT_NOTE)
+        note += f": {told if lost(state) else untrusted.wrap(told, agent)}"
     # The user watched it beside the conversation; the assistant tells what came of it there at once.
     return Ended(note_key(task.id), state.status == "done", notice, note, follow_up=True, plugin=found.agent.server)
 

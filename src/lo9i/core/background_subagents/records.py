@@ -51,6 +51,9 @@ class BackgroundSubagent:
     context_limit: int = 0
     # Its answer once done; what went wrong when it failed.
     result: str = ""
+    # The outside content the run that sent it off had read (core/untrusted.py), which it starts tainted by; once it
+    # ended, what it read itself if that run hadn't.
+    tainted_by: str = ""
     # What it waits for the user's answer to.
     waiting: list[ApprovalRequired] = field(default_factory=list)
 

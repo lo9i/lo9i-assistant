@@ -34,7 +34,7 @@ _IN_THE_APP = "Settings → Plugins in the web app, or /plugins in the terminal 
 _START_SECONDS = 120
 
 
-@register("skills")
+@register("skills", free_when_tainted=True)
 @tool
 async def offer_plugin(name: str, runtime: ToolRuntime[Context]) -> str:
     """Offer to install a plugin from the assistant's extras (see Plugins you can offer) that does
@@ -57,7 +57,7 @@ async def offer_plugin(name: str, runtime: ToolRuntime[Context]) -> str:
     return f"The user didn't install {name}."
 
 
-@register("skills")
+@register("skills", free_when_tainted=True)
 @tool
 async def open_plugin_setup(name: str, runtime: ToolRuntime[Context]) -> str:
     """Open an installed plugin's setup right here in the conversation: an email plugin's accounts
@@ -92,7 +92,7 @@ def _request(plugin: Any) -> dict[str, Any]:
     return {"kind": PLUGIN_OFFER, "name": plugin.name, "description": plugin.description, kind: asdict(plugin)}
 
 
-@register("email", group="email")
+@register("email", group="email", free_when_tainted=True)
 @tool
 async def set_up_email(runtime: ToolRuntime[Context]) -> str:
     """Set up the user's email when no account is connected (or they want one with another

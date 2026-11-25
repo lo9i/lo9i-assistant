@@ -7,7 +7,7 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import ToolRuntime
 from langgraph.store.base import BaseStore
 
-from lo9i.core import conversations
+from lo9i.core import conversations, untrusted
 from lo9i.core.context import Context, require_past_outputs, require_recall, require_search, require_store
 from lo9i.core.conversation.display import ShownCall
 from lo9i.core.conversation.search import Found
@@ -67,7 +67,7 @@ async def update_profile(section: Section, items: list[str], runtime: ToolRuntim
     return f"Profile section {section} now: {'; '.join(items) or '(empty)'}"
 
 
-@register("memory", subagents=True)
+@register("memory", subagents=True, free_when_tainted=True)
 @tool
 async def search_memory(query: str, runtime: ToolRuntime[Context]) -> str:
     """Search everything remembered beyond this prompt: saved facts and past conversation summaries by
@@ -115,7 +115,9 @@ async def _titles(store: BaseStore, user_id: str, thread_ids: set[str]) -> dict[
 def _result(found: Found, title: str, output: bool) -> str:
     snippet = " ".join(found.snippet.split())
     who = f"{found.role} output{_call(found)}" if output else found.role
-    return f'- {found.at or "unknown time"}, in "{title}", {who}: {snippet}'
+    # A snippet of a page or an email is still data from outside (core/untrusted.py).
+    shown = untrusted.wrap(snippet, found.role) if found.outside else snippet
+    return f'- {found.at or "unknown time"}, in "{title}", {who}: {shown}'
 
 
 def _call(found: Found) -> str:
@@ -126,7 +128,7 @@ def _call(found: Found) -> str:
     return f" (conversation_id: {found.thread_id}, call_id: {found.call_id}{step})"
 
 
-@register("memory", subagents=True)
+@register("memory", subagents=True, free_when_tainted=True)
 @tool
 async def read_tool_output(
     conversation_id: str, call_id: str, runtime: ToolRuntime[Context], step: int | None = None, part: int = 1
@@ -140,7 +142,9 @@ async def read_tool_output(
     parts = max(1, ceil(len(call.output) / _PART))
     if not 1 <= part <= parts:
         return f"No part {part}: this output has {parts} part{'s' if parts > 1 else ''}."
-    return f"{_heading(call, part, parts)}\n{call.output[(part - 1) * _PART : part * _PART] or '(no output)'}"
+    shown = call.output[(part - 1) * _PART : part * _PART] or "(no output)"
+    # Data from outside is marked again: the copy the apps load has no markers.
+    return f"{_heading(call, part, parts)}\n{untrusted.wrap(shown, call.name) if call.outside else shown}"
 
 
 def _heading(call: ShownCall, part: int, parts: int) -> str:

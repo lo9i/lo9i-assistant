@@ -4,6 +4,7 @@ once, unasked, so the answer is used while the user may be away; the user gets a
 and a message on the chat channel the conversation was on. One the user stopped is only noted for the assistant:
 the user knows already."""
 
+from lo9i.core import untrusted
 from lo9i.core.background import Ended, short
 from lo9i.core.background_subagents.records import DONE, STOPPED, BackgroundSubagent
 from lo9i.core.i18n import said
@@ -24,9 +25,16 @@ def ended(subagent: BackgroundSubagent) -> Ended:
         note += ": the user stopped it before it answered"
     elif subagent.result:
         # Whole: it's what the assistant sent it off for.
-        note += f". Its answer:\n{subagent.result}" if subagent.status == DONE else f": {subagent.result}"
+        note += f". Its answer:\n{_answer(subagent)}" if subagent.status == DONE else f": {subagent.result}"
     ok = subagent.status == DONE
     return Ended(note_key(subagent.id), ok, _notice(subagent), note, follow_up=ok)
+
+
+def _answer(subagent: BackgroundSubagent) -> str:
+    """As data from outside when it read some (core/untrusted.py), so the run following it up is tainted too."""
+    if not subagent.tainted_by:
+        return subagent.result
+    return untrusted.wrap(subagent.result, f"subagent, after {subagent.tainted_by}")
 
 
 def _notice(subagent: BackgroundSubagent) -> str:

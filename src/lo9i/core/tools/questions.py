@@ -17,7 +17,7 @@ MAX_OPTIONS = 10
 MAX_OPTION_LENGTH = 60
 
 
-@register("messages")
+@register("messages", free_when_tainted=True)
 @tool
 async def ask_user(question: str, options: list[str], runtime: ToolRuntime[Context], multiple: bool = False) -> str:
     """Ask the user to pick from options, and wait for the answer. Use it when the choice is among

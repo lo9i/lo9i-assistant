@@ -307,7 +307,7 @@ class McpHub(McpStarts):
 
     async def _work_finished(self, server: McpServer, finished: WorkFinished) -> None:
         if self._background is not None:
-            await self._background.deliver(finished.origin, background.ended(server.name, finished))
+            await self._background.deliver(finished.origin, background.ended(server.name, finished, server.trusted))
 
     def _called(self, server: McpServer, tool: str) -> None:
         """A call that may have changed what the server's badge counts has the apps count it again (badges.py)."""
