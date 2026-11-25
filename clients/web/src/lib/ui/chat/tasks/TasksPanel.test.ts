@@ -4,7 +4,11 @@ import type { TaskSession } from "$lib/api/types";
 import TasksPanel from "./TasksPanel.svelte";
 
 const servers = vi.hoisted(() => ({ data: undefined as unknown }));
-vi.mock("$lib/daemon.svelte", () => ({ useDaemon: () => ({ client: {}, hub: {}, notices: {} }), resource: () => servers }));
+vi.mock("$lib/daemon.svelte", async (actual) => ({
+  ...(await actual<typeof import("$lib/daemon.svelte")>()),
+  useDaemon: () => ({ client: {}, hub: {}, notices: {} }),
+  resource: () => servers,
+}));
 
 function session(id: string, status: TaskSession["status"], title: string): TaskSession {
   const started_at = new Date(Date.now() - 3 * 60_000).toISOString();

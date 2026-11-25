@@ -3,9 +3,8 @@
   import { untrack } from "svelte";
   import type { TaskSession, TaskSessionDetails, TaskStepTaken } from "$lib/api/types";
   import { shownItems, withStep, working } from "$lib/chat/codingTasks";
-  import { useDaemon } from "$lib/daemon.svelte";
+  import { Resource, useDaemon } from "$lib/daemon.svelte";
   import { t } from "$lib/i18n.svelte";
-  import { describe } from "$lib/notices";
   import Thread from "../Thread.svelte";
   import TaskStatus from "./TaskStatus.svelte";
 
@@ -17,8 +16,14 @@
   type Props = { threadId: string; session: TaskSession };
   let { threadId, session }: Props = $props();
   const { client, hub, notices } = useDaemon();
-  let details = $state<TaskSessionDetails | null>(null);
-  let error = $state("");
+  // One load on its way at a time, once more after it when something changed meanwhile: with several agents busy, the
+  // events that ask for one come faster than a session's work loads, and a load each would never catch up.
+  const loaded = new Resource<TaskSessionDetails>(() => client.tasks.session(threadId, session.id));
+  const details = $derived(loaded.data ?? null);
+  const error = $derived(loaded.error ?? "");
+  // Its status alone, not the session: the list beside it is loaded again on every change of any session, each time
+  // as new objects.
+  const status = $derived(session.status);
   let text = $state("");
   let sending = $state(false);
   const busy = $derived(working(session));
@@ -28,32 +33,22 @@
   const thinking = $derived(busy && !(last?.kind === "tool" && last.state === "running"));
   const ended = $derived(busy ? "" : (details?.turns.at(-1)?.finished_at ?? ""));
 
-  async function load(): Promise<void> {
-    const shown = session.id;
-    try {
-      const found = await client.tasks.session(threadId, shown);
-      if (shown === session.id) [details, error] = [found, ""];
-    } catch (e) {
-      if (shown === session.id) error = describe(e);
-    }
-  }
-
   // Again when its status changes: how its task ended comes with it.
   $effect(() => {
-    void session.status;
-    untrack(() => void load());
+    void status;
+    untrack(() => loaded.refresh());
   });
 
   $effect(() => {
     const stopSteps = hub.on(["agent_task_step"], (data) => {
       const taken = data as TaskStepTaken;
-      if (taken.thread_id !== threadId || taken.session_id !== session.id || !details) return;
-      const next = withStep(details, taken.task_id, taken.index, taken.step);
-      if (next) details = next;
-      else void load();
+      if (taken.thread_id !== threadId || taken.session_id !== session.id || !loaded.data) return;
+      const next = withStep(loaded.data, taken.task_id, taken.index, taken.step);
+      if (next) loaded.data = next;
+      else loaded.refresh();
     });
-    const stopChanges = hub.on(["tasks_beside"], () => void load());
-    const stopReconnect = hub.onReconnect(() => void load());
+    const stopChanges = hub.on(["tasks_beside"], () => loaded.refresh());
+    const stopReconnect = hub.onReconnect(() => loaded.refresh());
     return () => {
       stopSteps();
       stopChanges();
@@ -69,7 +64,7 @@
       const sent = await client.tasks.message(threadId, session.id, message);
       text = "";
       if (sent === "later") notices.notify(t("tasks.later", { agent: session.name }), "info");
-      void load();
+      loaded.refresh();
     } catch (e) {
       notices.report(e);
     } finally {

@@ -39,8 +39,8 @@ export function resource<T>(load: (client: DaemonClient) => Promise<T>, kinds: s
   const { client, hub } = useDaemon();
   const loaded = new Resource(() => load(client));
   $effect(() => loaded.reload());
-  $effect(() => hub.on(kinds, () => loaded.reload()));
-  $effect(() => hub.onReconnect(() => loaded.reload()));
+  $effect(() => hub.on(kinds, () => loaded.refresh()));
+  $effect(() => hub.onReconnect(() => loaded.refresh()));
   return loaded;
 }
 
@@ -64,25 +64,46 @@ export class Resource<T> {
   data = $state<T>();
   error = $state<string | null>(null);
   private latest = 0;
+  private loading = false;
+  private again = false;
 
   constructor(private readonly load: () => Promise<T>) {}
 
-  /** Only the newest load's answer is kept, so a slow earlier one can't overwrite it. A daemon that can't be
-   * reached isn't this data's error: the app says so for every page (ConnectionBanner), the data loaded before
-   * stays, and it's loaded again once the daemon is back. */
+  /** Loads now. Only the newest load's answer is kept, so a slow earlier one can't overwrite it: for when what `load`
+   * asks for changed (a selection). A daemon that can't be reached isn't this data's error: the app says so for every
+   * page (ConnectionBanner), the data loaded before stays, and it's loaded again once the daemon is back. */
   reload = (): void => {
     const call = ++this.latest;
-    this.load().then(
-      (data) => {
-        if (call !== this.latest) return;
-        this.data = data;
-        this.error = null;
-      },
-      (e: unknown) => {
-        if (call === this.latest && !(e instanceof DaemonUnavailableError)) this.error = describe(e);
-      },
-    );
+    this.loading = true;
+    this.load()
+      .then(
+        (data) => {
+          if (call !== this.latest) return;
+          this.data = data;
+          this.error = null;
+        },
+        (e: unknown) => {
+          if (call === this.latest && !(e instanceof DaemonUnavailableError)) this.error = describe(e);
+        },
+      )
+      .finally(() => this.settled(call));
   };
+
+  /** Loads again because the data changed: while a load is on its way, once more after it, however many changes come
+   * meanwhile. A change heard on every step of busy work (a coding agent's) would otherwise start a load each time,
+   * piling up past the browser's connections, each superseded by the next, so none would ever be shown. */
+  refresh = (): void => {
+    if (this.loading) this.again = true;
+    else this.reload();
+  };
+
+  private settled(call: number): void {
+    if (call !== this.latest) return;
+    this.loading = false;
+    if (!this.again) return;
+    this.again = false;
+    this.reload();
+  }
 }
 
 /** A value kept by a plain TypeScript object (subscribe + getSnapshot), as Svelte state. Raw, not deeply reactive:
