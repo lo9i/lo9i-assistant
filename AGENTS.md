@@ -49,6 +49,11 @@ src/lo9i/
                  command runs it with the daemon down; service.py reads the daemon's state (the model and its key,
                  checked by one cheap request in core/llm/key_check.py, never a model call; plugins from the hub
                  and core/health.py; email accounts; chat channels), `GET /setup-check`
+    security_audit/ the security audit (`lo9i security audit`, `GET /security-audit`), in the setup check's format:
+                 local.py reads only this computer (the ports the daemon listens on, who can connect to its socket,
+                 who can read the data folder, database, secret key, .env and HTTPS key by their modes, bash approval),
+                 so the command runs it with the daemon down; service.py the daemon's state (paired devices and how
+                 long unused, the setup code while open, the plugins and MCP servers that run commands here)
     migration/   moving lo9i to another computer: an export of the data home sealed with a password (`lo9i export`,
                  Settings → System's Move to another computer, `POST /system/export`), and an import of one, staged
                  while the daemon runs and moved into place by its next start (`lo9i import`, `POST /system/import`),

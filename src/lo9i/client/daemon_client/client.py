@@ -26,6 +26,7 @@ from lo9i.client.daemon_client.proactive import ProactiveApi
 from lo9i.client.daemon_client.prompts import PromptsApi
 from lo9i.client.daemon_client.repositories import RepositoriesApi
 from lo9i.client.daemon_client.runs import RunsMixin
+from lo9i.client.daemon_client.security import SecurityApi
 from lo9i.client.daemon_client.sessions import SessionsMixin
 from lo9i.client.daemon_client.setup_check import SetupCheckApi
 from lo9i.client.daemon_client.skills import SkillsApi
@@ -65,6 +66,7 @@ class DaemonClient(SessionsMixin, RunsMixin, EventsMixin):
         self.alerts = AlertsApi(transport)
         self.doctor = DoctorApi(transport)
         self.setup_check = SetupCheckApi(transport)
+        self.security = SecurityApi(transport)
         self.migration = MigrationApi(transport)
         self.disk = DiskApi(transport)
         self.notifications = NotificationsApi(transport)

@@ -15,6 +15,7 @@ SHELLS = ("bash", "zsh", "fish")
 COMMANDS = {
     "daemon": "Run the daemon in the foreground; `lo9i daemon restart` restarts the running one.",
     "doctor": "Check that lo9i is installed and set up to work.",
+    "security": "Audit how exposed lo9i is: ports, paired devices, permissions, what plugins run here.",
     "export": "Export lo9i's data, sealed with a password, to move it to another computer.",
     "import": "Import an export here; the daemon restarts to use it.",
     "migrate": "Move lo9i to another computer over SSH, installing it there if it's missing.",
@@ -22,6 +23,7 @@ COMMANDS = {
     "completion": "Print the shell completion script for bash, zsh or fish.",
 }
 DAEMON_ACTIONS = ("restart",)
+SECURITY_ACTIONS = ("audit",)
 # What `lo9i clean` can be told to clean (core/disk/); the downloads only when named.
 CLEANED = ("database", "logs", "backups", "uploads", "plugins", "plugin_data", "downloads")
 # The checkout lo9i runs from (src/lo9i/__init__.py's), with its scripts and .git.
@@ -31,11 +33,11 @@ CHECKOUT = Path(lo9i.__file__).resolve().parents[2]
 @dataclass(frozen=True)
 class Command:
     # chat: open the terminal app (no command given).
-    name: Literal["chat", "daemon", "doctor", "export", "import", "migrate", "clean", "completion"]
+    name: Literal["chat", "daemon", "doctor", "security", "export", "import", "migrate", "clean", "completion"]
     # daemon: "restart", or "" to run it. completion: the shell. export: where to write it, "" for the folder it runs
     # in. import: the export. migrate: the host.
     argument: str = ""
-    # doctor, import and clean: print the report as JSON.
+    # doctor, security, import and clean: print the report as JSON.
     json: bool = False
     # import and migrate: set aside the data lo9i has there.
     force: bool = False
@@ -62,6 +64,8 @@ def parse(args: list[str]) -> Command:
             return Command("daemon", found.action or "")
         case "doctor":
             return Command("doctor", json=found.json)
+        case "security":
+            return Command("security", found.action, json=found.json)
         case "export":
             return Command("export", found.path or "")
         case "import":
@@ -104,6 +108,9 @@ def _parser() -> argparse.ArgumentParser:
     daemon.add_argument("action", nargs="?", choices=DAEMON_ACTIONS, help="restart the running daemon")
     doctor = commands.add_parser("doctor", help=COMMANDS["doctor"], description=COMMANDS["doctor"])
     doctor.add_argument("--json", action="store_true", help="print the report as JSON")
+    security = commands.add_parser("security", help=COMMANDS["security"], description=COMMANDS["security"])
+    security.add_argument("action", choices=SECURITY_ACTIONS, help="audit this installation")
+    security.add_argument("--json", action="store_true", help="print the report as JSON")
     exporting = commands.add_parser("export", help=COMMANDS["export"], description=COMMANDS["export"])
     exporting.add_argument("path", nargs="?", help="the file or folder to write it to (the current folder if absent)")
     importing = commands.add_parser("import", help=COMMANDS["import"], description=COMMANDS["import"])

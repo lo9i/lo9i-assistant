@@ -1,9 +1,10 @@
 """CLI entry point (its arguments in cli.py). `lo9i` opens the chat, starting the daemon if it isn't running, after
 what the checkout's scripts/prepare.sh does (Ollama, the web app built); `lo9i daemon` runs the daemon in the
 foreground; `lo9i daemon restart` restarts the running one once no run is in progress; `lo9i doctor` checks the
-setup (setup_check_command.py); `lo9i export` and `lo9i import` move lo9i to another computer
-(migration_command.py), `lo9i migrate` straight there over SSH (move_command.py); `lo9i clean` shows the disk lo9i
-takes and cleans it (clean_command.py); `lo9i completion <shell>` prints a completion script."""
+setup (setup_check_command.py), `lo9i security audit` how exposed it is (security_audit_command.py); `lo9i export`
+and `lo9i import` move lo9i to another computer (migration_command.py), `lo9i migrate` straight there over SSH
+(move_command.py); `lo9i clean` shows the disk lo9i takes and cleans it (clean_command.py); `lo9i completion <shell>`
+prints a completion script."""
 
 import asyncio
 import subprocess
@@ -20,6 +21,7 @@ from lo9i_terminal.history import History
 from lo9i_terminal.i18n import t
 from lo9i_terminal.preferences import Preferences
 from lo9i_terminal.repl import Repl
+from lo9i_terminal.security_audit_command import audit
 from lo9i_terminal.setup_check_command import doctor
 from lo9i_terminal.tui.app import AssistantApp
 
@@ -76,6 +78,8 @@ async def _command(command: Command) -> int:
     match command.name:
         case "doctor":
             return await doctor(command.json)
+        case "security":
+            return await audit(command.json)
         case "export":
             return await migration_command.export(command.argument)
         case "import":

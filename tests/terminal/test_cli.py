@@ -7,7 +7,7 @@ import subprocess
 
 import pytest
 
-from lo9i_terminal import setup_check_command
+from lo9i_terminal import security_audit_command, setup_check_command
 from lo9i_terminal.cli import Command, parse
 from lo9i_terminal.completion import script
 
@@ -17,6 +17,7 @@ def test_the_commands_parse():
     assert parse(["daemon"]) == Command("daemon")
     assert parse(["daemon", "restart"]) == Command("daemon", "restart")
     assert parse(["doctor", "--json"]) == Command("doctor", json=True)
+    assert parse(["security", "audit", "--json"]) == Command("security", "audit", json=True)
     assert parse(["completion", "fish"]) == Command("completion", "fish")
 
 
@@ -35,7 +36,7 @@ def test_help_version_and_mistakes_exit_as_argparse_does(args, capsys):
 @pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
 def test_each_completion_script_offers_the_commands_and_is_valid(shell, tmp_path):
     text = script(shell)
-    assert all(word in text for word in ("daemon", "doctor", "completion", "restart", "json"))
+    assert all(word in text for word in ("daemon", "doctor", "security", "audit", "completion", "restart", "json"))
     if shutil.which(shell) is None:
         pytest.skip(f"{shell} isn't installed")
     path = tmp_path / f"lo9i.{shell}"
@@ -48,3 +49,10 @@ async def test_doctor_checks_what_it_can_while_the_daemon_is_down(capsys):
     checks = {c["id"]: c for c in json.loads(capsys.readouterr().out)["checks"]}
     assert list(checks) == ["daemon", "web_app", "disk", "command"]
     assert checks["daemon"]["status"] == "fail" and checks["daemon"]["detail"].startswith("Not answering on ")
+
+
+async def test_the_security_audit_reads_the_local_parts_while_the_daemon_is_down(capsys):
+    await security_audit_command.audit(as_json=True)
+    checks = {c["id"]: c for c in json.loads(capsys.readouterr().out)["checks"]}
+    assert checks["daemon"]["status"] == "warn"
+    assert {"network:local", "network:https", "socket", "bash"} <= checks.keys()

@@ -804,6 +804,7 @@ def create_app(
     _add_alert_routes(app, service)
     _add_doctor_routes(app, service)
     _add_setup_check_route(app, service, web_ui)
+    _add_security_audit_route(app, service)
     add_disk_routes(app, service)
     _add_notification_routes(app, service)
     _add_home_routes(app, service)
@@ -2140,6 +2141,14 @@ def _add_setup_check_route(app: FastAPI, service: AssistantService, web_ui: Path
         """The setup check (core/setup_check/): each part ok, a warning or failing, with a fix. It asks the model's
         provider whether the key works, so it runs only when asked."""
         return texts.within(await service.check_setup(web_ui))
+
+
+def _add_security_audit_route(app: FastAPI, service: AssistantService) -> None:
+    @app.get("/security-audit")
+    async def security_audit(texts: _Answering) -> SetupReport:
+        """The security audit (core/security_audit/): what the daemon is exposed on, who can read its data, paired
+        devices and what plugins run here, each with a fix."""
+        return texts.within(await service.security_audit())
 
 
 def _add_notification_routes(app: FastAPI, service: AssistantService) -> None:
